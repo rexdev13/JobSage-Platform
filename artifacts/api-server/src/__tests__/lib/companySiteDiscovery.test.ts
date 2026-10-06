@@ -902,6 +902,7 @@ describe("company-site vacancy discovery", () => {
     ]);
     expect(result.diagnostics.sitemapChecked).toBe(true);
     expect(result.diagnostics.sitemapDocuments).toEqual([index, careersMap]);
+    expect(result.diagnostics.sitemapCandidateUrls).toContain(jobUrl);
     expect(result.diagnostics.jsonLdJobPostingFound).toBe(true);
     expect(result.diagnostics.vacancyLikePages).toContain(jobUrl);
     expect(fetchCompanySitePageMock.mock.calls.length).toBeLessThanOrEqual(6);

@@ -24,10 +24,22 @@ export type DirectBoardMapping = {
   postingHostnames?: string[];
 };
 
+export type DirectFeedIdentityClaim = {
+  name: string;
+  source: string;
+};
+
+export type DirectFeedIdentity = {
+  status: "matched" | "mismatched" | "unproven";
+  reason: "feed_identity_missing" | "feed_identity_mismatch" | null;
+  claims: DirectFeedIdentityClaim[];
+};
+
 export type DirectBoardScan = {
   adverts: BoardAdvert[];
   mapping: DirectBoardMapping | null;
   complete: boolean;
+  identity?: DirectFeedIdentity;
   transientFailure: boolean;
   failureClass: CompanySiteFailureClass | null;
   retryAt?: Date;
@@ -36,6 +48,206 @@ export type DirectBoardScan = {
   advertsExtracted: number;
   excludedUnlisted: number;
 };
+
+const FEED_IDENTITY_KEYS = [
+  "companyName",
+  "company_name",
+  "employerName",
+  "employer_name",
+  "organizationName",
+  "organization_name",
+  "organisationName",
+  "organisation_name",
+] as const;
+const FEED_IDENTITY_CONTAINERS = [
+  "company",
+  "employer",
+  "organization",
+  "organisation",
+  "board",
+  "tenant",
+] as const;
+const FEED_IDENTITY_NAME_KEYS = [
+  "name",
+  "legalName",
+  "legal_name",
+  "displayName",
+  "display_name",
+] as const;
+
+function normalizeEmployerIdentity(value: string): string {
+  // Case and whitespace normalization only; do not strip legal suffixes or
+  // compare approximate names.
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-GB");
+}
+
+function identityText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const name = value.replace(/\s+/g, " ").trim();
+  return name ? name.slice(0, 240) : null;
+}
+
+function addIdentityClaim(
+  claims: Map<string, DirectFeedIdentityClaim>,
+  value: unknown,
+  source: string,
+): void {
+  const name = identityText(value);
+  if (!name) return;
+  const normalized = normalizeEmployerIdentity(name);
+  if (!normalized || claims.has(normalized) || claims.size >= 10) return;
+  claims.set(normalized, { name, source });
+}
+
+function identityNameFromObject(value: unknown): string | null {
+  if (typeof value === "string") return identityText(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  for (const key of FEED_IDENTITY_NAME_KEYS) {
+    const name = identityText(record[key]);
+    if (name) return name;
+  }
+  return null;
+}
+
+function collectJsonIdentityClaims(body: string): DirectFeedIdentityClaim[] {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body) as unknown;
+  } catch {
+    return [];
+  }
+  if (!payload || typeof payload !== "object") return [];
+
+  const claims = new Map<string, DirectFeedIdentityClaim>();
+  const inspectRecord = (value: unknown, path: string): void => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    const record = value as Record<string, unknown>;
+    for (const key of FEED_IDENTITY_KEYS) {
+      addIdentityClaim(claims, record[key], `${path}.${key}`);
+    }
+    for (const key of FEED_IDENTITY_CONTAINERS) {
+      const name = identityNameFromObject(record[key]);
+      if (name) addIdentityClaim(claims, name, `${path}.${key}`);
+    }
+  };
+
+  if (Array.isArray(payload)) {
+    payload.forEach((row, index) => inspectRecord(row, `$[${index}]`));
+    return [...claims.values()];
+  }
+
+  const root = payload as Record<string, unknown>;
+  inspectRecord(root, "$");
+  if (root.meta && typeof root.meta === "object") inspectRecord(root.meta, "$.meta");
+  if (root.data && typeof root.data === "object" && !Array.isArray(root.data)) {
+    inspectRecord(root.data, "$.data");
+  }
+
+  const scopes: Array<{ value: Record<string, unknown>; path: string }> = [
+    { value: root, path: "$" },
+  ];
+  if (Array.isArray(root.data)) {
+    root.data.forEach((row, index) => inspectRecord(row, `$.data[${index}]`));
+  }
+  if (root.data && typeof root.data === "object" && !Array.isArray(root.data)) {
+    scopes.push({ value: root.data as Record<string, unknown>, path: "$.data" });
+  }
+  const jobArrayKeys = ["jobs", "jobPostings", "content", "postings", "offers", "positions"];
+  for (const scope of scopes) {
+    for (const key of jobArrayKeys) {
+      const rows = scope.value[key];
+      if (Array.isArray(rows)) {
+        rows.forEach((row, index) => inspectRecord(row, `${scope.path}.${key}[${index}]`));
+      } else if (rows && typeof rows === "object") {
+        inspectRecord(rows, `${scope.path}.${key}`);
+      }
+    }
+  }
+
+  return [...claims.values()];
+}
+
+function collectXmlIdentityClaims(body: string): DirectFeedIdentityClaim[] {
+  const claims = new Map<string, DirectFeedIdentityClaim>();
+  const root = body.match(/<workzag-jobs\b([^>]*)>/i);
+  const companyAttribute = root?.[1]?.match(
+    /\b(?:company|company_name|employer|employer_name|organization|organisation)\s*=\s*["']([^"']+)["']/i,
+  )?.[1];
+  if (companyAttribute) addIdentityClaim(claims, companyAttribute, "$.workzag-jobs@company");
+
+  for (const tag of [
+    "company",
+    "company_name",
+    "companyName",
+    "employer",
+    "employer_name",
+    "employerName",
+    "organization",
+    "organization_name",
+    "organisation",
+    "organisation_name",
+  ]) {
+    const value = xmlValue(body, tag);
+    if (value) addIdentityClaim(claims, value, `$.${tag}`);
+  }
+  for (const [index, position] of (body.match(/<position\b[\s\S]*?<\/position>/gi) ?? []).entries()) {
+    const subcompany = xmlValue(position, "subcompany");
+    if (subcompany) addIdentityClaim(claims, subcompany, `$.position[${index}].subcompany`);
+  }
+  return [...claims.values()];
+}
+
+export function extractDirectFeedIdentityClaims(
+  provider: DirectBoardProvider,
+  body: string,
+): DirectFeedIdentityClaim[] {
+  return provider === "Personio"
+    ? collectXmlIdentityClaims(body)
+    : collectJsonIdentityClaims(body);
+}
+
+export function verifyDirectFeedEmployerIdentity(
+  organisationName: string,
+  claims: readonly DirectFeedIdentityClaim[],
+): DirectFeedIdentity {
+  if (!claims.length) {
+    return { status: "unproven", reason: "feed_identity_missing", claims: [] };
+  }
+  const expected = normalizeEmployerIdentity(organisationName);
+  if (!expected || claims.some((claim) => normalizeEmployerIdentity(claim.name) !== expected)) {
+    return { status: "mismatched", reason: "feed_identity_mismatch", claims: [...claims] };
+  }
+  return { status: "matched", reason: null, claims: [...claims] };
+}
+
+export function hasPositiveAtsFeedEvidence(
+  value: unknown,
+  organisationName: string,
+): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (
+    record.status !== "verified_feed" ||
+    record.feedComplete !== true ||
+    record.identityVerified !== true ||
+    record.feedIdentityStatus !== "matched" ||
+    !Number.isSafeInteger(record.advertsExtracted) ||
+    (record.advertsExtracted as number) < 1 ||
+    !Number.isSafeInteger(record.advertsAccepted) ||
+    (record.advertsAccepted as number) < 1 ||
+    !Array.isArray(record.identityClaims) ||
+    record.identityClaims.length === 0
+  ) return false;
+
+  const expected = normalizeEmployerIdentity(organisationName);
+  if (!expected) return false;
+  return record.identityClaims.every((claim) => {
+    if (!claim || typeof claim !== "object" || Array.isArray(claim)) return false;
+    const name = (claim as Record<string, unknown>).name;
+    return typeof name === "string" && normalizeEmployerIdentity(name) === expected;
+  });
+}
 
 const ASHBY_HOST = /^(?:www\.)?jobs\.ashbyhq\.com$/i;
 const GREENHOUSE_HOST = /^(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io$/i;
@@ -736,6 +948,16 @@ export async function fetchDirectEmployerBoard(
       excludedUnlisted: 0,
     };
   }
+  const identityClaims = new Map<string, DirectFeedIdentityClaim>();
+  const collectIdentityClaims = (body: string): void => {
+    for (const claim of extractDirectFeedIdentityClaims(mapping.provider, body)) {
+      const key = normalizeEmployerIdentity(claim.name);
+      if (key && !identityClaims.has(key) && identityClaims.size < 10) {
+        identityClaims.set(key, claim);
+      }
+    }
+  };
+  collectIdentityClaims(result.body);
   try {
     let parsed = mapping.provider === "Ashby"
       ? parseAshby(organisationName, mapping, result.body)
@@ -772,8 +994,10 @@ export async function fetchDirectEmployerBoard(
             pagesFetched,
             advertsExtracted: allAdverts.length,
             excludedUnlisted: 0,
+            identity: verifyDirectFeedEmployerIdentity(organisationName, [...identityClaims.values()]),
           };
         }
+        collectIdentityClaims(next.body);
         parsed = parseLever(organisationName, mapping, next.body);
         allAdverts.push(...parsed.adverts);
         skip += parsed.adverts.length;
@@ -810,8 +1034,10 @@ export async function fetchDirectEmployerBoard(
             pagesFetched,
             advertsExtracted: allAdverts.length,
             excludedUnlisted: 0,
+            identity: verifyDirectFeedEmployerIdentity(organisationName, [...identityClaims.values()]),
           };
         }
+        collectIdentityClaims(next.body);
         smartPage = parseSmartRecruiters(organisationName, mapping, next.body);
         if (smartPage.totalFound === null || expectedTotal === null ||
             expectedTotal !== smartPage.totalFound) {
@@ -844,6 +1070,7 @@ export async function fetchDirectEmployerBoard(
           paginationComplete = false;
           break;
         }
+        collectIdentityClaims(next.body);
         const page = parseWorkday(organisationName, mapping, next.body, offset);
         // Circle's CXS endpoint reports total=0 on some continuation pages even
         // while returning postings. Keep the first-page total authoritative;
@@ -870,6 +1097,7 @@ export async function fetchDirectEmployerBoard(
       adverts: parsed.adverts,
       mapping,
       complete: paginationComplete,
+      identity: verifyDirectFeedEmployerIdentity(organisationName, [...identityClaims.values()]),
       transientFailure: !paginationComplete,
       failureClass: paginationComplete ? null : "temporary",
       error: paginationComplete
@@ -890,6 +1118,7 @@ export async function fetchDirectEmployerBoard(
       adverts: [],
       mapping,
       complete: false,
+      identity: verifyDirectFeedEmployerIdentity(organisationName, [...identityClaims.values()]),
       transientFailure: true,
       failureClass: "temporary",
       error: error instanceof Error ? error.message : "direct board parse failed",

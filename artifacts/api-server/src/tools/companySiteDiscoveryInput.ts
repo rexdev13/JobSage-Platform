@@ -43,6 +43,7 @@ function employerFromInput(value: unknown, index: number): EmployerRow {
   return {
     organisation_name: organisationName,
     website,
+    industry: optionalText(row.industry),
     careers_url: optionalText(row.careers_url ?? row.careersUrl),
     ats_provider: optionalText(row.ats_provider ?? row.atsProvider),
     ats_board_id: optionalText(row.ats_board_id ?? row.atsBoardId),

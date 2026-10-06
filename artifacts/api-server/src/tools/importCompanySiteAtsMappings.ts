@@ -3,6 +3,7 @@ import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { assertDatabaseMode, safeToolErrorSummary } from "./databaseSafety";
+import { hasPositiveAtsFeedEvidence } from "../lib/directEmployerBoardConnectors";
 import {
   assertWritesAllowed,
   installDatabaseContext,
@@ -88,7 +89,7 @@ function proposalFromRecord(
   if (
     record.status !== "verified_feed" ||
     record.confidence !== "high" ||
-    record.feedComplete !== true ||
+    !hasPositiveAtsFeedEvidence(record, record.organisationName ?? "") ||
     record.feedErrorCategory ||
     !record.organisationName ||
     !record.websiteOrigin ||

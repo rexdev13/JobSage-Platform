@@ -12,7 +12,28 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@workspace/db", () => ({ db: { transaction: mocks.transaction, execute: vi.fn() } }));
 vi.mock("../../lib/companySiteHttp", () => ({ fetchCompanySitePage: mocks.fetchPage }));
 vi.mock("../../lib/companySiteDiscovery", () => ({ discoverCompanySiteVacancies: mocks.discover }));
-vi.mock("../../lib/directEmployerBoardConnectors", () => ({ parseDirectBoardMapping: mocks.parseMapping }));
+vi.mock("../../lib/directEmployerBoardConnectors", () => ({
+  parseDirectBoardMapping: mocks.parseMapping,
+  hasPositiveAtsFeedEvidence: (value: unknown, organisationName: string) => {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return record.status === "verified_feed" &&
+      record.feedComplete === true &&
+      record.identityVerified === true &&
+      record.feedIdentityStatus === "matched" &&
+      typeof record.advertsExtracted === "number" &&
+      record.advertsExtracted > 0 &&
+      typeof record.advertsAccepted === "number" &&
+      record.advertsAccepted > 0 &&
+      Array.isArray(record.identityClaims) &&
+      record.identityClaims.some((claim) =>
+        !!claim && typeof claim === "object" &&
+        typeof (claim as Record<string, unknown>).name === "string" &&
+        ((claim as Record<string, unknown>).name as string).trim().toLowerCase() ===
+          organisationName.trim().toLowerCase(),
+      );
+  },
+}));
 vi.mock("../../lib/companySiteWorkflowReports", () => ({
   saveWorkflowReport: mocks.saveReport,
   loadWorkflowReport: mocks.loadReport,
@@ -35,7 +56,15 @@ describe("company-site workflow safety", () => {
     }));
     mocks.fetchPage.mockResolvedValue({ ok: true, url: "https://example.org", body: "<html></html>" });
     mocks.discover.mockResolvedValue({
-      completion: "complete", atsCompleted: true, advertsExtracted: 2, adverts: [],
+      completion: "complete",
+      atsCompleted: true,
+      advertsExtracted: 2,
+      adverts: [{}],
+      directFeedIdentity: {
+        status: "matched",
+        reason: null,
+        claims: [{ name: "Example Employer", source: "$.companyName" }],
+      },
     });
   });
 
@@ -113,6 +142,52 @@ describe("company-site workflow safety", () => {
     expect(sqlCalls).not.toMatch(/\b(INSERT|UPDATE|DELETE)\b/i);
   });
 
+  it("does not verify a complete feed with mismatched employer identity", async () => {
+    mocks.fetchPage.mockResolvedValue({
+      ok: true,
+      url: "https://example.org/careers",
+      body: '<a href="https://boards.greenhouse.io/example">Careers</a>',
+    });
+    mocks.parseMapping.mockReturnValue({
+      provider: "Greenhouse",
+      boardId: "example",
+      evidenceUrl: "https://boards.greenhouse.io/example",
+    });
+    mocks.discover.mockResolvedValue({
+      completion: "complete",
+      atsCompleted: true,
+      advertsExtracted: 1,
+      adverts: [{}],
+      directFeedIdentity: {
+        status: "mismatched",
+        reason: "feed_identity_mismatch",
+        claims: [{ name: "Different Employer", source: "$.companyName" }],
+      },
+    });
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce(countRow())
+      .mockResolvedValueOnce({ rows: [{
+        organisation_name: "Example Employer", website: "https://example.org",
+        careers_url: null, ats_provider: null, ats_board_id: null,
+        ats_mapping_status: null, ats_mapping_evidence_url: null,
+      }] })
+      .mockResolvedValueOnce(countRow())
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce(countRow());
+    mocks.transaction.mockImplementation(async (callback) => callback({ execute }));
+
+    const report = await workflow.runReadOnlyDiscovery({ limit: 1 });
+    expect(report.verifiedMappingCandidates).toEqual([]);
+    expect(report.rejectedOrUncertain).toEqual([
+      expect.objectContaining({
+        status: "uncertain",
+        rejectionReason: "feed_identity_mismatch",
+      }),
+    ]);
+  });
+
   it("keeps mapping dry-run read-only and records rejected input", async () => {
     mocks.loadReport.mockResolvedValue({
       reportId: "00000000-0000-4000-8000-000000000001", reportKind: "discovery",
@@ -154,6 +229,11 @@ describe("company-site workflow safety", () => {
         status: "verified_feed",
         confidence: "high",
         feedComplete: true,
+        identityVerified: true,
+        feedIdentityStatus: "matched",
+        identityClaims: [{ name: "EXAMPLE EMPLOYER", source: "$.companyName" }],
+        advertsExtracted: 1,
+        advertsAccepted: 1,
       }],
     });
     const execute = vi.fn()
@@ -205,6 +285,11 @@ describe("company-site workflow safety", () => {
         status: "verified_feed",
         confidence: "high",
         feedComplete: true,
+        identityVerified: true,
+        feedIdentityStatus: "matched",
+        identityClaims: [{ name: "Example Employer", source: "$.companyName" }],
+        advertsExtracted: 1,
+        advertsAccepted: 1,
       })),
     });
     const execute = vi.fn().mockResolvedValue({ rows: [] });

@@ -9,6 +9,9 @@ vi.mock("../../lib/companySiteHttp", () => ({
 const {
   parseDirectBoardMapping,
   fetchDirectEmployerBoard,
+  extractDirectFeedIdentityClaims,
+  verifyDirectFeedEmployerIdentity,
+  hasPositiveAtsFeedEvidence,
 } = await import("../../lib/directEmployerBoardConnectors");
 const {
   fetchCompanySitePublicApiPage,
@@ -19,6 +22,43 @@ const {
 describe("direct employer board connectors", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("requires explicit exact feed identity and a nonempty accepted listing set", () => {
+    const greenhouseClaims = extractDirectFeedIdentityClaims("Greenhouse", JSON.stringify({
+      company_name: "Example Employer",
+      jobs: [{ company_name: "Example Employer" }],
+    }));
+    expect(verifyDirectFeedEmployerIdentity(" example  employer ", greenhouseClaims).status)
+      .toBe("matched");
+
+    const leverClaims = extractDirectFeedIdentityClaims("Lever", JSON.stringify([
+      { company: { name: "Other Employer" } },
+    ]));
+    expect(verifyDirectFeedEmployerIdentity("Example Employer", leverClaims)).toMatchObject({
+      status: "mismatched",
+      reason: "feed_identity_mismatch",
+    });
+    expect(verifyDirectFeedEmployerIdentity("Example Employer", []).status).toBe("unproven");
+
+    const positiveEvidence = {
+      status: "verified_feed",
+      feedComplete: true,
+      identityVerified: true,
+      feedIdentityStatus: "matched",
+      identityClaims: greenhouseClaims,
+      advertsExtracted: 2,
+      advertsAccepted: 1,
+    };
+    expect(hasPositiveAtsFeedEvidence(positiveEvidence, "Example Employer")).toBe(true);
+    expect(hasPositiveAtsFeedEvidence({
+      ...positiveEvidence,
+      advertsAccepted: 0,
+    }, "Example Employer")).toBe(false);
+    expect(hasPositiveAtsFeedEvidence({
+      ...positiveEvidence,
+      identityClaims: [],
+    }, "Example Employer")).toBe(false);
   });
 
   it("maps only Circle's verified Workday board and preserves the saved ATS URL", () => {
@@ -613,5 +653,9 @@ describe("direct employer board connectors", () => {
     );
     expect(empty.complete).toBe(true);
     expect(empty.adverts).toHaveLength(0);
+    expect(empty.identity).toMatchObject({
+      status: "unproven",
+      reason: "feed_identity_missing",
+    });
   });
 });

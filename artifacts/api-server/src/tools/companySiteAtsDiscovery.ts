@@ -20,13 +20,15 @@ import {
 } from "./companySiteDiscoveryInput";
 import {
   HEALTHCARE_SELECTOR,
+  matchesHealthcareSelector,
   savedCareersOnlyPageUrls,
 } from "./companySiteAtsScope";
 
-const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 25;
+const DEFAULT_LIMIT = 200;
+const MAX_LIMIT = 200;
 const MAX_PAGES_PER_EMPLOYER = 3;
 const EMPLOYER_DEADLINE_MS = 20_000;
+const DEFAULT_COOLDOWN_DAYS = 14;
 const OUTPUT_VERSION = 1;
 
 const ATS_HOSTS: Array<{ provider: string; suffixes: string[] }> = [
@@ -47,6 +49,12 @@ type Candidate = {
   evidenceUrl: string;
 };
 
+type PublicSource = {
+  url: URL;
+  text: string;
+  kind: "anchor" | "iframe" | "script";
+};
+
 function healthcareEmployerSql() {
   return sql`(
     sl.industry IN ('Healthcare', 'Social Care')
@@ -63,6 +71,7 @@ type DiscoveryHelpers = {
   discoverCompanySiteVacancies: typeof import("../lib/companySiteDiscovery").discoverCompanySiteVacancies;
   fetchCompanySitePage: typeof import("../lib/companySiteHttp").fetchCompanySitePage;
   parseDirectBoardMapping: typeof import("../lib/directEmployerBoardConnectors").parseDirectBoardMapping;
+  hasPositiveAtsFeedEvidence: typeof import("../lib/directEmployerBoardConnectors").hasPositiveAtsFeedEvidence;
 };
 
 function argsMap(args: string[]): Map<string, string> {
@@ -122,8 +131,8 @@ function decodeHref(value: string): string {
     .replace(/&#39;|&apos;/gi, "'");
 }
 
-function publicAnchors(html: string, pageUrl: string): Array<{ url: URL; text: string }> {
-  const links: Array<{ url: URL; text: string }> = [];
+function publicSources(html: string, pageUrl: string): PublicSource[] {
+  const links: PublicSource[] = [];
   const seen = new Set<string>();
   for (const match of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href = match[1]?.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
@@ -141,12 +150,48 @@ function publicAnchors(html: string, pageUrl: string): Array<{ url: URL; text: s
       links.push({
         url,
         text: (match[2] ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+        kind: "anchor",
       });
     } catch {
       // Malformed links are rejected rather than guessed.
     }
   }
+  for (const match of html.matchAll(/<(iframe|script)\b([^>]*)>/gi)) {
+    const kind = match[1]?.toLowerCase() as "iframe" | "script" | undefined;
+    const attributes = match[2] ?? "";
+    const rawUrl = attributes.match(/\b(?:src|data-src)\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!kind || !rawUrl || /^(?:mailto:|tel:|javascript:|#)/i.test(rawUrl)) continue;
+    try {
+      const url = new URL(decodeHref(rawUrl), pageUrl);
+      if (
+        url.protocol !== "https:" ||
+        url.username ||
+        url.password ||
+        url.port ||
+        seen.has(url.toString())
+      ) continue;
+      seen.add(url.toString());
+      links.push({
+        url,
+        text: attributes.match(/\b(?:title|aria-label)\s*=\s*["']([^"']+)["']/i)?.[1] ?? "",
+        kind,
+      });
+    } catch {
+      // Malformed or unsafe sources are ignored.
+    }
+  }
   return links;
+}
+
+function recruitmentSignal(source: PublicSource): boolean {
+  return /\b(?:career|jobs?|vacanc(?:y|ies)|recruit(?:ing|ment)?|hiring|application|apply|talent|workable|bamboohr|icims|jobvite|workday|oracle)\b/i
+    .test(`${source.url.hostname} ${source.url.pathname} ${source.text}`);
+}
+
+function firstPartyHost(hostname: string, rootHostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  const root = rootHostname.toLowerCase().replace(/\.$/, "");
+  return host === root || host.endsWith(`.${root}`);
 }
 
 function safeErrorCategory(value: unknown): string {
@@ -167,14 +212,96 @@ function csvCell(value: unknown): string {
   return `"${text.replace(/"/g, "\"\"")}"`;
 }
 
+type SourceOutcome =
+  | "verified_ats_feed"
+  | "structured_job_postings"
+  | "sitemap_job_listings"
+  | "unresolved";
+
+function summarizeRecords(records: Record<string, unknown>[]) {
+  const outcomes: SourceOutcome[] = [
+    "verified_ats_feed",
+    "structured_job_postings",
+    "sitemap_job_listings",
+    "unresolved",
+  ];
+  const counts = Object.fromEntries(outcomes.map((outcome) => [outcome, 0])) as Record<SourceOutcome, number>;
+  const samplesByOutcome = Object.fromEntries(
+    outcomes.map((outcome) => [outcome, [] as Record<string, unknown>[]]),
+  ) as Record<SourceOutcome, Record<string, unknown>[]>;
+  const unknownDomains = new Map<string, { count: number; employers: Set<string> }>();
+
+  for (const record of records) {
+    const outcome = outcomes.includes(record.outcome as SourceOutcome)
+      ? record.outcome as SourceOutcome
+      : "unresolved";
+    counts[outcome] += 1;
+    if (samplesByOutcome[outcome].length < 10) {
+      samplesByOutcome[outcome].push({
+        organisationName: record.organisationName,
+        websiteOrigin: record.websiteOrigin,
+        provider: record.provider ?? null,
+        boardId: record.boardId ?? null,
+        careersUrl: record.careersUrl ?? null,
+        outcome,
+        rejectionReason: record.rejectionReason ?? null,
+        feedIdentityStatus: record.feedIdentityStatus ?? null,
+        identityClaims: Array.isArray(record.identityClaims)
+          ? record.identityClaims.slice(0, 3)
+          : [],
+        advertsExtracted: record.advertsExtracted ?? 0,
+        advertsAccepted: record.advertsAccepted ?? 0,
+      });
+    }
+    if (outcome !== "unresolved" || !Array.isArray(record.unknownDomains)) continue;
+    const employer = typeof record.organisationName === "string" ? record.organisationName : "unknown";
+    for (const rawDomain of new Set(record.unknownDomains)) {
+      if (typeof rawDomain !== "string" || !rawDomain.trim()) continue;
+      const domain = rawDomain.toLowerCase();
+      const current = unknownDomains.get(domain) ?? { count: 0, employers: new Set<string>() };
+      current.count += 1;
+      if (current.employers.size < 10) current.employers.add(employer);
+      unknownDomains.set(domain, current);
+    }
+  }
+
+  const topUnknownDomains = [...unknownDomains.entries()]
+    .map(([domain, value]) => ({
+      domain,
+      unresolvedEmployerCount: value.count,
+      sampleEmployers: [...value.employers].slice(0, 3),
+    }))
+    .sort((a, b) =>
+      b.unresolvedEmployerCount - a.unresolvedEmployerCount || a.domain.localeCompare(b.domain),
+    )
+    .slice(0, 20);
+
+  return {
+    employersByOutcome: counts,
+    samplesByOutcome,
+    unresolvedUnknownDomainCount: unknownDomains.size,
+    topUnknownDomains,
+  };
+}
+
 async function selectEmployers(
   database: Pick<typeof import("@workspace/db").db, "transaction">,
   limit: number,
   organisationNames?: readonly string[],
+  healthcareOnly = false,
+  savedCareersOnly = false,
+  cooldownDays = DEFAULT_COOLDOWN_DAYS,
 ): Promise<EmployerRow[]> {
   return database.transaction(async (tx) => {
     await tx.execute(sql`SET TRANSACTION READ ONLY`);
-    return selectEmployersFromTransaction(tx, limit, organisationNames);
+    return selectEmployersFromTransaction(
+      tx,
+      limit,
+      organisationNames,
+      healthcareOnly,
+      savedCareersOnly,
+      cooldownDays,
+    );
   });
 }
 
@@ -184,6 +311,7 @@ async function selectEmployersFromTransaction(
   organisationNames?: readonly string[],
   healthcareOnly = false,
   savedCareersOnly = false,
+  cooldownDays = DEFAULT_COOLDOWN_DAYS,
 ): Promise<EmployerRow[]> {
   const names = organisationNames?.map((name) => name.trim().toLowerCase());
   const employerFilter = names === undefined
@@ -192,6 +320,11 @@ async function selectEmployersFromTransaction(
   const scopeFilter = sql`
     ${healthcareOnly ? healthcareEmployerSql() : sql`TRUE`}
     AND ${savedCareersOnly ? sql`cs.careers_url IS NOT NULL AND btrim(cs.careers_url) <> ''` : sql`TRUE`}
+    AND COALESCE(
+      GREATEST(cs.ats_checked_at, cs.generic_checked_at, cs.last_attempted_at),
+      'epoch'::timestamptz
+    ) <= NOW() - (${cooldownDays} * INTERVAL '1 day')
+    AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
   `;
   const result = await database.execute<EmployerRow>(sql`
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
@@ -225,7 +358,13 @@ async function pagesForEmployer(
 ): Promise<Array<{ url: string; body: string }>> {
   const root = safeUrl(employer.website);
   if (!root) return [];
-  const urls: string[] = savedCareersOnly ? savedCareersOnlyPageUrls(employer) : [root.toString()];
+  const careers = employer.careers_url ? safeUrl(employer.careers_url) : null;
+  const preferredCareers = careers && careers.hostname.toLowerCase() === root.hostname.toLowerCase()
+    ? careers.toString()
+    : null;
+  const urls: string[] = savedCareersOnly
+    ? savedCareersOnlyPageUrls(employer)
+    : [preferredCareers ?? root.toString()];
   for (const saved of savedCareersOnly ? [] : [employer.careers_url, employer.ats_mapping_evidence_url]) {
     if (!saved) continue;
     const parsed = safeUrl(saved);
@@ -233,6 +372,7 @@ async function pagesForEmployer(
       urls.push(parsed.toString());
     }
   }
+  if (!savedCareersOnly && preferredCareers) urls.push(root.toString());
   const pages: Array<{ url: string; body: string }> = [];
   for (const url of [...new Set(urls)].slice(0, MAX_PAGES_PER_EMPLOYER)) {
     if (Date.now() >= deadlineMs) break;
@@ -265,11 +405,13 @@ async function discoverEmployer(
     return [{
       ...common,
       status: "rejected",
+      outcome: "unresolved",
       provider: null,
       confidence: "none",
       rejectionReason: "invalid_or_non_https_employer_website",
       feedComplete: false,
       snapshotAuthority: false,
+      unknownDomains: [],
     }];
   }
 
@@ -283,11 +425,17 @@ async function discoverEmployer(
   );
   const candidates = new Map<string, Candidate>();
   const rejections: string[] = [];
+  const unknownDomains = new Set<string>();
   for (const page of pages) {
-    for (const anchor of publicAnchors(page.body, page.url)) {
-      const provider = providerForHost(anchor.url.hostname);
-      if (!provider) continue;
-      const candidateUrl = new URL(anchor.url);
+    for (const source of publicSources(page.body, page.url)) {
+      const provider = providerForHost(source.url.hostname);
+      if (!provider) {
+        if (!firstPartyHost(source.url.hostname, root.hostname) && recruitmentSignal(source)) {
+          unknownDomains.add(source.url.hostname.toLowerCase());
+        }
+        continue;
+      }
+      const candidateUrl = new URL(source.url);
       candidateUrl.search = "";
       candidateUrl.hash = "";
       const mapping = helpers.parseDirectBoardMapping(provider, candidateUrl.toString(), {
@@ -307,27 +455,7 @@ async function discoverEmployer(
     }
   }
 
-  if (candidates.size === 0) {
-    const storedWasVerified = employer.ats_mapping_status === "verified";
-    return [{
-      ...common,
-      status: "no_verified_direct_feed",
-      provider: employer.ats_provider,
-      boardId: employer.ats_board_id,
-      careersUrl: safeOrigin(employer.careers_url),
-      evidenceUrl: safeOrigin(employer.ats_mapping_evidence_url),
-      confidence: "none",
-      rejectionReason: storedWasVerified
-        ? "stored_mapping_not_confirmed_by_first_party_link"
-        : rejections[0] ?? "no_supported_ats_feed_link_on_saved_employer_pages",
-      feedComplete: false,
-      snapshotAuthority: false,
-      feedErrorCategory: null,
-      advertsExtracted: 0,
-    }];
-  }
-
-  const records: Record<string, unknown>[] = [];
+  const candidateAttempts: Array<Record<string, unknown>> = [];
   for (const candidate of candidates.values()) {
     if (Date.now() >= employerDeadline) break;
     const feed = await helpers.discoverCompanySiteVacancies(
@@ -346,18 +474,55 @@ async function discoverEmployer(
         deadlineMs: employerDeadline,
       },
     );
-    records.push({
+    const identity = feed.directFeedIdentity;
+    const identityEvidence = {
+      status: "verified_feed",
+      feedComplete: feed.completion === "complete" && feed.atsCompleted,
+      identityVerified: identity?.status === "matched",
+      feedIdentityStatus: identity?.status ?? "unproven",
+      identityClaims: identity?.claims ?? [],
+      advertsExtracted: feed.advertsExtracted,
+      advertsAccepted: feed.adverts.length,
+    };
+    const verified = helpers.hasPositiveAtsFeedEvidence(identityEvidence, employer.organisation_name);
+    const attempt = {
+      provider: candidate.provider,
+      boardId: candidate.boardId,
+      careersUrl: safePathUrl(candidate.careersUrl),
+      evidenceUrl: safePathUrl(candidate.evidenceUrl),
+      feedComplete: identityEvidence.feedComplete,
+      feedIdentityStatus: identityEvidence.feedIdentityStatus,
+      identityVerified: identityEvidence.identityVerified,
+      identityClaims: identityEvidence.identityClaims,
+      advertsExtracted: feed.advertsExtracted,
+      advertsAccepted: feed.adverts.length,
+      feedErrorCategory: feed.error ? safeErrorCategory(feed.error) : null,
+      rejectionReason: verified
+        ? null
+        : identity?.reason ??
+          (feed.adverts.length === 0
+            ? "empty_feed_no_valid_listings"
+            : feed.completion !== "complete" || !feed.atsCompleted
+              ? "feed_not_complete"
+              : "feed_identity_not_proven"),
+    };
+    candidateAttempts.push(attempt);
+    if (!verified) continue;
+
+    return [{
       ...common,
-      status: feed.completion === "complete" && feed.diagnostics.directSourceKind === "ats_feed"
-        ? "verified_feed"
-        : "feed_failed",
+      status: "verified_feed",
+      outcome: "verified_ats_feed",
       provider: candidate.provider,
       boardId: candidate.boardId,
       careersUrl: safePathUrl(candidate.careersUrl),
       evidenceUrl: safePathUrl(candidate.evidenceUrl),
       confidence: "high",
-      rejectionReason: feed.diagnostics.directFeedSkipDetail ?? null,
-      feedComplete: feed.completion === "complete" && feed.atsCompleted,
+      rejectionReason: null,
+      feedComplete: identityEvidence.feedComplete,
+      identityVerified: true,
+      feedIdentityStatus: identityEvidence.feedIdentityStatus,
+      identityClaims: identityEvidence.identityClaims,
       snapshotAuthority: Boolean(feed.snapshotScope),
       snapshotScope: feed.snapshotScope ?? null,
       pagesFetched: feed.pagesFetched,
@@ -366,9 +531,138 @@ async function discoverEmployer(
       advertsRejected: feed.advertsRejected,
       feedErrorCategory: feed.error ? safeErrorCategory(feed.error) : null,
       feedOrigin: feed.discoveredUrls[0] ? safeOrigin(feed.discoveredUrls[0]) : null,
-    });
+      candidateAttempts,
+      unknownDomains: [...unknownDomains].sort(),
+    }];
   }
-  return records;
+
+  const fallbackSourceUrl = pages[0]?.url ??
+    (savedCareersOnly ? safePathUrl(employer.careers_url) : root.toString());
+  let generic: Awaited<ReturnType<DiscoveryHelpers["discoverCompanySiteVacancies"]>> | null = null;
+  if (fallbackSourceUrl && Date.now() < employerDeadline) {
+    generic = await helpers.discoverCompanySiteVacancies(
+      employer.organisation_name,
+      fallbackSourceUrl,
+      {
+        checkGeneric: true,
+        checkAts: false,
+        readOnly: true,
+        noHostState,
+        noProcessCache: true,
+        deadlineMs: employerDeadline,
+      },
+    );
+    for (const link of generic.diagnostics.linksConsidered) {
+      if (!["ats", "careers", "vacancy"].includes(link.category)) continue;
+      try {
+        const url = new URL(link.url);
+        if (providerForHost(url.hostname) ||
+            firstPartyHost(url.hostname, root.hostname) ||
+            !recruitmentSignal({ url, text: link.text, kind: "anchor" })) continue;
+        unknownDomains.add(url.hostname.toLowerCase());
+      } catch {
+        // Diagnostics have already passed the crawler's URL validation.
+      }
+    }
+  }
+
+  const fallbackDiagnostics = generic?.diagnostics;
+  const structuredSignal = Boolean(
+    fallbackDiagnostics?.jsonLdJobPostingFound ||
+    fallbackDiagnostics?.microdataJobPostingFound,
+  );
+  const observedUrls = new Set(
+    (generic?.observedAdvertUrls ?? []).map((url) => url.replace(/\/$/, "")),
+  );
+  const sitemapVerifiedUrls = (fallbackDiagnostics?.sitemapCandidateUrls ?? [])
+    .filter((url) => observedUrls.has(url.replace(/\/$/, "")));
+  const structuredVerified = Boolean(structuredSignal && generic && generic.adverts.length > 0);
+  const sitemapVerified = Boolean(!structuredVerified && sitemapVerifiedUrls.length > 0);
+  const firstAttempt = candidateAttempts[0];
+  const storedWasVerified = employer.ats_mapping_status === "verified";
+  const mismatchReason = candidateAttempts.some(
+    (attempt) => attempt.rejectionReason === "feed_identity_mismatch",
+  ) ? "feed_identity_mismatch" : null;
+  const missingReason = candidateAttempts.some(
+    (attempt) => attempt.rejectionReason === "feed_identity_missing",
+  ) ? "feed_identity_missing" : null;
+  const firstAttemptReason = candidateAttempts
+    .map((attempt) => attempt.rejectionReason)
+    .find((reason): reason is string => typeof reason === "string" && reason.length > 0);
+  let rejectionReason: string | null = mismatchReason ??
+    missingReason ??
+    firstAttemptReason ??
+    (storedWasVerified
+      ? "stored_mapping_not_confirmed_by_first_party_link"
+      : rejections[0] ?? (unknownDomains.size > 0
+        ? "unsupported_ats_domains_found"
+        : "no_supported_ats_feed_link_on_saved_employer_pages"));
+  if (structuredVerified) rejectionReason = null;
+  else if (sitemapVerified) rejectionReason = null;
+  else if (structuredSignal && (generic?.adverts.length ?? 0) === 0) {
+    rejectionReason = "structured_jobposting_without_usable_listings";
+  } else if (
+    (fallbackDiagnostics?.sitemapCandidateUrls.length ?? 0) > 0 &&
+    sitemapVerifiedUrls.length === 0
+  ) {
+    rejectionReason = "sitemap_job_urls_not_verified";
+  } else if (!generic && Date.now() >= employerDeadline) {
+    rejectionReason = "employer_deadline_reached_before_generic_fallback";
+  } else if (savedCareersOnly && !fallbackSourceUrl) {
+    rejectionReason = "saved_careers_page_unavailable";
+  } else if (candidateAttempts.length === 0 && !rejections.length && unknownDomains.size === 0) {
+    rejectionReason = fallbackDiagnostics?.pageFetches.find((fetch) => !fetch.fetched)?.failureKind
+      ? `site_fetch_${fallbackDiagnostics.pageFetches.find((fetch) => !fetch.fetched)?.failureKind}`
+      : "no_ats_structured_jobposting_or_sitemap_listings";
+  }
+
+  const outcome = structuredVerified
+    ? "structured_job_postings"
+    : sitemapVerified
+      ? "sitemap_job_listings"
+      : "unresolved";
+  return [{
+    ...common,
+    status: structuredVerified
+      ? "structured_job_postings"
+      : sitemapVerified
+        ? "sitemap_job_listings"
+        : "no_verified_direct_feed",
+    outcome,
+    provider: typeof firstAttempt?.provider === "string"
+      ? firstAttempt.provider
+      : employer.ats_provider,
+    boardId: typeof firstAttempt?.boardId === "string"
+      ? firstAttempt.boardId
+      : employer.ats_board_id,
+    careersUrl: typeof firstAttempt?.careersUrl === "string"
+      ? firstAttempt.careersUrl
+      : safeOrigin(employer.careers_url),
+    evidenceUrl: typeof firstAttempt?.evidenceUrl === "string"
+      ? firstAttempt.evidenceUrl
+      : safeOrigin(employer.ats_mapping_evidence_url),
+    confidence: structuredVerified || sitemapVerified ? "medium" : "none",
+    rejectionReason,
+    feedComplete: false,
+    identityVerified: false,
+    feedIdentityStatus: firstAttempt?.feedIdentityStatus ?? "unproven",
+    identityClaims: firstAttempt?.identityClaims ?? [],
+    snapshotAuthority: false,
+    pagesFetched: generic?.pagesFetched ?? pages.length,
+    advertsExtracted: generic?.advertsExtracted ?? 0,
+    advertsAccepted: generic?.adverts.length ?? 0,
+    genericSignals: {
+      jsonLdJobPostingFound: fallbackDiagnostics?.jsonLdJobPostingFound ?? false,
+      microdataJobPostingFound: fallbackDiagnostics?.microdataJobPostingFound ?? false,
+      sitemapChecked: fallbackDiagnostics?.sitemapChecked ?? false,
+      sitemapDocuments: fallbackDiagnostics?.sitemapDocuments ?? [],
+      sitemapCandidateUrls: fallbackDiagnostics?.sitemapCandidateUrls ?? [],
+      sitemapVerifiedUrls,
+      pagesFetched: generic?.pagesFetched ?? 0,
+    },
+    candidateAttempts,
+    unknownDomains: [...unknownDomains].sort(),
+  }];
 }
 
 type ProofRowCounts = {
@@ -383,10 +677,7 @@ type ProofSnapshot = {
   countsBefore: ProofRowCounts;
   countsAfterInTransaction: ProofRowCounts;
   employers: EmployerRow[];
-  records: Record<string, unknown>[];
 };
-
-class IntentionalProofRollback extends Error {}
 
 async function readProofRowCounts(
   database: Pick<typeof import("@workspace/db").db, "execute">,
@@ -427,89 +718,42 @@ function proofCountsMatch(left: ProofRowCounts, right: ProofRowCounts): boolean 
 
 async function runProductionProofTransaction(
   database: Pick<typeof import("@workspace/db").db, "transaction">,
-  noHostState: boolean,
-  scope: { healthcareOnly: boolean; savedCareersOnly: boolean },
+  scope: {
+    limit: number;
+    healthcareOnly: boolean;
+    savedCareersOnly: boolean;
+    cooldownDays: number;
+  },
   expectedFingerprint?: string,
 ): Promise<ProofSnapshot> {
-  let snapshot: ProofSnapshot | undefined;
-  try {
-    await database.transaction(async (tx) => {
-      // This must be the first statement in the transaction. Pool connections
-      // are also created with default_transaction_read_only=on.
-      await tx.execute(sql`SET TRANSACTION READ ONLY`);
-      await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`);
-
-      const identity = await assertProductionProofReadOnly(tx);
-      if (expectedFingerprint && identity.fingerprint !== expectedFingerprint.toLowerCase()) {
-        throw new Error("Connected database does not match the independently confirmed fingerprint.");
-      }
-      const writeGuards = verifyProductionWriteGuards("production-proof-readonly");
-      if (!writeGuards.mappingWritesBlocked || !writeGuards.vacancyWritesBlocked) {
-        throw new Error("Production proof could not verify application write guards.");
-      }
-
-      const countsBefore = await readProofRowCounts(tx);
-      const employers = await selectEmployersFromTransaction(
-        tx,
-        5,
-        undefined,
-        scope.healthcareOnly,
-        scope.savedCareersOnly,
-      );
-
-      const http = await import("../lib/companySiteHttp");
-      const discovery = await import("../lib/companySiteDiscovery");
-      const connectors = await import("../lib/directEmployerBoardConnectors");
-      http.resetCompanySiteEphemeralState();
-      const helpers: DiscoveryHelpers = {
-        discoverCompanySiteVacancies: discovery.discoverCompanySiteVacancies,
-        fetchCompanySitePage: http.fetchCompanySitePage,
-        parseDirectBoardMapping: connectors.parseDirectBoardMapping,
-      };
-
-      const records: Record<string, unknown>[] = [];
-      for (const employer of employers) {
-        records.push(...await discoverEmployer(
-          employer,
-          helpers,
-          noHostState,
-          scope.savedCareersOnly,
-        ));
-      }
-      const countsAfterInTransaction = await readProofRowCounts(tx);
-      snapshot = {
-        identity,
-        countsBefore,
-        countsAfterInTransaction,
-        employers,
-        records,
-      };
-
-      // Drizzle rolls back the transaction when the callback rejects. The
-      // sentinel is caught only after its rollback has completed.
-      throw new IntentionalProofRollback("Rollback the read-only proof transaction.");
-    });
-  } catch (error) {
-    if (!(error instanceof IntentionalProofRollback)) throw error;
-  }
-
-  if (!snapshot) {
-    throw new Error("Production proof transaction ended without a rollback report.");
-  }
-  return snapshot;
-}
-
-async function readCountsAfterRollback(
-  database: Pick<typeof import("@workspace/db").db, "transaction">,
-  expectedFingerprint: string,
-): Promise<ProofRowCounts> {
   return database.transaction(async (tx) => {
+    // The transaction is short: it only selects the employer batch and counts.
+    // External HTTP checks run after it closes, so a 200-employer batch does not
+    // hold a production snapshot open while waiting on employer websites.
     await tx.execute(sql`SET TRANSACTION READ ONLY`);
+    await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`);
     const identity = await assertProductionProofReadOnly(tx);
-    if (identity.fingerprint !== expectedFingerprint) {
-      throw new Error("Database identity changed after the proof transaction.");
+    if (expectedFingerprint && identity.fingerprint !== expectedFingerprint.toLowerCase()) {
+      throw new Error("Connected database does not match the independently confirmed fingerprint.");
     }
-    return readProofRowCounts(tx);
+    const writeGuards = verifyProductionWriteGuards("production-proof-readonly");
+    if (!writeGuards.mappingWritesBlocked || !writeGuards.vacancyWritesBlocked) {
+      throw new Error("Production proof could not verify application write guards.");
+    }
+    const countsBefore = await readProofRowCounts(tx);
+    const employers = await selectEmployersFromTransaction(
+      tx,
+      scope.limit,
+      undefined,
+      scope.healthcareOnly,
+      scope.savedCareersOnly,
+      scope.cooldownDays,
+    );
+    const countsAfterInTransaction = await readProofRowCounts(tx);
+    if (!proofCountsMatch(countsBefore, countsAfterInTransaction)) {
+      throw new Error("Read-only employer selection changed production row counts.");
+    }
+    return { identity, countsBefore, countsAfterInTransaction, employers };
   });
 }
 
@@ -527,16 +771,21 @@ async function main(): Promise<void> {
     const runOptions = parseDiscoveryExecutionOptions(args, {
       defaultLimit: DEFAULT_LIMIT,
       maxLimit: MAX_LIMIT,
+      defaultCooldownDays: DEFAULT_COOLDOWN_DAYS,
     });
     const {
       preflightOnly: isPreflightOnly,
       format,
       limit,
+      cooldownDays,
       organisationNames,
       noHostState,
-       healthcareOnly = false,
-       savedCareersOnly = false,
+      healthcareOnly = runOptions.healthcareOnly ?? true,
+      savedCareersOnly = runOptions.savedCareersOnly ?? false,
     } = runOptions;
+    if (!healthcareOnly) {
+      throw new Error("The healthcare employer source detector cannot run outside healthcare scope.");
+    }
     preflightOnly = isPreflightOnly;
     loadedInput = !isPreflightOnly && args.get("input-file")
       ? await loadEmployerInput(args.get("input-file")!)
@@ -555,24 +804,36 @@ async function main(): Promise<void> {
       discoveryStarted = true;
       const proof = await runProductionProofTransaction(
         databaseModule.db,
-        noHostState,
-        { healthcareOnly, savedCareersOnly },
+        { limit, healthcareOnly, savedCareersOnly, cooldownDays },
         context.expectedFingerprint,
       );
       identity = proof.identity;
-      const countsAfterRollback = await readCountsAfterRollback(
-        databaseModule.db,
-        proof.identity.fingerprint,
+      const rowCountsUnchanged = proofCountsMatch(
+        proof.countsBefore,
+        proof.countsAfterInTransaction,
       );
-      const rowCountsUnchanged =
-        proofCountsMatch(proof.countsBefore, proof.countsAfterInTransaction) &&
-        proofCountsMatch(proof.countsBefore, countsAfterRollback);
-      const mappingsFound = proof.records.filter((record) =>
-        record.status === "verified_feed" || record.status === "feed_failed",
-      ).length;
-      const mappingsRejected = proof.records.filter((record) =>
-        record.status === "no_verified_direct_feed" || record.status === "rejected",
-      ).length;
+      const http = await import("../lib/companySiteHttp");
+      const discovery = await import("../lib/companySiteDiscovery");
+      const connectors = await import("../lib/directEmployerBoardConnectors");
+      http.resetCompanySiteEphemeralState();
+      const helpers: DiscoveryHelpers = {
+        discoverCompanySiteVacancies: discovery.discoverCompanySiteVacancies,
+        fetchCompanySitePage: http.fetchCompanySitePage,
+        parseDirectBoardMapping: connectors.parseDirectBoardMapping,
+        hasPositiveAtsFeedEvidence: connectors.hasPositiveAtsFeedEvidence,
+      };
+      const records: Record<string, unknown>[] = [];
+      for (const employer of proof.employers) {
+        records.push(...await discoverEmployer(
+          employer,
+          helpers,
+          noHostState,
+          savedCareersOnly,
+        ));
+      }
+      const summary = summarizeRecords(records);
+      const mappingsFound = summary.employersByOutcome.verified_ats_feed;
+      const mappingsRejected = summary.employersByOutcome.unresolved;
       const report = {
         version: OUTPUT_VERSION,
         status: rowCountsUnchanged ? "proof_passed" : "count_drift",
@@ -580,27 +841,28 @@ async function main(): Promise<void> {
         dbMode: context.mode,
         mode: "production_readonly_ats_discovery_proof",
         generatedAt: new Date().toISOString(),
-        limit: 5,
-         scope: {
-           healthcareOnly,
-           savedCareersOnly,
-           selector: healthcareOnly ? HEALTHCARE_SELECTOR : "all employers",
-           careersUrlOnly: savedCareersOnly,
-         },
+        limit,
+        cooldownDays,
+        scope: {
+          healthcareOnly,
+          savedCareersOnly,
+          selector: HEALTHCARE_SELECTOR,
+          careersUrlOnly: savedCareersOnly,
+        },
         selectedEmployers: proof.employers.length,
         employersChecked: proof.employers.length,
         mappingsFound,
         mappingsRejected,
+        sourceDetectionSummary: summary,
         writesAttempted: 0,
         writePathCalled: false,
         writePathCalls: 0,
         mappingPromotions: 0,
         vacancyImports: 0,
-        transactionRolledBack: true,
+        selectionTransactionReadOnly: true,
         rowCounts: {
           before: proof.countsBefore,
-          afterInProofTransaction: proof.countsAfterInTransaction,
-          afterRollback: countsAfterRollback,
+          afterInSelectionTransaction: proof.countsAfterInTransaction,
           unchanged: rowCountsUnchanged,
         },
         safety: {
@@ -643,7 +905,8 @@ async function main(): Promise<void> {
             transactionReadOnlyVerified: identity.transactionReadOnly === "on",
             defaultTransactionReadOnlyVerified:
               identity.defaultTransactionReadOnly === "on",
-            productionProofTransactionRolledBack: true,
+            selectionTransactionReadOnly: true,
+            noProductionReportSaverCalled: true,
             noPersistentHostStateWrites: true,
             noPersistentCacheWrites: true,
             noDevelopmentStateAccess: true,
@@ -651,7 +914,7 @@ async function main(): Promise<void> {
             noVacancyPersistencePathCalled: true,
           },
         },
-        records: proof.records,
+        records,
       };
       if (proofOutput) {
         const outputPath = resolve(proofOutput);
@@ -753,11 +1016,27 @@ async function main(): Promise<void> {
       discoverCompanySiteVacancies: discovery.discoverCompanySiteVacancies,
       fetchCompanySitePage: http.fetchCompanySitePage,
       parseDirectBoardMapping: connectors.parseDirectBoardMapping,
+      hasPositiveAtsFeedEvidence: connectors.hasPositiveAtsFeedEvidence,
     };
 
     let employers = loadedInput
       ? loadedInput.employers
-      : await selectEmployers(databaseModule.db, limit, organisationNames);
+      : await selectEmployers(
+          databaseModule.db,
+          limit,
+          organisationNames,
+          healthcareOnly,
+          savedCareersOnly,
+          cooldownDays,
+        );
+    if (loadedInput) {
+      employers = employers.filter((employer) =>
+        matchesHealthcareSelector(employer.industry, employer.organisation_name),
+      );
+      if (savedCareersOnly) {
+        employers = employers.filter((employer) => Boolean(employer.careers_url?.trim()));
+      }
+    }
     if (loadedInput && organisationNames) {
       const names = new Set(organisationNames.map((name) => name.trim().toLowerCase()));
       employers = employers.filter((employer) =>
@@ -768,8 +1047,14 @@ async function main(): Promise<void> {
 
     const records: Record<string, unknown>[] = [];
     for (const employer of employers) {
-      records.push(...await discoverEmployer(employer, helpers, noHostState));
+      records.push(...await discoverEmployer(
+        employer,
+        helpers,
+        noHostState,
+        savedCareersOnly,
+      ));
     }
+    const summary = summarizeRecords(records);
     const employerInputSource = loadedInput
       ? {
           type: "input-file",
@@ -823,6 +1108,9 @@ async function main(): Promise<void> {
         databaseFingerprintMatchesMode: true,
         inputSourceMatchesDatabaseMode: true,
         noDiscoveryPersistence: true,
+        noProductionReportSaverCalled: true,
+        noPersistentHostStateWrites: noHostState,
+        noPersistentCacheWrites: true,
         productionReadOnlyRoleAndSessionVerified: context.mode === "production-readonly",
         hostStateDisabled: noHostState,
         developmentStateNotAccessed: !developmentStateAccessed,
@@ -830,12 +1118,22 @@ async function main(): Promise<void> {
     };
     const report = {
       version: OUTPUT_VERSION,
+      status: "complete",
       environment: context.sourceEnvironment,
       dbMode: context.mode,
       mode: "read_only_ats_discovery",
       generatedAt: new Date().toISOString(),
+      limit,
+      cooldownDays,
+      scope: {
+        healthcareOnly,
+        savedCareersOnly,
+        selector: HEALTHCARE_SELECTOR,
+        careersUrlOnly: savedCareersOnly,
+      },
       selectedEmployers: employers.length,
       employersChecked: employers.length,
+      sourceDetectionSummary: summary,
       writesAttempted: 0,
       mappingPromotions: 0,
       vacancyImports: 0,
@@ -856,10 +1154,11 @@ async function main(): Promise<void> {
       "dbMode", "databaseHost", "databaseName", "databaseFingerprint",
       "writeModeDisabled", "employerInputSource", "mappingCheckStateSource",
       "hostStateSource", "employerKey", "organisationName", "websiteOrigin",
-      "status", "provider", "boardId", "careersUrl", "evidenceUrl", "confidence",
-      "rejectionReason", "feedComplete", "snapshotAuthority", "pagesFetched",
+      "outcome", "status", "provider", "boardId", "careersUrl", "evidenceUrl", "confidence",
+      "rejectionReason", "feedComplete", "identityVerified", "feedIdentityStatus",
+      "identityClaims", "snapshotAuthority", "pagesFetched",
       "advertsExtracted", "advertsAccepted", "advertsRejected", "feedErrorCategory",
-      "feedOrigin",
+      "feedOrigin", "unknownDomains",
     ];
     const safetyColumns = {
       dbMode: safety.dbMode,

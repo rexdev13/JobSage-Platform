@@ -20,7 +20,11 @@ import {
 import { extractAdvertContactEmail } from "./publishedContactEmail";
 import { parseVacancyClosingDate } from "./vacancyDates";
 import { isLikelyEditorialTitle } from "./vacancyTitlePolicy";
-import { fetchDirectEmployerBoard, parseDirectBoardMapping } from "./directEmployerBoardConnectors";
+import {
+  fetchDirectEmployerBoard,
+  parseDirectBoardMapping,
+  type DirectFeedIdentity,
+} from "./directEmployerBoardConnectors";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
 // The crawl remains bounded by pages, response bytes, host pacing and the
@@ -143,6 +147,7 @@ export type CompanySiteDiscoveryDiagnostics = {
   pagesAttempted: number;
   sitemapChecked: boolean;
   sitemapDocuments: string[];
+  sitemapCandidateUrls: string[];
   robotsResult: string;
   pageFetches: CompanySiteFetchDiagnostic[];
   linksConsidered: CompanySiteLinkDiagnostic[];
@@ -166,6 +171,7 @@ export type CompanySiteDiscoveryResult = {
   atsProvider: string | null;
   atsMappingVerified?: boolean;
   atsMappingEvidenceUrl?: string | null;
+  directFeedIdentity?: DirectFeedIdentity;
   genericCompleted: boolean;
   atsCompleted: boolean;
   transientFailure: boolean;
@@ -335,6 +341,7 @@ function emptyDiscoveryDiagnostics(homepageUrl: string): CompanySiteDiscoveryDia
     pagesAttempted: 0,
     sitemapChecked: false,
     sitemapDocuments: [],
+    sitemapCandidateUrls: [],
     robotsResult: "not checked",
     pageFetches: [],
     linksConsidered: [],
@@ -1331,6 +1338,7 @@ async function discoverDirectFeedsOnly(
       advertsRejected: Math.max(0, direct.advertsExtracted - adverts.length),
       discoveredUrls: [direct.mapping.feedUrl],
       observedAdvertUrls: adverts.map((advert) => advert.url),
+      directFeedIdentity: direct.identity,
       snapshotScope: direct.complete && AUTHORITATIVE_SNAPSHOT_PROVIDERS.has(direct.mapping.provider)
         ? { provider: direct.mapping.provider, boardId: direct.mapping.boardId }
         : undefined,
@@ -1468,6 +1476,7 @@ export async function discoverCompanySiteVacancies(
         rejectionReasons: {},
         discoveredUrls: [direct.mapping.feedUrl],
         observedAdvertUrls: directAdverts.map((advert) => advert.url),
+        directFeedIdentity: direct.identity,
         snapshotScope: direct.complete && AUTHORITATIVE_SNAPSHOT_PROVIDERS.has(direct.mapping.provider)
           ? { provider: direct.mapping.provider, boardId: direct.mapping.boardId }
           : undefined,
@@ -1792,6 +1801,14 @@ export async function discoverCompanySiteVacancies(
         .filter(isLikelySitemapVacancyUrl)
         .sort((a, b) => sitemapUrlPriority(b) - sitemapUrlPriority(a))
         .slice(0, MAX_SITEMAP_URLS_PER_DOCUMENT);
+      for (const url of jobUrls) {
+        if (
+          diagnostics.sitemapCandidateUrls.length < MAX_DIAGNOSTIC_LINKS &&
+          !diagnostics.sitemapCandidateUrls.includes(url)
+        ) {
+          diagnostics.sitemapCandidateUrls.push(url);
+        }
+      }
       for (const url of jobUrls) {
         if (diagnostics.linksConsidered.length < MAX_DIAGNOSTIC_LINKS) {
           addLinkDiagnostic(diagnostics, {

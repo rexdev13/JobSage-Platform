@@ -150,6 +150,7 @@ describe("company-site discovery database context", () => {
     expect(options).toEqual({
       preflightOnly: true,
       limit: 0,
+      cooldownDays: 14,
       format: "json",
       noHostState: false,
     });
@@ -167,22 +168,22 @@ describe("company-site discovery database context", () => {
     });
   });
 
-  it("allows exactly five production proof employer slots and requires no host state", () => {
+  it("allows a configurable production proof batch size and requires no host state", () => {
     const valid = parseDiscoveryExecutionOptions(new Map([
       ["db-mode", "production-proof-readonly"],
-      ["limit", "5"],
+      ["limit", "25"],
       ["no-host-state", "true"],
     ]), { defaultLimit: 10, maxLimit: 25 });
     expect(valid).toMatchObject({
       preflightOnly: false,
-      limit: 5,
+      limit: 25,
+      cooldownDays: 14,
       format: "json",
       noHostState: true,
     });
 
     for (const overrides of [
-      [["limit", "4"]],
-      [["limit", "6"]],
+      [["limit", "26"]],
       [["no-host-state", "false"]],
       [["input-file", "employers.json"]],
       [["organisations", "Example Ltd"]],
@@ -190,7 +191,7 @@ describe("company-site discovery database context", () => {
     ]) {
       const args = new Map<string, string>([
         ["db-mode", "production-proof-readonly"],
-        ["limit", "5"],
+        ["limit", "25"],
         ["no-host-state", "true"],
       ]);
       const [key, value] = overrides[0] as [string, string];
@@ -200,6 +201,18 @@ describe("company-site discovery database context", () => {
         maxLimit: 25,
       })).toThrow();
     }
+  });
+
+  it("uses the detector's configured employer limit and cooldown by default", () => {
+    const options = parseDiscoveryExecutionOptions(new Map([
+      ["db-mode", "production-proof-readonly"],
+      ["no-host-state", "true"],
+    ]), { defaultLimit: 200, maxLimit: 200, defaultCooldownDays: 14 });
+    expect(options).toMatchObject({
+      limit: 200,
+      cooldownDays: 14,
+      noHostState: true,
+    });
   });
 
   it("rejects employer selection, discovery, and CSV options in preflight mode", () => {

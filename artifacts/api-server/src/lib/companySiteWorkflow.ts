@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { db } from "@workspace/db";
 import { discoverCompanySiteVacancies } from "./companySiteDiscovery";
 import { fetchCompanySitePage } from "./companySiteHttp";
-import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
+import {
+  hasPositiveAtsFeedEvidence,
+  parseDirectBoardMapping,
+} from "./directEmployerBoardConnectors";
 import { loadWorkflowReport, saveWorkflowReport, type WorkflowReport } from "./companySiteWorkflowReports";
 
 export const SUPPORTED_PROVIDERS = [
@@ -108,7 +111,28 @@ async function inspectEmployer(employer: Employer, providers?: Provider[]): Prom
       knownCareersEvidenceUrl: candidate.evidenceUrl, checkGeneric: false, checkAts: true, directFeedsOnly: true,
       readOnly: true, noHostState: true, noProcessCache: true, deadlineMs: employerDeadline,
     });
-    records.push({ ...candidate, status: feed.completion === "complete" && feed.atsCompleted ? "verified_feed" : "uncertain", confidence: feed.completion === "complete" ? "high" : "none", feedComplete: feed.completion === "complete", advertsExtracted: feed.advertsExtracted, advertsAccepted: feed.adverts.length, evidenceUrl: candidate.evidenceUrl });
+    const identity = feed.directFeedIdentity;
+    const record = {
+      ...candidate,
+      status: "verified_feed",
+      confidence: "high",
+      feedComplete: feed.completion === "complete" && feed.atsCompleted,
+      identityVerified: identity?.status === "matched",
+      feedIdentityStatus: identity?.status ?? "unproven",
+      identityClaims: identity?.claims ?? [],
+      advertsExtracted: feed.advertsExtracted,
+      advertsAccepted: feed.adverts.length,
+      evidenceUrl: candidate.evidenceUrl,
+    };
+    const positive = hasPositiveAtsFeedEvidence(record, candidate.organisationName);
+    records.push({
+      ...record,
+      status: positive ? "verified_feed" : "uncertain",
+      confidence: positive ? "high" : "none",
+      rejectionReason: positive
+        ? null
+        : identity?.reason ?? (feed.adverts.length === 0 ? "empty_feed_no_valid_listings" : "feed_not_complete"),
+    });
   }
   return records.length > 0
     ? records
@@ -173,12 +197,15 @@ function proposalsFrom(report: WorkflowReport, reviewed?: unknown): { proposals:
     }
     const r = value as Record<string, unknown>;
     const organisationName = typeof r.organisationName === "string" ? r.organisationName : null;
-    if (r.status !== "verified_feed" || r.confidence !== "high" || r.feedComplete !== true) {
+    if (
+      r.confidence !== "high" ||
+      !hasPositiveAtsFeedEvidence(r, typeof r.organisationName === "string" ? r.organisationName : "")
+    ) {
       refused.push({
         organisationName,
         status: "rejected",
         sourceStatus: typeof r.status === "string" ? r.status : "unknown",
-        reason: "candidate_is_not_a_complete_high_confidence_verified_feed",
+        reason: "candidate_lacks_positive_identity_and_nonempty_feed_evidence",
       });
       continue;
     }

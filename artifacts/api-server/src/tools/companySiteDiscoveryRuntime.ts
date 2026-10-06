@@ -13,6 +13,7 @@ export const PRODUCTION_PROOF_DATABASE_ENV =
 export type DiscoveryExecutionOptions = {
   preflightOnly: boolean;
   limit: number;
+  cooldownDays: number;
   format: "json" | "csv";
   noHostState: boolean;
   organisationNames?: string[];
@@ -32,7 +33,7 @@ export type PreparedDatabaseContext = {
 
 export function parseDiscoveryExecutionOptions(
   args: ReadonlyMap<string, string>,
-  limits: { defaultLimit: number; maxLimit: number },
+  limits: { defaultLimit: number; maxLimit: number; defaultCooldownDays?: number },
 ): DiscoveryExecutionOptions {
   const rawPreflight = args.get("preflight-only");
   if (rawPreflight !== undefined && rawPreflight !== "true" && rawPreflight !== "false") {
@@ -49,6 +50,10 @@ export function parseDiscoveryExecutionOptions(
     .map((name) => name.trim())
     .filter(Boolean);
   const noHostState = args.get("no-host-state") === "true";
+  const cooldownDays = Number(args.get("cooldown-days") ?? limits.defaultCooldownDays ?? 14);
+  if (!Number.isInteger(cooldownDays) || cooldownDays < 1 || cooldownDays > 365) {
+    throw new Error("--cooldown-days must be an integer from 1 to 365.");
+  }
   const parseBooleanFlag = (name: string): boolean => {
     const value = args.get(name);
     if (value !== undefined && value !== "true" && value !== "false") {
@@ -89,9 +94,6 @@ export function parseDiscoveryExecutionOptions(
     }
   }
   if (args.get("db-mode") === "production-proof-readonly") {
-    if (limit !== 5) {
-      throw new Error("Production proof mode requires --limit=5.");
-    }
     if (args.has("input-file") || args.has("organisations")) {
       throw new Error("Production proof mode selects employers from the production database only.");
     }
@@ -106,6 +108,7 @@ export function parseDiscoveryExecutionOptions(
   return {
     preflightOnly,
     limit,
+    cooldownDays,
     format,
     noHostState,
     ...(args.has("healthcare-only") ? { healthcareOnly } : {}),
