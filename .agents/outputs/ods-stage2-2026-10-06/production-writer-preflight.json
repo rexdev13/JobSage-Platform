@@ -1,7 +1,8 @@
 {
-  "status": "blocked_before_database_connection",
-  "reason": "The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool.",
-  "databaseConnectionAttempted": false,
+  "status": "blocked_before_write",
+  "reason": "The production writer role has broader-than-approved administrative or ownership privileges.",
+  "databaseConnectionAttempted": true,
   "writesAttempted": 0,
-  "beforeImageCreated": false
+  "beforeImageCreated": false,
+  "proofCredentialReuseConfirmed": true
 }

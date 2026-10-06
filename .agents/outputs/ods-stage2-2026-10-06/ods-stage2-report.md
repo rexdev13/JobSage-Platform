@@ -1,6 +1,6 @@
 # Stage 2 NHS ODS website match report
 
-Generated: 2026-10-06T17:48:13.867Z
+Generated: 2026-10-06T18:27:14.976Z
 
 ## Scope and rules
 
@@ -22,9 +22,9 @@ A write was eligible only with one active RO197 NHS TRUST record, an exact norma
 | No exact NHS Trust match | 6725 |
 | Planned write rows | 55 |
 | Planned write employers | 54 |
-| Writer preflight status | blocked_before_database_connection |
-| Writer preflight reason | The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool. |
-| Production apply status | Not applied; preflight blocked before database connection |
+| Writer preflight status | blocked_before_write |
+| Writer preflight reason | The production writer role has broader-than-approved administrative or ownership privileges. |
+| Production apply status | Not yet applied |
 | Last read-only production sponsor rows | 142847 |
 | Last read-only blank websites | 132456 |
 | Last read-only blank website/ODS rows | 132456 |
@@ -76,4 +76,4 @@ pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-bef
 
 The restore is conditional and will refuse if target values or row counts changed. These commands require the production writer secret to be a valid PostgreSQL URL.
 
-The production writer aborted before opening a database connection: The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool. No production write or transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.
+The production writer preflight stopped: The production writer role has broader-than-approved administrative or ownership privileges. A database connection was opened for the read-only preflight; no writes were attempted and no transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.

@@ -383,8 +383,8 @@ function main(): void {
     "",
     "The restore is conditional and will refuse if target values or row counts changed. These commands require the production writer secret to be a valid PostgreSQL URL.",
     "",
-    preflightReceipt?.status === "blocked_before_database_connection"
-      ? `The production writer aborted before opening a database connection: ${preflightReceipt.reason} No production write or transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.`
+    preflightReceipt?.status?.startsWith("blocked")
+      ? `The production writer preflight stopped: ${preflightReceipt.reason} A database connection was ${preflightReceipt.databaseConnectionAttempted ? "opened for the read-only preflight" : "not opened"}; no writes were attempted and no transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.`
       : "The accompanying workbook and CSV list every candidate row, including each held, conflict, and no-match reason. The before-image and guarded-writer receipt are separate files in this report directory.",
     "",
   ].join("\n");
