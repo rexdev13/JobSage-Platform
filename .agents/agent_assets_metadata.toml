@@ -1524,3 +1524,17 @@ mtime_ms = 1791307204033
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3ed63b4e-6470-4ab3-ba8b-98c20864b868/10612799-0c78-4253-977f-b8026626a98c"
 storage_version_token = "1791311257721895"
 content_type = "text/csv"
+
+[[outputs]]
+id = "FfeeU1JLmHh5yFYMoybiH"
+uri = "file://.agents/outputs/vacancy-system-architecture-handoff-2026-10-06.md"
+type = "text"
+title = "JOBSAGE Vacancy System Architecture Handoff"
+description = "Current architecture, vacancy coverage gaps, Send CV flow, and a proposed cross-sector discovery design."
+logical_id = "d1775cb7-b186-45ea-846b-b8e6631ee94f"
+content_hash = "sha256:24494abd95a630c668957da08f6d3ffe531263f73778ced68d8793381e42a6bc"
+size = 24764
+mtime_ms = 1791312774628
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d1775cb7-b186-45ea-846b-b8e6631ee94f/17ae2e91-ef80-4f17-b917-b84f52cd230a"
+storage_version_token = "1791312912507570"
+content_type = "text/markdown"
