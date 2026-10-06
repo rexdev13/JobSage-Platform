@@ -311,6 +311,12 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   if (hostMatches(host, "jobs.nhs.uk")) {
     return /^\/candidate\/jobadvert\/[^/?#]+$/i.test(path);
   }
+  if (
+    host === "apply.jobs.scot.nhs.uk"
+  ) {
+    return /^\/Job\/JobDetail$/i.test(path) &&
+      /^\d+$/.test(parsed.searchParams.get("JobId") ?? "");
+  }
   if (hostMatches(host, "trac.jobs")) {
     return /^\/job-advert\/[^/?#]+$/i.test(path);
   }
@@ -331,6 +337,9 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   }
   if (hostMatches(host, "jobs.ac.uk")) {
     return /^\/job\/[a-z0-9]+\/[^/?#]+$/i.test(path);
+  }
+  if (host === "www.charityjob.co.uk") {
+    return /^\/jobs\/[^/?#]+\/[^/?#]+\/\d+$/i.test(path);
   }
   if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {
     return /^\/jobs\/[^/?#]+$/i.test(path);

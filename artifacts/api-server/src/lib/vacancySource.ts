@@ -51,6 +51,12 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
       externalListingId: path.match(/\/jobadvert\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
+  if (host === "apply.jobs.scot.nhs.uk" && /^\/Job\/JobDetail$/i.test(path)) {
+    return {
+      boardName: "NHS Scotland",
+      externalListingId: url.searchParams.get("JobId"),
+    };
+  }
   if (hostMatches(host, "trac.jobs")) {
     return {
       boardName: "Trac",
@@ -88,6 +94,12 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
     return {
       boardName: "jobs.ac.uk",
       externalListingId: path.match(/\/job\/([a-z0-9]+)/i)?.[1] ?? null,
+    };
+  }
+  if (host === "www.charityjob.co.uk") {
+    return {
+      boardName: "CharityJob",
+      externalListingId: path.match(/\/jobs\/[^/]+\/[^/]+\/(\d+)\/?$/i)?.[1] ?? null,
     };
   }
   if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {

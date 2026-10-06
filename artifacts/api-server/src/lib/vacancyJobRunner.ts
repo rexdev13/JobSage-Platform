@@ -38,6 +38,7 @@ import {
   runReedProfessionBackfill,
 } from "./reedProfessionBackfill";
 import { runFreeBoardVacancyCollector } from "./freeBoardVacancyCollector";
+import { isFreeBoardSourceId } from "./freeBoardSourceRegistry";
 import { REFERENCE_ATS_TARGETS } from "./referenceAtsTargets";
 
 export type VacancyJobKind =
@@ -54,6 +55,9 @@ export type VacancyJobKind =
 
 export type VacancyJobSummary = {
   selected: number;
+  recordsFetched?: number;
+  sponsorMatched?: number;
+  saved?: number;
   upserted: number;
   live: number;
   dead: number;
@@ -101,7 +105,10 @@ export type VacancyJobOptions = {
   cursor?: number;
   categoryLimit?: number;
   organisationNames?: readonly string[];
+  sourceId?: string;
 };
+
+export { isFreeBoardSourceId };
 
 function getCategoryLimit(options: VacancyJobOptions): number {
   return Math.max(
@@ -360,9 +367,13 @@ export async function runVacancyJob(
       const summary = await runFreeBoardVacancyCollector({
         pagesPerSource: batchLimit,
         deadlineMs: options.deadlineMs ?? Date.now() + FREE_BOARD_HTTP_BUDGET_MS,
+        sourceId: options.sourceId,
       });
       return {
         selected: summary.selected,
+        recordsFetched: summary.recordsFetched,
+        sponsorMatched: summary.sponsorMatched,
+        saved: summary.saved,
         upserted: summary.upserted,
         live: 0,
         dead: 0,

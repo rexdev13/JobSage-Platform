@@ -6,6 +6,7 @@ import {
   PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
   FREE_BOARD_HTTP_BUDGET_MS,
   runVacancyJob,
+  isFreeBoardSourceId,
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
 import { getVacancyAiWebSearchDailyCap } from "../lib/vacancyAiBudget";
@@ -125,6 +126,22 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     return;
   }
 
+  const requestedSourceId = req.body?.sourceId;
+  let sourceId: string | undefined;
+  if (requestedSourceId != null) {
+    if (
+      kind !== "free_board_sources" ||
+      typeof requestedSourceId !== "string" ||
+      !isFreeBoardSourceId(requestedSourceId)
+    ) {
+      res.status(400).json({
+        error: "sourceId must identify a registered feed and is only supported for free_board_sources.",
+      });
+      return;
+    }
+    sourceId = requestedSourceId;
+  }
+
   let organisationNames: string[] | undefined;
   const requestedOrganisationNames = req.body?.organisationNames;
   if (requestedOrganisationNames != null) {
@@ -179,6 +196,8 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
         ? await runVacancyJob(kind, limit, { deadlineMs, cursor: requestedCursor ?? 0 })
       : organisationNames
         ? await runVacancyJob(kind, limit, { deadlineMs, organisationNames })
+        : sourceId
+          ? await runVacancyJob(kind, limit, { deadlineMs, sourceId })
         : await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
       res

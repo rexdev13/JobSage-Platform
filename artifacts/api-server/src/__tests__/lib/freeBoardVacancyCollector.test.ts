@@ -47,8 +47,10 @@ vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }));
 
-vi.mock("../../lib/freeBoardSources", () => ({
-  FREE_BOARD_SOURCES: mocks.sources,
+vi.mock("../../lib/freeBoardSourceRegistry", () => ({
+  ALL_FREE_BOARD_SOURCES: mocks.sources,
+  isFreeBoardSourceId: (value: unknown) =>
+    typeof value === "string" && mocks.sources.some((source) => source["id"] === value),
 }));
 
 vi.mock("../../lib/boardVacancyPipeline", () => ({
@@ -161,6 +163,9 @@ describe("free-board vacancy collector", () => {
 
     expect(summary).toMatchObject({
       selected: 1,
+      recordsFetched: 1,
+      sponsorMatched: 1,
+      saved: 1,
       upserted: 1,
       errors: 1,
       done: false,
@@ -234,5 +239,68 @@ describe("free-board vacancy collector", () => {
       cursor: null,
       nextRetryAt: null,
     });
+  });
+
+  it("runs one registered source without advancing other feeds and reports distinct counts", async () => {
+    const otherFetch = vi.fn();
+    mocks.sources.push({
+      id: "other-source",
+      provider: "other",
+      boardName: "Other Board",
+      parserVersion: "other-v1",
+      maxPagesPerRun: 10,
+      fetchPage: otherFetch,
+    });
+    mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
+    mocks.fetchPage
+      .mockReset()
+      .mockResolvedValue({
+        adverts: [{
+          organisationName: "Example Trust",
+          employer: "Example Trust",
+          title: "Staff Nurse",
+          location: "London",
+          salary: null,
+          url: "https://fixture-board.example/jobs/1001",
+          applicationUrl: null,
+          description: null,
+          postedDate: null,
+          targetRegions: [],
+          boardName: "Fixture Board",
+          externalId: "1001",
+          sourceType: "job_board",
+        }],
+        recordsFetched: 3,
+        nextCursor: null,
+      });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 2,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      selected: 3,
+      recordsFetched: 3,
+      sponsorMatched: 1,
+      upserted: 1,
+      done: true,
+      remaining: 0,
+      metrics: {
+        sourceId: "fixture-source",
+        sources: [{
+          sourceId: "fixture-source",
+          recordsFetched: 3,
+          sponsorMatched: 1,
+          saved: 1,
+          missingReconciliation: false,
+          missingCount: 0,
+          outcome: "complete",
+        }],
+      },
+    });
+    expect(otherFetch).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });

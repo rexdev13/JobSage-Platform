@@ -14,6 +14,8 @@ const TEACHING_SITEMAP_CACHE_TTL_MS = 10 * 60_000;
 export type FreeBoardPage = {
   adverts: BoardAdvert[];
   nextCursor: string | null;
+  /** Raw listing rows in the fetched response, including repeats filtered before normalization. */
+  recordsFetched?: number;
   reportedTotal?: number;
   goneCount?: number;
 };
@@ -30,6 +32,8 @@ export type FreeBoardSource = {
   boardName: string;
   parserVersion: string;
   maxPagesPerRun: number;
+  /** Offset-paginated, changing result sets must not infer missing listings from one sweep. */
+  reconcileMissingAfterSweep?: boolean;
   fetchPage(context: FreeBoardPageContext): Promise<FreeBoardPage>;
 };
 
@@ -47,7 +51,7 @@ export class FreeBoardFetchError extends Error {
   }
 }
 
-async function fetchText(
+export async function fetchText(
   url: string,
   deadlineMs: number,
   maxBytes = MAX_FEED_BYTES,
@@ -143,7 +147,7 @@ function closeDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function makeAdvert(
+export function makeAdvert(
   source: Pick<FreeBoardSource, "id" | "boardName" | "provider" | "parserVersion">,
   fields: {
     externalId: unknown;

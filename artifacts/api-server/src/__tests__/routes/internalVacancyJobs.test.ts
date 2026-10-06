@@ -12,6 +12,9 @@ vi.mock("../../lib/vacancyJobRunner", () => ({
   PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT: 1,
   PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT: 2,
   FREE_BOARD_HTTP_BUDGET_MS: 45_000,
+  isFreeBoardSourceId: (value: unknown) =>
+    typeof value === "string" &&
+    ["nhs-jobs", "nhs-scotland", "jobs-ac-uk", "charityjob"].includes(value),
   runVacancyJob: runVacancyJobMock,
 }));
 
@@ -171,6 +174,33 @@ describe("POST /internal/vacancy-jobs", () => {
       5,
       { deadlineMs: undefined },
     );
+  });
+
+  it("forwards a registered source ID when collecting only one public feed", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "free_board_sources", limit: 1, sourceId: "charityjob" });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "free_board_sources",
+      1,
+      { deadlineMs: expect.any(Number), sourceId: "charityjob" },
+    );
+  });
+
+  it.each([
+    ["unknown feed", { kind: "free_board_sources", sourceId: "not-a-source" }],
+    ["wrong job kind", { kind: "company_site", sourceId: "charityjob" }],
+  ])("rejects an invalid source selector: %s", async (_label, body) => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(runVacancyJobMock).not.toHaveBeenCalled();
   });
 
   it("forwards an exact company-site employer allowlist to the scheduler", async () => {

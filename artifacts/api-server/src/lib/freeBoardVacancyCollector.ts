@@ -13,7 +13,8 @@ import {
   type BoardAdvert,
 } from "./boardVacancyPipeline";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
-import { FREE_BOARD_SOURCES, type FreeBoardSource } from "./freeBoardSources";
+import { ALL_FREE_BOARD_SOURCES, isFreeBoardSourceId } from "./freeBoardSourceRegistry";
+import type { FreeBoardSource } from "./freeBoardSources";
 
 const SOURCE_BACKOFF_BASE_MS = 5 * 60_000;
 const SOURCE_BACKOFF_MAX_MS = 6 * 60 * 60_000;
@@ -25,6 +26,8 @@ type SourceRunMetrics = {
   provider: string;
   pagesFetched: number;
   recordsFetched: number;
+  sponsorMatched: number;
+  saved: number;
   inserted: number;
   updated: number;
   revived: number;
@@ -33,6 +36,7 @@ type SourceRunMetrics = {
   sitemapGone: number;
   missingCount: number;
   reportedTotal: number | null;
+  missingReconciliation: boolean;
   outcome: string;
   nextCursor: string | null;
   error?: string;
@@ -40,6 +44,9 @@ type SourceRunMetrics = {
 
 export type FreeBoardCollectorSummary = {
   selected: number;
+  recordsFetched: number;
+  sponsorMatched: number;
+  saved: number;
   upserted: number;
   errors: number;
   done: boolean;
@@ -48,6 +55,7 @@ export type FreeBoardCollectorSummary = {
   metrics: {
     sources: SourceRunMetrics[];
     completedSweeps: string[];
+    sourceId?: string;
   };
 };
 
@@ -222,17 +230,25 @@ function isPermanentSourceFailure(error: unknown): boolean {
 export async function runFreeBoardVacancyCollector(options: {
   pagesPerSource: number;
   deadlineMs?: number;
+  sourceId?: string;
 }): Promise<FreeBoardCollectorSummary> {
   const startedAt = Date.now();
   const pagesPerSource = Math.max(1, Math.floor(options.pagesPerSource));
+  if (options.sourceId !== undefined && !isFreeBoardSourceId(options.sourceId)) {
+    throw new Error(`Unknown free-board source ID: ${options.sourceId}`);
+  }
+  const sources = options.sourceId !== undefined
+    ? ALL_FREE_BOARD_SOURCES.filter((source) => source.id === options.sourceId)
+    : ALL_FREE_BOARD_SOURCES;
   const metrics: SourceRunMetrics[] = [];
   const completedSweeps: string[] = [];
   let selected = 0;
+  let sponsorMatched = 0;
   let upserted = 0;
   let errors = 0;
   let remaining = 0;
 
-  for (const source of FREE_BOARD_SOURCES) {
+  for (const source of sources) {
     const sourceObservationId = observationSourceId(source);
     let [storedState] = await db
       .select()
@@ -255,6 +271,8 @@ export async function runFreeBoardVacancyCollector(options: {
         provider: source.provider,
         pagesFetched: 0,
         recordsFetched: 0,
+        sponsorMatched: 0,
+        saved: 0,
         inserted: 0,
         updated: 0,
         revived: 0,
@@ -263,6 +281,7 @@ export async function runFreeBoardVacancyCollector(options: {
         sitemapGone: 0,
         missingCount: 0,
         reportedTotal: null,
+        missingReconciliation: source.reconcileMissingAfterSweep !== false,
         outcome: "state_unavailable",
         nextCursor: null,
       });
@@ -278,6 +297,8 @@ export async function runFreeBoardVacancyCollector(options: {
         provider: source.provider,
         pagesFetched: 0,
         recordsFetched: 0,
+        sponsorMatched: 0,
+        saved: 0,
         inserted: 0,
         updated: 0,
         revived: 0,
@@ -286,6 +307,7 @@ export async function runFreeBoardVacancyCollector(options: {
         sitemapGone: 0,
         missingCount: 0,
         reportedTotal: storedState.reportedTotal,
+        missingReconciliation: source.reconcileMissingAfterSweep !== false,
         outcome: "skipped_backoff",
         nextCursor: storedState.cursor,
       });
@@ -310,6 +332,8 @@ export async function runFreeBoardVacancyCollector(options: {
       provider: source.provider,
       pagesFetched: 0,
       recordsFetched: 0,
+      sponsorMatched: 0,
+      saved: 0,
       inserted: 0,
       updated: 0,
       revived: 0,
@@ -318,6 +342,7 @@ export async function runFreeBoardVacancyCollector(options: {
       sitemapGone: 0,
       missingCount: 0,
       reportedTotal: storedState.reportedTotal,
+      missingReconciliation: source.reconcileMissingAfterSweep !== false,
       outcome: "partial",
       nextCursor: cursor,
     };
@@ -355,10 +380,18 @@ export async function runFreeBoardVacancyCollector(options: {
       }
 
       sourceMetrics.pagesFetched += 1;
-      sourceMetrics.recordsFetched += page.adverts.length;
+      const pageRecordsFetched = page.recordsFetched ?? page.adverts.length;
+      if (
+        !Number.isInteger(pageRecordsFetched) ||
+        pageRecordsFetched < page.adverts.length
+      ) {
+        sourceError = new Error("Feed returned an invalid raw listing count.");
+        break;
+      }
+      sourceMetrics.recordsFetched += pageRecordsFetched;
       sourceMetrics.sitemapGone += page.goneCount ?? 0;
       if (page.reportedTotal != null) sourceMetrics.reportedTotal = page.reportedTotal;
-      selected += page.adverts.length;
+      selected += pageRecordsFetched;
 
       const requiredValid = page.adverts.filter(hasRequiredListingIdentity);
       const rejectedInvalid = page.adverts.length - requiredValid.length;
@@ -390,6 +423,8 @@ export async function runFreeBoardVacancyCollector(options: {
             }]
           : [];
       });
+      sourceMetrics.sponsorMatched += sponsorAdverts.length;
+      sponsorMatched += sponsorAdverts.length;
       sourceMetrics.rejectedNonSponsor += normalizable.length - sponsorAdverts.length;
 
       if (sponsorAdverts.length > 0) {
@@ -400,6 +435,7 @@ export async function runFreeBoardVacancyCollector(options: {
         sourceMetrics.inserted += result.inserted;
         sourceMetrics.updated += result.updated;
         sourceMetrics.revived += result.revived;
+        sourceMetrics.saved += result.inserted + result.updated + result.revived;
         upserted += result.inserted + result.updated + result.revived;
       }
 
@@ -458,11 +494,13 @@ export async function runFreeBoardVacancyCollector(options: {
       });
     } else if (sourceMetrics.nextCursor === null && pagesProcessed > 0) {
       const completedAt = new Date();
-      const missingCount = await markCompletedSweepMissing(
-        sourceObservationId,
-        sweepStartedAt,
-        completedAt,
-      );
+      const missingCount = source.reconcileMissingAfterSweep === false
+        ? 0
+        : await markCompletedSweepMissing(
+            sourceObservationId,
+            sweepStartedAt,
+            completedAt,
+          );
       sourceMetrics.outcome = "complete";
       sourceMetrics.missingCount = missingCount;
       completedSweeps.push(source.id);
@@ -495,7 +533,7 @@ export async function runFreeBoardVacancyCollector(options: {
     metrics.push(sourceMetrics);
   }
 
-  const done = remaining === 0 && completedSweeps.length === FREE_BOARD_SOURCES.length;
+  const done = remaining === 0 && completedSweeps.length === sources.length;
   const durationMs = Date.now() - startedAt;
   await db.insert(vacancySyncLogTable).values({
     status: errors > 0 ? "error" : "success",
@@ -508,22 +546,33 @@ export async function runFreeBoardVacancyCollector(options: {
     jobKind: "free_board_sources",
     metrics: {
       selected,
+      recordsFetched: selected,
+      sponsorMatched,
+      saved: upserted,
       upserted,
       errors,
       done,
       remaining,
       completedSweeps,
+      ...(options.sourceId ? { sourceId: options.sourceId } : {}),
       sources: metrics,
     },
   });
 
   return {
     selected,
+    recordsFetched: selected,
+    sponsorMatched,
+    saved: upserted,
     upserted,
     errors,
     done,
     remaining,
     durationMs,
-    metrics: { sources: metrics, completedSweeps },
+    metrics: {
+      sources: metrics,
+      completedSweeps,
+      ...(options.sourceId ? { sourceId: options.sourceId } : {}),
+    },
   };
 }
