@@ -13,6 +13,8 @@ export const sponsorLicencesTable = pgTable(
     industry: text("industry"),
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
     website: text("website"),
+    websiteOdsCode: text("website_ods_code"),
+    websiteOdsRecordUrl: text("website_ods_record_url"),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
     address: text("address"),
