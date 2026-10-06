@@ -92,3 +92,4 @@
 - [api-zod success response generation](api-zod-success-response-generation.md) — confirm the generated server validator exists; this workspace's Orval setup omitted one for a 201 response.
 - [Audit CSV alignment](scan-csv-alignment.md) — check named header/value pairings on target and candidate rows; equal column counts can still hide shifted fields.
 - [Healthcare industry classification](healthcare-industry-classification.md) — NHS Trust rows may be labeled Public Services, so supplement Healthcare filters with bounded NHS/hospital name searches.
+- [Cross-sector vacancy coverage](cross-sector-vacancy-coverage.md) — target dependable, evidence-based vacancy discovery across job boards and employer sites; report measured coverage, not completeness guarantees.
