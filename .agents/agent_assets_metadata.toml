@@ -1468,3 +1468,17 @@ mtime_ms = 1791243207829
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/956324c9-13b6-4928-9370-e1b7c928655e/9b194095-366a-446b-bf0c-c4439248318d"
 storage_version_token = "1791243243196469"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "yWjcrfcCjnpf8-YOEe8ew"
+uri = "file://.agents/outputs/company-site-vacancy-reconciliation-2026-10-06.csv"
+type = "table"
+title = "Company-site vacancy import reconciliation"
+description = "Row-by-row outcomes for all 178 READY validation rows in development and production, with every held row’s employer and reason, URL matching, and development liveness status."
+logical_id = "74149057-0998-4b94-b556-415dff22615e"
+content_hash = "sha256:40b2deb63e3e549bbf9c36d97f173f5165b4bd1fdf3a78966fd9c2d3744080e4"
+size = 257643
+mtime_ms = 1791272743742
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/74149057-0998-4b94-b556-415dff22615e/5c9b9b95-62ee-4ef4-b9f6-b3876cdcd2cd"
+storage_version_token = "1791272824601939"
+content_type = "text/csv"
