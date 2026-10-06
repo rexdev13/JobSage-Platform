@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parse as parseCsv } from "csv-parse/sync";
-import { db, sponsorLicencesTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { db, sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 import {
   boardVacancyFingerprint,
@@ -10,16 +10,23 @@ import {
   type BoardAdvert,
   type UpsertBoardVacancyOutcome,
 } from "./boardVacancyPipeline";
+import { buildStrictHealthcareRoleEvidence } from "./healthcareRoleEvidence";
 import { normalizeSponsorLegalNameValue } from "./sponsorWebsiteCrossEnvIdentity";
 import { canonicalVacancyUrl } from "./vacancySource";
 import { isBlockedVacancyUrl, isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 
 export const REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION =
   "apply-reviewed-company-site-vacancy-import";
+export const REVIEWED_COMPANY_SITE_IMPORT_REPAIR_CONFIRMATION =
+  "repair-reviewed-company-site-import-visibility";
 export const REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES = 1_000_000;
 export const REVIEWED_COMPANY_SITE_IMPORT_MAX_ROWS = 500;
 export const REVIEWED_COMPANY_SITE_IMPORT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000;
+const REVIEWED_IMPORT_REPAIR_APPLY_REPORT_ID = "54cd3a9d-f189-4dc2-ac16-e91f2e8afcb0";
+const REVIEWED_IMPORT_REPAIR_INSERTED_ROWS = 158;
+const REVIEWED_IMPORT_REPAIR_CREATION_WINDOW_MS = 10 * 60 * 1000;
+const COMPANY_SITE_RECHECK_STALE_MS = 6 * 60 * 60 * 1000;
 
 const REQUIRED_HEADERS = [
   "source_row",
@@ -107,6 +114,7 @@ export type ReviewedCompanySiteImportReport = {
 
 export class ReviewedCompanySiteImportTokenError extends Error {}
 export class ReviewedCompanySiteImportInputError extends Error {}
+export class ReviewedCompanySiteEvidenceRepairError extends Error {}
 
 type ParsedCsvRow = z.infer<typeof CsvCompanySiteRowSchema>;
 type PreparedPlan = {
@@ -260,6 +268,26 @@ function sponsorNameLookupVariants(name: string): string[] {
   return [...variants];
 }
 
+function reviewedRoleEvidence(row: ParsedCsvRow) {
+  const applicationUrl = row.application_final_url || row.application_url;
+  return buildStrictHealthcareRoleEvidence({
+    title: row.source_title,
+    detailUrl: row.listing_final_url,
+    listingUrl: row.source_careers_page,
+    employerHost: new URL(row.source_careers_page).hostname,
+    applicationUrl,
+  });
+}
+
+function legacyReviewedEvidence(row: ParsedCsvRow) {
+  return {
+    kind: "strict_role_page" as const,
+    listingUrl: row.source_careers_page,
+    detailUrl: row.listing_final_url,
+    applicationUrl: row.application_final_url || row.application_url,
+  };
+}
+
 async function resolveLocalEmployerNames(names: readonly string[]): Promise<Set<string>> {
   const uniqueNames = [...new Set(names)];
   if (uniqueNames.length === 0) return new Set();
@@ -297,12 +325,7 @@ function toAdvert(row: ParsedCsvRow): BoardAdvert {
     sourceType: "company_site",
     ...(closesAt ? { closesAt } : {}),
     reviewedSourceRow: row.source_row,
-    companyVacancyEvidence: {
-      kind: "strict_role_page",
-      listingUrl: row.source_careers_page,
-      detailUrl: row.listing_final_url,
-      applicationUrl,
-    },
+    companyVacancyEvidence: reviewedRoleEvidence(row) ?? legacyReviewedEvidence(row),
   };
 }
 
@@ -617,4 +640,274 @@ export async function applyReviewedCompanySiteCsv(
     );
     return buildReport("apply", plan, rows);
   }
+}
+
+type EvidenceRepairTarget = {
+  source: ParsedCsvRow;
+  advert: BoardAdvert;
+  url: string;
+  vacancy: typeof sponsorLicenceVacanciesTable.$inferSelect;
+  desiredEvidence: ReturnType<typeof reviewedRoleEvidence>;
+  legacyEvidence: ReturnType<typeof legacyReviewedEvidence>;
+  evidenceStatus: "updated" | "already_correct";
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stableJson(value: unknown): string {
+  if (value === undefined) return "undefined";
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "undefined";
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) =>
+    `${JSON.stringify(key)}:${stableJson(record[key])}`,
+  ).join(",")}}`;
+}
+
+function jsonEqual(left: unknown, right: unknown): boolean {
+  return stableJson(left) === stableJson(right);
+}
+
+function dateMillis(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "string" || typeof value === "number") return new Date(value).getTime();
+  return Number.NaN;
+}
+
+export type ReviewedCompanySiteEvidenceRepairReport = {
+  mode: "evidence_repair";
+  environment: "production";
+  applyReportId: string;
+  inputSha256: string;
+  counts: {
+    insertedRows: number;
+    evidenceUpdated: number;
+    alreadyCorrect: number;
+    candidateEvidenceSupported: number;
+    unsupportedRoleEvidence: number;
+    verificationQueued: number;
+  };
+  rows: Array<{
+    sourceRow: string;
+    employer: string;
+    title: string;
+    listingUrl: string;
+    vacancyId: number;
+    evidenceStatus: "updated" | "already_correct";
+    candidateEvidenceSupported: boolean;
+    liveness: string;
+  }>;
+  verificationQueue: Array<{ id: number; url: string }>;
+};
+
+/**
+ * Repairs only the one reviewed production import identified by its durable
+ * apply report. The uploaded CSV must be byte-for-byte identical to that
+ * report's source, and updates touch only company-vacancy evidence.
+ */
+export async function repairReviewedCompanySiteEvidence(
+  buffer: Buffer,
+  applyReportId: string,
+  appliedReport: unknown,
+): Promise<ReviewedCompanySiteEvidenceRepairReport> {
+  if (currentEnvironment() !== "production") {
+    throw new ReviewedCompanySiteEvidenceRepairError("This repair is production-only.");
+  }
+  if (applyReportId !== REVIEWED_IMPORT_REPAIR_APPLY_REPORT_ID || !isRecord(appliedReport)) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The specified apply report is not the authorized repair cohort.");
+  }
+  if (appliedReport.reportId !== REVIEWED_IMPORT_REPAIR_APPLY_REPORT_ID
+    || appliedReport.reportKind !== "apply"
+    || appliedReport.workflow !== "reviewed_explicit_company_site_vacancy_import"
+    || appliedReport.mode !== "apply"
+    || appliedReport.environment !== "production") {
+    throw new ReviewedCompanySiteEvidenceRepairError("The apply report does not describe the expected production import.");
+  }
+
+  const parsed = parseReviewedCsv(buffer);
+  if (appliedReport.inputSha256 !== parsed.inputSha256) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The CSV does not match the source file recorded in the apply report.");
+  }
+  const generatedAtMs = dateMillis(appliedReport.generatedAt);
+  if (!Number.isFinite(generatedAtMs)) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The apply report has no valid generation timestamp.");
+  }
+  const reportCounts = appliedReport.counts;
+  const reportRows = appliedReport.rows;
+  if (!isRecord(reportCounts) || !Array.isArray(reportRows)) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The apply report is missing its row audit.");
+  }
+  const insertedAuditRows = reportRows.filter(
+    (row): row is Record<string, unknown> => isRecord(row) && row.status === "inserted",
+  );
+  if (reportCounts.inserted !== REVIEWED_IMPORT_REPAIR_INSERTED_ROWS
+    || insertedAuditRows.length !== REVIEWED_IMPORT_REPAIR_INSERTED_ROWS) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The apply report does not contain the exact expected inserted-row count.");
+  }
+
+  const plan = await buildPlan(buffer);
+  if (plan.environment !== "production" || plan.inputSha256 !== parsed.inputSha256) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The current production import plan no longer matches the reviewed source.");
+  }
+  const currentRowsBySource = new Map(plan.rows.map((row) => [row.sourceRow, row]));
+  const advertsBySource = new Map(
+    plan.adverts.flatMap((advert) =>
+      advert.reviewedSourceRow ? [[advert.reviewedSourceRow, advert] as const] : [],
+    ),
+  );
+  const parsedRowsBySource = new Map(
+    parsed.rows.flatMap((entry) =>
+      entry.parsed ? [[entry.parsed.source_row, entry.parsed] as const] : [],
+    ),
+  );
+  const sourceRowsSeen = new Set<string>();
+  const sourceByReport = insertedAuditRows.map((reportRow) => {
+    const sourceRow = typeof reportRow.sourceRow === "string" ? reportRow.sourceRow : "";
+    if (!sourceRow || sourceRowsSeen.has(sourceRow)) {
+      throw new ReviewedCompanySiteEvidenceRepairError("The apply report has a missing or duplicate inserted source row.");
+    }
+    sourceRowsSeen.add(sourceRow);
+    const source = parsedRowsBySource.get(sourceRow);
+    const currentPlanRow = currentRowsBySource.get(sourceRow);
+    const advert = advertsBySource.get(sourceRow);
+    const reportListingUrl = typeof reportRow.listingUrl === "string" ? reportRow.listingUrl : "";
+    const reportApplicationUrl = typeof reportRow.applicationUrl === "string" ? reportRow.applicationUrl : "";
+    if (!source || !advert || currentPlanRow?.status !== "already_present"
+      || reportRow.employer !== advert.organisationName
+      || reportRow.title !== advert.title
+      || canonicalVacancyUrl(reportListingUrl) !== canonicalVacancyUrl(advert.url)
+      || reportApplicationUrl !== advert.applicationUrl) {
+      throw new ReviewedCompanySiteEvidenceRepairError(
+        `Inserted source row ${sourceRow} is no longer an exact eligible match; no rows were changed.`,
+      );
+    }
+    return { source, advert };
+  });
+  const targetUrls = sourceByReport.map(({ advert }) => canonicalVacancyUrl(advert.url));
+  if (targetUrls.some((url) => !url) || new Set(targetUrls).size !== REVIEWED_IMPORT_REPAIR_INSERTED_ROWS) {
+    throw new ReviewedCompanySiteEvidenceRepairError("The inserted cohort contains a missing or duplicate canonical vacancy URL.");
+  }
+
+  const matchedVacancies = await db
+    .select()
+    .from(sponsorLicenceVacanciesTable)
+    .where(inArray(sponsorLicenceVacanciesTable.url, targetUrls as string[]));
+  const createdAfter = new Date(generatedAtMs - REVIEWED_IMPORT_REPAIR_CREATION_WINDOW_MS);
+  const createdBefore = new Date(generatedAtMs + 30_000);
+  const vacanciesByUrl = new Map<string, typeof matchedVacancies>();
+  for (const vacancy of matchedVacancies) {
+    if (typeof vacancy.url !== "string") {
+      throw new ReviewedCompanySiteEvidenceRepairError("A matched vacancy has no stored URL; no rows were changed.");
+    }
+    const rows = vacanciesByUrl.get(vacancy.url) ?? [];
+    rows.push(vacancy);
+    vacanciesByUrl.set(vacancy.url, rows);
+  }
+
+  const targets: EvidenceRepairTarget[] = sourceByReport.map(({ source, advert }) => {
+    const url = canonicalVacancyUrl(advert.url);
+    if (!url) throw new ReviewedCompanySiteEvidenceRepairError("A target vacancy URL is no longer canonical.");
+    const matches = vacanciesByUrl.get(url) ?? [];
+    if (matches.length !== 1) {
+      throw new ReviewedCompanySiteEvidenceRepairError(
+        `Expected one exact vacancy for imported source row ${source.source_row}; found ${matches.length}.`,
+      );
+    }
+    const vacancy = matches[0]!;
+    const createdAtMs = dateMillis(vacancy.createdAt);
+    if (vacancy.sourceType !== "company_site"
+      || vacancy.organisationName !== source.source_employer
+      || vacancy.title !== source.source_title
+      || vacancy.applicationUrl !== (source.application_final_url || source.application_url)
+      || !Number.isFinite(createdAtMs)
+      || createdAtMs < createdAfter.getTime()
+      || createdAtMs > createdBefore.getTime()) {
+      throw new ReviewedCompanySiteEvidenceRepairError(
+        `Vacancy identity or creation time changed for imported source row ${source.source_row}; no rows were changed.`,
+      );
+    }
+    const legacyEvidence = legacyReviewedEvidence(source);
+    const desiredEvidence = reviewedRoleEvidence(source);
+    const expectedImportEvidence = desiredEvidence ?? legacyEvidence;
+    if (!jsonEqual(advert.companyVacancyEvidence, expectedImportEvidence)) {
+      throw new ReviewedCompanySiteEvidenceRepairError(
+        `The current reviewed evidence does not match the import source for row ${source.source_row}.`,
+      );
+    }
+    const evidenceStatus = jsonEqual(vacancy.companyVacancyEvidence, desiredEvidence)
+      ? "already_correct"
+      : jsonEqual(vacancy.companyVacancyEvidence, legacyEvidence)
+        ? "updated"
+        : null;
+    if (!evidenceStatus) {
+      throw new ReviewedCompanySiteEvidenceRepairError(
+        `Vacancy evidence changed for imported source row ${source.source_row}; no rows were changed.`,
+      );
+    }
+    return { source, advert, url, vacancy, desiredEvidence, legacyEvidence, evidenceStatus };
+  });
+
+  const updates = targets.filter((target) => target.evidenceStatus === "updated");
+  if (updates.length > 0) {
+    await db.transaction(async (transaction) => {
+      for (const target of updates) {
+        const [updated] = await transaction
+          .update(sponsorLicenceVacanciesTable)
+          .set({ companyVacancyEvidence: target.desiredEvidence })
+          .where(and(
+            eq(sponsorLicenceVacanciesTable.id, target.vacancy.id),
+            eq(sponsorLicenceVacanciesTable.url, target.url),
+            eq(sponsorLicenceVacanciesTable.organisationName, target.source.source_employer),
+            eq(sponsorLicenceVacanciesTable.title, target.source.source_title),
+            eq(sponsorLicenceVacanciesTable.sourceType, "company_site"),
+            gte(sponsorLicenceVacanciesTable.createdAt, createdAfter),
+            lte(sponsorLicenceVacanciesTable.createdAt, createdBefore),
+            eq(sponsorLicenceVacanciesTable.companyVacancyEvidence, target.legacyEvidence),
+          ))
+          .returning({ id: sponsorLicenceVacanciesTable.id });
+        if (!updated) {
+          throw new ReviewedCompanySiteEvidenceRepairError(
+            `Vacancy changed during the repair for source row ${target.source.source_row}; the transaction was rolled back.`,
+          );
+        }
+      }
+    });
+  }
+
+  const staleCutoff = Date.now() - COMPANY_SITE_RECHECK_STALE_MS;
+  const verificationQueue = targets.flatMap(({ vacancy }) => {
+    const lastVerifiedAt = dateMillis(vacancy.lastVerifiedAt);
+    const shouldRecheck = vacancy.liveness === "unverified"
+      || (vacancy.liveness === "live" && (!Number.isFinite(lastVerifiedAt) || lastVerifiedAt < staleCutoff));
+    const url = vacancy.applicationUrl || vacancy.url;
+    return shouldRecheck && typeof url === "string" ? [{ id: vacancy.id, url }] : [];
+  });
+
+  return {
+    mode: "evidence_repair",
+    environment: "production",
+    applyReportId,
+    inputSha256: parsed.inputSha256,
+    counts: {
+      insertedRows: targets.length,
+      evidenceUpdated: updates.length,
+      alreadyCorrect: targets.length - updates.length,
+      candidateEvidenceSupported: targets.filter((target) => target.desiredEvidence !== null).length,
+      unsupportedRoleEvidence: targets.filter((target) => target.desiredEvidence === null).length,
+      verificationQueued: verificationQueue.length,
+    },
+    rows: targets.map((target) => ({
+      sourceRow: target.source.source_row,
+      employer: target.source.source_employer,
+      title: target.source.source_title,
+      listingUrl: target.url,
+      vacancyId: target.vacancy.id,
+      evidenceStatus: target.evidenceStatus,
+      candidateEvidenceSupported: target.desiredEvidence !== null,
+      liveness: target.vacancy.liveness,
+    })),
+    verificationQueue,
+  };
 }

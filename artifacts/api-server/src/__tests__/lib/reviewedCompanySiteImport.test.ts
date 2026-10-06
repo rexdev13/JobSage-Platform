@@ -3,15 +3,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   sponsorRows: [] as Array<{ organisationName: string }>,
+  vacancyRows: [] as Array<Record<string, unknown>>,
   upsert: vi.fn(),
+  transaction: vi.fn(),
+  updatedEvidenceValues: [] as Array<Record<string, unknown>>,
+  vacancyTable: {
+    id: "vacancy-id",
+    url: "vacancy-url",
+    organisationName: "vacancy-employer",
+    title: "vacancy-title",
+    sourceType: "vacancy-source-type",
+    applicationUrl: "vacancy-application-url",
+    createdAt: "vacancy-created-at",
+    lastVerifiedAt: "vacancy-last-verified-at",
+    liveness: "vacancy-liveness",
+    companyVacancyEvidence: "vacancy-evidence",
+  },
 }));
 
 vi.mock("@workspace/db", () => ({
-  db: { select: mocks.select },
+  db: { select: mocks.select, transaction: mocks.transaction },
   sponsorLicencesTable: { organisationName: "sponsor-name-column" },
+  sponsorLicenceVacanciesTable: mocks.vacancyTable,
 }));
 vi.mock("drizzle-orm", () => ({
   inArray: (column: unknown, values: unknown[]) => ({ column, values }),
+  and: (...clauses: unknown[]) => ({ clauses }),
+  eq: (column: unknown, value: unknown) => ({ column, value, operator: "eq" }),
+  gte: (column: unknown, value: unknown) => ({ column, value, operator: "gte" }),
+  lte: (column: unknown, value: unknown) => ({ column, value, operator: "lte" }),
 }));
 vi.mock("../../lib/boardVacancyPipeline", () => ({
   boardVacancyFingerprint: (advert: { organisationName: string; title: string; location: string | null }) =>
@@ -45,6 +65,28 @@ vi.mock("../../lib/vacancyUrlPolicy", () => ({
       return false;
     }
   },
+}));
+vi.mock("../../lib/healthcareRoleEvidence", () => ({
+  buildStrictHealthcareRoleEvidence: (input: {
+    title: string;
+    listingUrl: string;
+    detailUrl: string;
+    applicationUrl?: string | null;
+  }) => /\b(?:nurse|care assistant)\b/i.test(input.title)
+    ? {
+        kind: "strict_role_page",
+        sector: "healthcare",
+        listingUrl: input.listingUrl,
+        detailUrl: input.detailUrl,
+        applicationUrl: input.applicationUrl,
+        trustedSource: "manual_review",
+        roleEligibilityReview: {
+          status: "approved",
+          socCode: "2231",
+          evidenceUrl: input.detailUrl,
+        },
+      }
+    : null,
 }));
 
 const importer = await import("../../lib/reviewedCompanySiteImport");
@@ -126,13 +168,35 @@ describe("reviewed company-site vacancy import", () => {
     process.env.VACANCY_JOB_SECRET = "unit-test-import-secret";
     process.env.NODE_ENV = "test";
     mocks.sponsorRows = [{ organisationName: "Example Healthcare Ltd" }];
-    mocks.select.mockImplementation((selection: unknown) => {
+    mocks.vacancyRows = [];
+    mocks.updatedEvidenceValues = [];
+    mocks.select.mockImplementation(() => {
+      let selectedTable: unknown;
       const query = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue(mocks.sponsorRows),
+        from: vi.fn((table: unknown) => {
+          selectedTable = table;
+          return query;
+        }),
+        where: vi.fn().mockImplementation(async () =>
+          selectedTable === mocks.vacancyTable ? mocks.vacancyRows : mocks.sponsorRows,
+        ),
       };
-      void selection;
       return query;
+    });
+    mocks.transaction.mockImplementation(async (run: (transaction: unknown) => Promise<unknown>) => {
+      const transaction = {
+        update: vi.fn(() => ({
+          set: vi.fn((values: Record<string, unknown>) => {
+            mocks.updatedEvidenceValues.push(values);
+            return {
+              where: vi.fn(() => ({
+                returning: vi.fn().mockResolvedValue([{ id: mocks.updatedEvidenceValues.length }]),
+              })),
+            };
+          }),
+        })),
+      };
+      return run(transaction);
     });
     mocks.upsert.mockImplementation(async (
       adverts: Array<{ reviewedSourceRow?: string; url: string }>,
@@ -294,5 +358,113 @@ describe("reviewed company-site vacancy import", () => {
       importer.applyReviewedCompanySiteCsv(file, preview.dryRunToken),
     ).rejects.toThrow("Preview token expired or no longer matches");
     expect(mocks.upsert).toHaveBeenCalledTimes(callsAfterPreview);
+  });
+
+  it("repairs only the exact inserted production cohort and leaves unsupported roles hidden", async () => {
+    const rows = Array.from({ length: 158 }, (_, index) => {
+      const sourceIndex = index + 1;
+      const url = `https://example.org/jobs/role-${sourceIndex}`;
+      return sourceRow({
+        source_row: String(sourceIndex),
+        source_title: sourceIndex % 2 === 1 ? "Registered Nurse" : "Housekeeper",
+        source_location: `Location ${sourceIndex}`,
+        listing_url: url,
+        listing_final_url: url,
+        application_url: url,
+        application_final_url: url,
+      });
+    });
+    const file = csv(rows);
+    const applyReportId = "54cd3a9d-f189-4dc2-ac16-e91f2e8afcb0";
+    const generatedAt = new Date().toISOString();
+    const createdAt = new Date(Date.now() - 60_000);
+    const legacyEvidence = (row: Record<string, string>) => ({
+      kind: "strict_role_page",
+      listingUrl: row.source_careers_page,
+      detailUrl: row.listing_final_url,
+      applicationUrl: row.application_final_url || row.application_url,
+    });
+    const applicationRows = rows.map((row) => ({
+      sourceRow: row.source_row,
+      employer: row.source_employer,
+      title: row.source_title,
+      listingUrl: row.listing_url,
+      applicationUrl: row.application_final_url,
+      status: "inserted",
+    }));
+    const appliedReport = {
+      reportId: applyReportId,
+      reportKind: "apply",
+      workflow: "reviewed_explicit_company_site_vacancy_import",
+      mode: "apply",
+      environment: "production",
+      generatedAt,
+      inputSha256: (await importer.previewReviewedCompanySiteCsv(file)).inputSha256,
+      counts: { inserted: 158 },
+      rows: applicationRows,
+    };
+    mocks.upsert.mockImplementation(async (
+      adverts: Array<{ reviewedSourceRow?: string; url: string }>,
+    ) => ({
+      inserted: 0,
+      updated: 0,
+      revived: 0,
+      outcomes: adverts.map((advert) => ({
+        sourceRow: advert.reviewedSourceRow ?? null,
+        url: advert.url,
+        status: "already_present",
+        matchedBy: "canonical_url",
+      })),
+    }));
+    mocks.vacancyRows = rows.map((row, index) => ({
+      id: index + 1,
+      url: row.listing_url,
+      organisationName: row.source_employer,
+      title: row.source_title,
+      sourceType: "company_site",
+      applicationUrl: row.application_final_url,
+      createdAt,
+      lastVerifiedAt: createdAt,
+      liveness: index < 17 ? "unverified" : "live",
+      companyVacancyEvidence: legacyEvidence(row),
+    }));
+    process.env.NODE_ENV = "production";
+
+    const result = await importer.repairReviewedCompanySiteEvidence(file, applyReportId, appliedReport);
+
+    expect(result.counts).toEqual({
+      insertedRows: 158,
+      evidenceUpdated: 158,
+      alreadyCorrect: 0,
+      candidateEvidenceSupported: 79,
+      unsupportedRoleEvidence: 79,
+      verificationQueued: 17,
+    });
+    expect(result.rows[0]).toMatchObject({ candidateEvidenceSupported: true, evidenceStatus: "updated" });
+    expect(result.rows[1]).toMatchObject({ candidateEvidenceSupported: false, evidenceStatus: "updated" });
+    expect(result.verificationQueue).toHaveLength(17);
+    expect(mocks.updatedEvidenceValues).toHaveLength(158);
+    expect(mocks.updatedEvidenceValues.every((value) =>
+      Object.keys(value).join(",") === "companyVacancyEvidence",
+    )).toBe(true);
+    expect(mocks.updatedEvidenceValues[0]?.companyVacancyEvidence).toMatchObject({
+      sector: "healthcare",
+      trustedSource: "manual_review",
+    });
+    expect(mocks.updatedEvidenceValues[1]?.companyVacancyEvidence).toBeNull();
+  });
+
+  it("rejects any repair report other than the fixed production import before planning or writing", async () => {
+    process.env.NODE_ENV = "production";
+    await expect(
+      importer.repairReviewedCompanySiteEvidence(
+        csv([sourceRow()]),
+        "different-report-id",
+        {},
+      ),
+    ).rejects.toThrow("not the authorized repair cohort");
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });

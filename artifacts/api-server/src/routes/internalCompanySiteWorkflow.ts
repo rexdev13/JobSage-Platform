@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
+import { z } from "zod";
 import {
   runMappingApply,
   runMappingDryRun,
@@ -10,10 +11,14 @@ import {
   applyReviewedCompanySiteCsv,
   previewReviewedCompanySiteCsv,
   REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION,
+  REVIEWED_COMPANY_SITE_IMPORT_REPAIR_CONFIRMATION,
   REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES,
+  repairReviewedCompanySiteEvidence,
   ReviewedCompanySiteImportInputError,
   ReviewedCompanySiteImportTokenError,
+  ReviewedCompanySiteEvidenceRepairError,
 } from "../lib/reviewedCompanySiteImport";
+import { queueCompanySiteVerificationBatch } from "../lib/companySiteVerification";
 import { runHealthcareCompanySiteBatch } from "../lib/healthcareCompanySiteBatch";
 import {
   HEALTHCARE_BATCH_APPLY_CONFIRMATION,
@@ -36,6 +41,10 @@ const reviewedVacancyCsvUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES, files: 1, fields: 4 },
 }).single("file");
+const ReviewedCompanySiteRepairRequestSchema = z.object({
+  applyReportId: z.string().uuid(),
+  confirmRepair: z.literal(REVIEWED_COMPANY_SITE_IMPORT_REPAIR_CONFIRMATION),
+});
 
 function authenticate(req: Request, res: Response): boolean {
   const secret = process.env["VACANCY_JOB_SECRET"];
@@ -215,6 +224,77 @@ router.post(
       res.status(500).json({
         error: "Apply returned, but the durable audit report could not be saved. Do not assume the vacancy transaction was rolled back.",
         applyResult: report,
+      });
+    }
+  },
+);
+
+router.post(
+  "/internal/company-site-vacancies/reviewed-import/repair-visibility",
+  authenticateMiddleware,
+  requireReviewedVacancyImportEnabled,
+  parseReviewedVacancyCsvUpload,
+  async (req, res) => {
+    if (!req.file || !req.file.originalname.toLowerCase().endsWith(".csv")) {
+      res.status(400).json({ error: "Attach the original reviewed validation snapshot as a .csv file named file." });
+      return;
+    }
+    const parsedBody = ReviewedCompanySiteRepairRequestSchema.safeParse(req.body ?? {});
+    if (!parsedBody.success) {
+      res.status(400).json({
+        error: `repair requires the exact apply report ID and confirmRepair value "${REVIEWED_COMPANY_SITE_IMPORT_REPAIR_CONFIRMATION}".`,
+      });
+      return;
+    }
+
+    let appliedReport;
+    try {
+      appliedReport = await loadWorkflowReport(parsedBody.data.applyReportId);
+    } catch {
+      res.status(500).json({ error: "The production apply report could not be loaded; no vacancy rows were changed." });
+      return;
+    }
+    if (!appliedReport) {
+      res.status(404).json({ error: "The specified apply report was not found; no vacancy rows were changed." });
+      return;
+    }
+
+    let repair;
+    try {
+      repair = await repairReviewedCompanySiteEvidence(
+        req.file.buffer,
+        parsedBody.data.applyReportId,
+        appliedReport,
+      );
+    } catch (error) {
+      if (error instanceof ReviewedCompanySiteImportInputError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ReviewedCompanySiteEvidenceRepairError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      res.status(500).json({ error: "Visibility repair failed; inspect the production apply report before retrying." });
+      return;
+    }
+
+    const { verificationQueue, ...audit } = repair;
+    try {
+      const saved = await saveWorkflowReport("apply", {
+        workflow: "reviewed_explicit_company_site_vacancy_visibility_repair",
+        parentApplyReportId: parsedBody.data.applyReportId,
+        ...audit,
+        contactsEnriched: false,
+        nonInsertedRowsChanged: 0,
+      });
+      queueCompanySiteVerificationBatch(verificationQueue);
+      res.status(200).json(saved);
+    } catch {
+      queueCompanySiteVerificationBatch(verificationQueue);
+      res.status(500).json({
+        error: "Evidence repair committed, but its audit report could not be saved.",
+        repairResult: audit,
       });
     }
   },

@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   healthcareBatch: vi.fn(),
   reviewedImportPreview: vi.fn(),
   reviewedImportApply: vi.fn(),
+  reviewedImportRepair: vi.fn(),
+  queueCompanySiteVerification: vi.fn(),
 }));
 vi.mock("../../lib/companySiteWorkflow", () => ({
   runReadOnlyDiscovery: mocks.discovery,
@@ -27,10 +29,16 @@ vi.mock("../../lib/healthcareCompanySiteBatch", () => ({
 vi.mock("../../lib/reviewedCompanySiteImport", () => ({
   previewReviewedCompanySiteCsv: mocks.reviewedImportPreview,
   applyReviewedCompanySiteCsv: mocks.reviewedImportApply,
+  repairReviewedCompanySiteEvidence: mocks.reviewedImportRepair,
   REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION: "apply-reviewed-company-site-vacancy-import",
+  REVIEWED_COMPANY_SITE_IMPORT_REPAIR_CONFIRMATION: "repair-reviewed-company-site-import-visibility",
   REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES: 1_000_000,
   ReviewedCompanySiteImportInputError: class extends Error {},
   ReviewedCompanySiteImportTokenError: class extends Error {},
+  ReviewedCompanySiteEvidenceRepairError: class extends Error {},
+}));
+vi.mock("../../lib/companySiteVerification", () => ({
+  queueCompanySiteVerificationBatch: mocks.queueCompanySiteVerification,
 }));
 const { default: router } = await import("../../routes/internalCompanySiteWorkflow");
 const app = express();
@@ -71,6 +79,16 @@ describe("internal company-site workflow routes", () => {
       rows: [],
       counts: { sourceRows: 0, wouldInsert: 0, inserted: 0, alreadyPresent: 0, held: 0, notImported: 0 },
     });
+    mocks.reviewedImportRepair.mockResolvedValue({
+      mode: "evidence_repair",
+      environment: "production",
+      applyReportId: "54cd3a9d-f189-4dc2-ac16-e91f2e8afcb0",
+      inputSha256: "file-hash",
+      counts: { insertedRows: 158, evidenceUpdated: 158, verificationQueued: 17 },
+      rows: [],
+      verificationQueue: [{ id: 1, url: "https://example.org/jobs/nurse" }],
+    });
+    mocks.queueCompanySiteVerification.mockClear();
   });
   afterEach(() => {
     if (original == null) delete process.env.VACANCY_JOB_SECRET;
@@ -95,6 +113,43 @@ describe("internal company-site workflow routes", () => {
     expect(mocks.discovery).toHaveBeenCalledWith({ limit: 5 });
     expect(mocks.dryRun).toHaveBeenCalledWith({ discoveryReportId: "discovery-id" });
     expect(mocks.apply).toHaveBeenCalledWith({ dryRunReportId: "dry-id", approvalToken: "approved-token" });
+  });
+
+  it("requires the exact repair confirmation and queues only the verified repair result", async () => {
+    const header = { "x-jobsage-job-secret": "test-job-secret" };
+    const applyReportId = "54cd3a9d-f189-4dc2-ac16-e91f2e8afcb0";
+    const rejected = await request(app)
+      .post("/internal/company-site-vacancies/reviewed-import/repair-visibility")
+      .set(header)
+      .field("applyReportId", applyReportId)
+      .field("confirmRepair", "wrong-confirmation")
+      .attach("file", Buffer.from("source_row\n1\n"), {
+        filename: "reviewed.csv",
+        contentType: "text/csv",
+      });
+    expect(rejected.status).toBe(400);
+    expect(mocks.reviewedImportRepair).not.toHaveBeenCalled();
+
+    const response = await request(app)
+      .post("/internal/company-site-vacancies/reviewed-import/repair-visibility")
+      .set(header)
+      .field("applyReportId", applyReportId)
+      .field("confirmRepair", "repair-reviewed-company-site-import-visibility")
+      .attach("file", Buffer.from("source_row\n1\n"), {
+        filename: "reviewed.csv",
+        contentType: "text/csv",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.workflow).toBe("reviewed_explicit_company_site_vacancy_visibility_repair");
+    expect(mocks.reviewedImportRepair).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      applyReportId,
+      expect.objectContaining({ reportId: "report-id" }),
+    );
+    expect(mocks.queueCompanySiteVerification).toHaveBeenCalledWith([
+      { id: 1, url: "https://example.org/jobs/nurse" },
+    ]);
   });
 
   it("accepts an authenticated reviewed JSON mapping file", async () => {
