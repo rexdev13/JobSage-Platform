@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "signature": "d2b0e88d77f220d073265c88e9d5c8a5cfe04bde33571a45bc9f229f28bd40e5",
+  "inputPath": "/tmp/jobsage-tech-eng-website-pilot-2026-10-06.csv",
+  "inputRows": 100,
+  "healthcareRowsExcluded": 0,
+  "nonHealthcareRows": 100,
+  "uniqueNonHealthcareRows": 100,
+  "selectedRows": 100,
+  "sectors": [
+    {
+      "label": "Engineering",
+      "sourceCount": 50,
+      "selectedCount": 50,
+      "capApplied": false,
+      "slug": "engineering"
+    },
+    {
+      "label": "Technology",
+      "sourceCount": 50,
+      "selectedCount": 50,
+      "capApplied": false,
+      "slug": "technology"
+    }
+  ],
+  "processedCount": 100,
+  "publicFetchCalls": 164,
+  "siteFetchCalls": 64,
+  "sponsorListQueries": 100,
+  "searchQueries": 0,
+  "searchConfigured": false,
+  "searchFailureCount": 0,
+  "cacheHits": 0,
+  "startedAt": "2026-10-06T19:01:34.201Z",
+  "updatedAt": "2026-10-06T19:07:14.977Z",
+  "complete": true,
+  "stopReason": "",
+  "journalPath": "artifacts/technology-engineering-website-pilot-2026-10-06/progress.jsonl",
+  "outputs": {
+    "combinedCsv": "artifacts/technology-engineering-website-pilot-2026-10-06/combined.csv",
+    "sectorDirectory": "artifacts/technology-engineering-website-pilot-2026-10-06/by-sector",
+    "report": "artifacts/technology-engineering-website-pilot-2026-10-06/report.md",
+    "progress": "artifacts/technology-engineering-website-pilot-2026-10-06/progress.json",
+    "journal": "artifacts/technology-engineering-website-pilot-2026-10-06/progress.jsonl"
+  }
+}

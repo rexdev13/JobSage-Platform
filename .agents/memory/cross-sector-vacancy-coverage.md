@@ -9,3 +9,11 @@ The product objective is dependable, automated vacancy discovery across sectors 
 
 **How to apply:** Measure coverage, freshness, precision, and recall by sector/provider. Preserve verified employer/source evidence, distinguish no-results from failure, and never claim universal completeness or infer vacancy sponsorship from employer sponsor status. See `.agents/outputs/vacancy-system-architecture-handoff-2026-10-06.md` for the current architecture and proposed direction.
 
+## Employer-universe seeding
+
+Companies House monthly live-company data provides legal-company identity, status, registered address, and SIC classifications, but not employer websites or vacancies. An SIC match is a candidate lead, not proof that a company actively operates in that sector or hires.
+
+**Why:** Expansion beyond licensed sponsors needs broader seed data, but legal registration data cannot establish an employer's hiring activity or vacancy coverage.
+
+**How to apply:** Use Companies House only to seed candidate identities; crosswalk SIC codes, deduplicate legal entities and brands, then independently verify employer domains and hiring sources. Do not use its row count as a sector-coverage denominator. Source: https://www.gov.uk/guidance/companies-house-data-products
+

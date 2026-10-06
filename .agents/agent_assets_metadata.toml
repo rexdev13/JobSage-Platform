@@ -1538,3 +1538,17 @@ mtime_ms = 1791312774628
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d1775cb7-b186-45ea-846b-b8e6631ee94f/17ae2e91-ef80-4f17-b917-b84f52cd230a"
 storage_version_token = "1791312912507570"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "tcnMkkVT5MRJBZfsKRr7q"
+uri = "file://artifacts/technology-engineering-website-pilot-2026-10-06/report.md"
+type = "text"
+title = "Technology & Engineering website-discovery pilot"
+description = "Verified outcomes and coverage limits from the 100-employer, sponsor-only website discovery pilot."
+logical_id = "eaa616a7-0aae-4408-b95f-e07075413ca7"
+content_hash = "sha256:9f83059b30b76b3605b2e1f4dee8dfcb04cc8e3cb5e4786a305e00dad722947c"
+size = 5763
+mtime_ms = 1791313684365
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/eaa616a7-0aae-4408-b95f-e07075413ca7/f8c0a66e-3350-4179-98b5-1bd4a04dd67a"
+storage_version_token = "1791313697894389"
+content_type = "text/markdown"
