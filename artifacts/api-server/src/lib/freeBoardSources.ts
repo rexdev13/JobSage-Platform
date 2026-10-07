@@ -10,6 +10,8 @@ const MAX_FEED_BYTES = 8 * 1024 * 1024;
 const MAX_SITEMAP_BYTES = 20 * 1024 * 1024;
 const TEACHING_VACANCY_DETAIL_BATCH = 10;
 const TEACHING_SITEMAP_CACHE_TTL_MS = 10 * 60_000;
+const MAX_TEACHING_LIST_IDS = 20_000;
+const MAX_TEACHING_CURSOR_CHARS = 1_000_000;
 
 export type FreeBoardPage = {
   adverts: BoardAdvert[];
@@ -18,6 +20,10 @@ export type FreeBoardPage = {
   recordsFetched?: number;
   reportedTotal?: number;
   goneCount?: number;
+  coverageWarning?: string;
+  sitemapTotal?: number;
+  sitemapOnlyCount?: number;
+  stopAfterPage?: boolean;
 };
 
 export type FreeBoardPageContext = {
@@ -333,7 +339,7 @@ function mapTeachingJob(job: TeachingJob, fallbackSlug?: string): BoardAdvert {
     id: "teaching-vacancies",
     provider: "teaching_vacancies",
     boardName: "Teaching Vacancies",
-    parserVersion: "tv-json-v1",
+    parserVersion: "tv-json-v3",
   };
   return makeAdvert(source, {
     externalId: fallbackSlug ?? (url ? new URL(url).pathname.split("/").filter(Boolean).at(-1) : ""),
@@ -385,9 +391,17 @@ export function parseTeachingSitemapSlugs(xml: string): string[] {
   return [...slugs].sort();
 }
 
+type TeachingProgress = {
+  listedIds: string[];
+  listRecordsFetched: number;
+  reportedTotal: number | null;
+  reportedTotalChanged: boolean;
+  listCoverageWarning: string | null;
+};
+
 type TeachingCursor =
-  | { phase: "list"; page: number }
-  | { phase: "sitemap"; offset: number; sitemapHash: string | null };
+  | ({ phase: "list"; page: number } & TeachingProgress)
+  | ({ phase: "sitemap"; offset: number; sitemapHash: string | null } & TeachingProgress);
 
 let teachingSitemapCache: {
   slugs: string[];
@@ -416,17 +430,18 @@ async function getTeachingSitemap(deadlineMs: number): Promise<{
   return teachingSitemapCache;
 }
 
-function parseTeachingCursor(cursor: string | null): TeachingCursor {
-  if (!cursor) return { phase: "list", page: 1 };
+export function parseTeachingCursor(cursor: string | null): TeachingCursor {
+  if (!cursor) return { phase: "list", page: 1, ...initialTeachingProgress() };
   try {
     const parsed: unknown = JSON.parse(cursor);
     if (typeof parsed === "number" && Number.isInteger(parsed) && parsed > 0) {
-      return { phase: "list", page: parsed };
+      return { phase: "list", page: parsed, ...initialTeachingProgress() };
     }
     if (!parsed || typeof parsed !== "object") throw new Error("Unsupported cursor shape.");
     const state = parsed as Partial<TeachingCursor>;
+    const progress = parseTeachingProgress(state);
     if (state.phase === "list" && Number.isInteger(state.page) && Number(state.page) > 0) {
-      return { phase: "list", page: Number(state.page) };
+      return { phase: "list", page: Number(state.page), ...progress };
     }
     if (
       state.phase === "sitemap" &&
@@ -438,15 +453,130 @@ function parseTeachingCursor(cursor: string | null): TeachingCursor {
         phase: "sitemap",
         offset: Number(state.offset),
         sitemapHash: state.sitemapHash ?? null,
+        ...progress,
       };
     }
   } catch {
     // Old reference cursors ("fill" or a page number) are upgraded safely.
-    if (cursor === "fill") return { phase: "sitemap", offset: 0, sitemapHash: null };
+    if (cursor === "fill") {
+      return {
+        phase: "sitemap",
+        offset: 0,
+        sitemapHash: null,
+        ...initialTeachingProgress(),
+      };
+    }
     const page = Number(cursor);
-    if (Number.isInteger(page) && page > 0) return { phase: "list", page };
+    if (Number.isInteger(page) && page > 0) {
+      return { phase: "list", page, ...initialTeachingProgress() };
+    }
   }
   throw new Error("Teaching Vacancies source cursor is invalid.");
+}
+
+function initialTeachingProgress(): TeachingProgress {
+  return {
+    listedIds: [],
+    listRecordsFetched: 0,
+    reportedTotal: null,
+    reportedTotalChanged: false,
+    listCoverageWarning: null,
+  };
+}
+
+function parseTeachingProgress(state: Partial<TeachingCursor>): TeachingProgress {
+  const listRecordsFetched = state.listRecordsFetched ?? 0;
+  const reportedTotal = state.reportedTotal ?? null;
+  const listCoverageWarning = state.listCoverageWarning ?? null;
+  if (
+    !Number.isInteger(listRecordsFetched) || listRecordsFetched < 0 ||
+    (reportedTotal != null && (!Number.isInteger(reportedTotal) || reportedTotal < 0)) ||
+    typeof state.reportedTotalChanged !== "boolean" ||
+    (listCoverageWarning != null && typeof listCoverageWarning !== "string")
+  ) {
+    throw new Error("Teaching Vacancies cursor has invalid pagination progress.");
+  }
+  return {
+    listedIds: parseTeachingListedIds(state.listedIds),
+    listRecordsFetched,
+    reportedTotal,
+    reportedTotalChanged: state.reportedTotalChanged,
+    listCoverageWarning,
+  };
+}
+
+function parseTeachingListedIds(rawIds: unknown): string[] {
+  if (rawIds == null) return [];
+  if (!Array.isArray(rawIds) || rawIds.length > MAX_TEACHING_LIST_IDS) {
+    throw new Error("Teaching Vacancies cursor has an invalid listing ID set.");
+  }
+  const ids = new Set<string>();
+  for (const id of rawIds) {
+    if (typeof id !== "string" || !/^[a-z0-9-]{1,200}$/i.test(id)) {
+      throw new Error("Teaching Vacancies cursor contains an invalid listing ID.");
+    }
+    ids.add(id);
+  }
+  return [...ids].sort();
+}
+
+function encodeTeachingCursor(cursor: TeachingCursor): string {
+  const encoded = JSON.stringify(cursor);
+  if (encoded.length > MAX_TEACHING_CURSOR_CHARS) {
+    throw new Error("Teaching Vacancies listing ID cursor exceeded its safe size.");
+  }
+  return encoded;
+}
+
+export function getTeachingSitemapBackfillSlugs(
+  sitemapSlugs: readonly string[],
+  listedIds: readonly string[],
+): string[] {
+  const listed = new Set(listedIds);
+  return sitemapSlugs.filter((slug) => !listed.has(slug));
+}
+
+export function getTeachingSitemapBackfillBatch(
+  sitemapSlugs: readonly string[],
+  listedIds: readonly string[],
+  seenExternalIds: ReadonlySet<string>,
+  offset: number,
+  batchSize: number,
+): { batch: string[]; nextOffset: number; sitemapOnlyCount: number } {
+  const candidates = getTeachingSitemapBackfillSlugs(sitemapSlugs, listedIds);
+  const page = candidates.slice(offset, offset + batchSize);
+  return {
+    batch: page.filter((slug) => !seenExternalIds.has(slug)),
+    nextOffset: offset + page.length,
+    sitemapOnlyCount: candidates.length,
+  };
+}
+
+export function mergeTeachingListedIds(
+  existingIds: readonly string[],
+  discoveredIds: readonly (string | null)[],
+): string[] {
+  return parseTeachingListedIds([
+    ...existingIds,
+    ...discoveredIds.filter(
+      (id): id is string => typeof id === "string" && /^[a-z0-9-]{1,200}$/i.test(id),
+    ),
+  ]);
+}
+
+export function getTeachingListCoverageWarning(
+  recordsFetched: number,
+  reportedTotal: number | null,
+  reportedTotalChanged: boolean,
+): string | null {
+  const problems: string[] = [];
+  if (reportedTotalChanged) problems.push("the reported total changed during pagination");
+  if (reportedTotal != null && recordsFetched !== reportedTotal) {
+    problems.push(`fetched ${recordsFetched} raw list records, but the provider reported ${reportedTotal}`);
+  }
+  return problems.length > 0
+    ? `Teaching Vacancies list-feed coverage needs review: ${problems.join("; ")}.`
+    : null;
 }
 
 type ArbeitnowJob = {
@@ -503,6 +633,66 @@ type HimalayasSearchResponse = {
   totalCount?: number;
 };
 
+export type HimalayasCursor = {
+  version: 1;
+  page: number;
+  recordsFetched: number;
+  reportedTotal: number | null;
+  pageLimit: number | null;
+  reportedTotalChanged: boolean;
+  pageLimitChanged: boolean;
+};
+
+function initialHimalayasCursor(page = 1): HimalayasCursor {
+  return {
+    version: 1,
+    page,
+    recordsFetched: 0,
+    reportedTotal: null,
+    pageLimit: null,
+    reportedTotalChanged: false,
+    pageLimitChanged: false,
+  };
+}
+
+export function parseHimalayasCursor(cursor: string | null): HimalayasCursor {
+  if (cursor == null) return initialHimalayasCursor();
+  try {
+    const parsed: unknown = JSON.parse(cursor);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const state = parsed as Partial<HimalayasCursor>;
+      if (
+        state.version === 1 &&
+        Number.isInteger(state.page) && Number(state.page) >= 1 &&
+        Number.isInteger(state.recordsFetched) && Number(state.recordsFetched) >= 0 &&
+        (state.reportedTotal == null ||
+          Number.isInteger(state.reportedTotal) && Number(state.reportedTotal) >= 0) &&
+        (state.pageLimit == null ||
+          Number.isInteger(state.pageLimit) && Number(state.pageLimit) >= 1) &&
+        typeof state.reportedTotalChanged === "boolean" &&
+        typeof state.pageLimitChanged === "boolean"
+      ) {
+        return {
+          version: 1,
+          page: Number(state.page),
+          recordsFetched: Number(state.recordsFetched),
+          reportedTotal: state.reportedTotal ?? null,
+          pageLimit: state.pageLimit ?? null,
+          reportedTotalChanged: state.reportedTotalChanged,
+          pageLimitChanged: state.pageLimitChanged,
+        };
+      }
+    }
+  } catch {
+    // Numeric cursors from the earlier adapter are still readable during a safe reset.
+  }
+  const legacyPage = Number(cursor);
+  if (Number.isInteger(legacyPage) && legacyPage >= 1) {
+    return initialHimalayasCursor(legacyPage);
+  }
+  throw new Error("Himalayas source cursor is invalid.");
+}
+
 function parseHimalayasRestrictions(value: unknown): Array<{
   label: string;
   countryCode: string;
@@ -550,7 +740,7 @@ function mapHimalayasJob(job: HimalayasJob): BoardAdvert {
     id: "himalayas",
     provider: "himalayas",
     boardName: "Himalayas",
-    parserVersion: "himalayas-uk-search-v2",
+    parserVersion: "himalayas-uk-search-v3",
   };
   return makeAdvert(source, {
     externalId: guid,
@@ -580,9 +770,13 @@ function mapHimalayasJob(job: HimalayasJob): BoardAdvert {
 export function parseHimalayasSearchResponse(
   value: unknown,
   page: number,
+  progress: HimalayasCursor = initialHimalayasCursor(page),
 ): FreeBoardPage {
   if (!Number.isInteger(page) || page < 1) {
     throw new Error("Himalayas search page cursor is invalid.");
+  }
+  if (progress.page !== page) {
+    throw new Error("Himalayas cursor page did not match its progress state.");
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Himalayas search response was not an object.");
@@ -603,15 +797,49 @@ export function parseHimalayasSearchResponse(
     }
     return mapHimalayasJob(job as HimalayasJob);
   });
-  const totalPages = Math.ceil(Number(response.totalCount) / Number(response.limit));
-  if ((page <= totalPages && adverts.length === 0) || (page > totalPages && adverts.length > 0)) {
-    throw new Error("Himalayas search page did not match its reported result count.");
+  const currentTotal = Number(response.totalCount);
+  const currentLimit = Number(response.limit);
+  const totalPages = Math.ceil(currentTotal / currentLimit);
+  const recordsFetched = progress.recordsFetched + adverts.length;
+  const reportedTotalChanged = progress.reportedTotalChanged ||
+    (progress.reportedTotal != null && progress.reportedTotal !== currentTotal);
+  const pageLimitChanged = progress.pageLimitChanged ||
+    (progress.pageLimit != null && progress.pageLimit !== currentLimit);
+  const returnedBeyondReportedPages = page > totalPages && adverts.length > 0;
+  const ended = page >= totalPages || page > totalPages || adverts.length === 0;
+  const coverageProblems: string[] = [];
+  if (adverts.length === 0 && page <= totalPages) {
+    coverageProblems.push(`page ${page} was empty before the reported final page ${totalPages}`);
   }
+  if (returnedBeyondReportedPages) {
+    coverageProblems.push(`page ${page} returned listings beyond the reported final page ${totalPages}`);
+  }
+  if (ended && reportedTotalChanged) {
+    coverageProblems.push("the reported total changed during pagination");
+  }
+  if (ended && pageLimitChanged) {
+    coverageProblems.push("the reported page size changed during pagination");
+  }
+  if (ended && recordsFetched !== currentTotal) {
+    coverageProblems.push(`fetched ${recordsFetched} raw listings, but the provider reported ${currentTotal}`);
+  }
+  const nextState: HimalayasCursor = {
+    version: 1,
+    page: page + 1,
+    recordsFetched,
+    reportedTotal: progress.reportedTotal ?? currentTotal,
+    pageLimit: progress.pageLimit ?? currentLimit,
+    reportedTotalChanged,
+    pageLimitChanged,
+  };
   return {
     adverts,
     recordsFetched: adverts.length,
-    reportedTotal: response.totalCount,
-    nextCursor: page < totalPages ? String(page + 1) : null,
+    reportedTotal: currentTotal,
+    nextCursor: ended || coverageProblems.length > 0 ? null : JSON.stringify(nextState),
+    ...(coverageProblems.length > 0
+      ? { coverageWarning: `Himalayas coverage needs review: ${coverageProblems.join("; ")}.` }
+      : {}),
   };
 }
 
@@ -655,8 +883,9 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
     id: "teaching-vacancies",
     provider: "teaching_vacancies",
     boardName: "Teaching Vacancies",
-    parserVersion: "tv-json-v1",
+    parserVersion: "tv-json-v3",
     maxPagesPerRun: 200,
+    reconcileMissingAfterSweep: false,
     async fetchPage({ cursor, deadlineMs, seenExternalIds }) {
       const state = parseTeachingCursor(cursor);
       if (state.phase === "list") {
@@ -671,23 +900,70 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
         }
         const rows = response.data;
         const adverts = rows.map((job) => mapTeachingJob(job));
+        const listedIds = mergeTeachingListedIds(
+          state.listedIds,
+          adverts.map((advert) => advert.externalId),
+        );
+        const fetched = state.listRecordsFetched + rows.length;
+        const pageReportedTotal = Number.isInteger(response.meta?.count) &&
+          Number(response.meta?.count) >= 0
+          ? Number(response.meta?.count)
+          : null;
+        const reportedTotalChanged = state.reportedTotalChanged ||
+          (state.reportedTotal != null &&
+            pageReportedTotal != null &&
+            state.reportedTotal !== pageReportedTotal);
         const hasNext = Boolean(response.links?.next) && rows.length > 0;
+        const reportedTotal = pageReportedTotal ?? state.reportedTotal;
+        const listCoverageWarning = hasNext
+          ? state.listCoverageWarning
+          : getTeachingListCoverageWarning(
+              fetched,
+              reportedTotal,
+              reportedTotalChanged,
+            );
+        const progress: TeachingProgress = {
+          listedIds,
+          listRecordsFetched: fetched,
+          reportedTotal,
+          reportedTotalChanged,
+          listCoverageWarning,
+        };
         return {
           adverts,
           nextCursor: hasNext
-            ? JSON.stringify({ phase: "list", page: state.page + 1 } satisfies TeachingCursor)
-            : JSON.stringify({ phase: "sitemap", offset: 0, sitemapHash: null } satisfies TeachingCursor),
-          ...(Number.isFinite(response.meta?.count) ? { reportedTotal: response.meta!.count } : {}),
+            ? encodeTeachingCursor({
+                phase: "list",
+                page: state.page + 1,
+                ...progress,
+              })
+            : encodeTeachingCursor({
+                phase: "sitemap",
+                offset: 0,
+                sitemapHash: null,
+                ...progress,
+              }),
+          ...(reportedTotal != null ? { reportedTotal } : {}),
+          ...(!hasNext ? { stopAfterPage: true } : {}),
         };
       }
 
       const { slugs, hash: sitemapHash } = await getTeachingSitemap(deadlineMs);
       const offset = state.sitemapHash === sitemapHash ? state.offset : 0;
-      const batch = slugs.slice(offset, offset + TEACHING_VACANCY_DETAIL_BATCH);
+      const {
+        batch,
+        nextOffset,
+        sitemapOnlyCount,
+      } = getTeachingSitemapBackfillBatch(
+        slugs,
+        state.listedIds,
+        seenExternalIds,
+        offset,
+        TEACHING_VACANCY_DETAIL_BATCH,
+      );
       const adverts: BoardAdvert[] = [];
       let goneCount = 0;
       for (const slug of batch) {
-        if (seenExternalIds.has(slug)) continue;
         try {
           const job = await fetchJson<TeachingJob>(
             `https://teaching-vacancies.service.gov.uk/api/v1/jobs/${encodeURIComponent(slug)}.json`,
@@ -705,17 +981,22 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
           throw error;
         }
       }
-      const nextOffset = offset + batch.length;
       return {
         adverts,
         goneCount,
-        nextCursor: nextOffset >= slugs.length
+        sitemapTotal: slugs.length,
+        sitemapOnlyCount,
+        nextCursor: nextOffset >= sitemapOnlyCount
           ? null
-          : JSON.stringify({
+          : encodeTeachingCursor({
+              ...state,
               phase: "sitemap",
               offset: nextOffset,
               sitemapHash,
-            } satisfies TeachingCursor),
+            }),
+        ...(nextOffset >= sitemapOnlyCount && state.listCoverageWarning
+          ? { coverageWarning: state.listCoverageWarning }
+          : {}),
       };
     },
   },
@@ -815,21 +1096,21 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
     id: "himalayas",
     provider: "himalayas",
     boardName: "Himalayas",
-    parserVersion: "himalayas-uk-search-v2",
+    parserVersion: "himalayas-uk-search-v3",
     maxPagesPerRun: 100,
     reconcileMissingAfterSweep: false,
     async fetchPage({ cursor, deadlineMs }) {
-      const page = pageNumber(cursor);
+      const progress = parseHimalayasCursor(cursor);
       const response = await fetchJson<unknown>(
         urlWithCursor("https://himalayas.app/jobs/api/search", {
           country: "GB",
           exclude_worldwide: "false",
-          page: String(page),
+          page: String(progress.page),
           sort: "recent",
         }),
         deadlineMs,
       );
-      return parseHimalayasSearchResponse(response, page);
+      return parseHimalayasSearchResponse(response, progress.page, progress);
     },
   },
 ];

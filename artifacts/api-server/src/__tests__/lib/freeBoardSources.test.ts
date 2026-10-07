@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   FREE_BOARD_SOURCES,
+  getTeachingListCoverageWarning,
+  getTeachingSitemapBackfillBatch,
+  getTeachingSitemapBackfillSlugs,
+  mergeTeachingListedIds,
+  parseHimalayasCursor,
   parseHimalayasSearchResponse,
   parseNhsVacancyXml,
+  parseTeachingCursor,
   parseTeachingSitemapSlugs,
 } from "../../lib/freeBoardSources";
 import { ALL_FREE_BOARD_SOURCES } from "../../lib/freeBoardSourceRegistry";
@@ -26,6 +32,11 @@ describe("free vacancy source adapters", () => {
       "charityjob",
     ]);
     expect(FREE_BOARD_SOURCES).toHaveLength(5);
+    expect(ALL_FREE_BOARD_SOURCES.find((source) => source.id === "teaching-vacancies"))
+      .toMatchObject({
+        parserVersion: "tv-json-v3",
+        reconcileMissingAfterSweep: false,
+      });
   });
 
   it("maps UK-eligible Himalayas search pages and retains worldwide listings", () => {
@@ -50,7 +61,12 @@ describe("free vacancy source adapters", () => {
     expect(firstPage).toMatchObject({
       recordsFetched: 1,
       reportedTotal: 21,
-      nextCursor: "2",
+    });
+    expect(parseHimalayasCursor(firstPage.nextCursor)).toMatchObject({
+      page: 2,
+      recordsFetched: 1,
+      reportedTotal: 21,
+      pageLimit: 20,
     });
     expect(firstPage.adverts[0]).toMatchObject({
       externalId: "remote-policy-analyst",
@@ -67,8 +83,11 @@ describe("free vacancy source adapters", () => {
       limit: 20,
       totalCount: 21,
       jobs: [{ ...ukJob, guid: "worldwide-role", locationRestrictions: [] }],
-    }, 2);
-    expect(lastPage.nextCursor).toBeNull();
+    }, 2, parseHimalayasCursor(firstPage.nextCursor));
+    expect(lastPage).toMatchObject({
+      nextCursor: null,
+      coverageWarning: expect.stringContaining("fetched 2 raw listings, but the provider reported 21"),
+    });
     expect(lastPage.adverts[0]).toMatchObject({
       location: "Remote (Worldwide)",
       sourceMetadata: { country: null },
@@ -81,15 +100,62 @@ describe("free vacancy source adapters", () => {
       totalCount: 21,
       jobs: [{ title: "Missing location evidence" }],
     }, 1)).toThrow("omitted its location restrictions");
-    expect(() => parseHimalayasSearchResponse({
+    expect(parseHimalayasSearchResponse({
       limit: 20,
       totalCount: 21,
       jobs: [],
-    }, 1)).toThrow("did not match its reported result count");
+    }, 1).coverageWarning).toContain("page 1 was empty");
     expect(() => parseHimalayasSearchResponse({
       limit: 20,
       jobs: [],
     }, 1)).toThrow("omitted valid paging totals");
+  });
+
+  it("accepts a fully returned Himalayas sweep and flags changing page totals", () => {
+    const first = parseHimalayasSearchResponse({
+      limit: 1,
+      totalCount: 2,
+      jobs: [{
+        title: "Role one",
+        companyName: "Example Sponsor Employer",
+        guid: "role-one",
+        locationRestrictions: [],
+      }],
+    }, 1);
+    const complete = parseHimalayasSearchResponse({
+      limit: 1,
+      totalCount: 2,
+      jobs: [{
+        title: "Role two",
+        companyName: "Example Sponsor Employer",
+        guid: "role-two",
+        locationRestrictions: [],
+      }],
+    }, 2, parseHimalayasCursor(first.nextCursor));
+    expect(complete).toMatchObject({ nextCursor: null, recordsFetched: 1 });
+    expect(complete.coverageWarning).toBeUndefined();
+
+    const changingStart = parseHimalayasSearchResponse({
+      limit: 1,
+      totalCount: 3,
+      jobs: [{
+        title: "Role one",
+        companyName: "Example Sponsor Employer",
+        guid: "role-one",
+        locationRestrictions: [],
+      }],
+    }, 1);
+    const changed = parseHimalayasSearchResponse({
+      limit: 1,
+      totalCount: 2,
+      jobs: [{
+        title: "Role two",
+        companyName: "Example Sponsor Employer",
+        guid: "role-two",
+        locationRestrictions: [],
+      }],
+    }, 2, parseHimalayasCursor(changingStart.nextCursor));
+    expect(changed.coverageWarning).toContain("reported total changed during pagination");
   });
 
   it("maps NHS XML records and validates pagination totals", () => {
@@ -142,6 +208,73 @@ describe("free vacancy source adapters", () => {
       </urlset>
     `);
     expect(slugs).toEqual(["head-teacher-example-school"]);
+  });
+
+  it("uses sitemap details only for Teaching Vacancies IDs absent from the list feed", () => {
+    const resumed = parseTeachingCursor(JSON.stringify({
+      phase: "list",
+      page: 2,
+      listedIds: ["head-teacher-example-school"],
+      listRecordsFetched: 100,
+      reportedTotal: 200,
+      reportedTotalChanged: false,
+      listCoverageWarning: null,
+    }));
+    expect(resumed).toMatchObject({
+      phase: "list",
+      page: 2,
+      listedIds: ["head-teacher-example-school"],
+      listRecordsFetched: 100,
+      reportedTotal: 200,
+    });
+
+    const merged = mergeTeachingListedIds(
+      resumed.listedIds,
+      ["head-teacher-example-school", "teaching-assistant-role", null, "../invalid"],
+    );
+    expect(merged).toEqual([
+      "head-teacher-example-school",
+      "teaching-assistant-role",
+    ]);
+    const sitemapSlugs = [
+      "head-teacher-example-school",
+      "sitemap-only-role",
+      "already-seen-role",
+    ];
+    expect(getTeachingSitemapBackfillSlugs(
+      sitemapSlugs,
+      merged,
+    )).toEqual(["sitemap-only-role", "already-seen-role"]);
+    const firstBatch = getTeachingSitemapBackfillBatch(
+      sitemapSlugs,
+      merged,
+      new Set(),
+      0,
+      1,
+    );
+    expect(firstBatch).toEqual({
+      batch: ["sitemap-only-role"],
+      nextOffset: 1,
+      sitemapOnlyCount: 2,
+    });
+    const resumedBatch = getTeachingSitemapBackfillBatch(
+      sitemapSlugs,
+      merged,
+      new Set(["sitemap-only-role"]),
+      firstBatch.nextOffset,
+      1,
+    );
+    expect(resumedBatch).toEqual({
+      batch: ["already-seen-role"],
+      nextOffset: 2,
+      sitemapOnlyCount: 2,
+    });
+
+    expect(getTeachingListCoverageWarning(199, 200, false))
+      .toContain("fetched 199 raw list records, but the provider reported 200");
+    expect(getTeachingListCoverageWarning(200, 200, true))
+      .toContain("reported total changed during pagination");
+    expect(getTeachingListCoverageWarning(200, 200, false)).toBeNull();
   });
 
   it("maps NHS Scotland result cards and preserves the reported total", () => {

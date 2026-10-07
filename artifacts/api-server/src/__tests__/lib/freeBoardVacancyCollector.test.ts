@@ -203,6 +203,49 @@ describe("free-board vacancy collector", () => {
     });
   });
 
+  it("persists and yields at a source phase boundary before fetching the next phase", async () => {
+    mocks.fetchPage.mockReset().mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Trust",
+        employer: "Example Trust",
+        title: "Staff Nurse",
+        location: "London",
+        salary: null,
+        url: "https://fixture-board.example/jobs/1001",
+        applicationUrl: null,
+        description: null,
+        postedDate: null,
+        targetRegions: [],
+        boardName: "Fixture Board",
+        externalId: "1001",
+        sourceType: "job_board",
+      }],
+      nextCursor: "sitemap-phase",
+      stopAfterPage: true,
+    });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 5,
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      selected: 1,
+      errors: 0,
+      done: false,
+      remaining: 1,
+      metrics: {
+        sources: [{
+          outcome: "partial",
+          nextCursor: "sitemap-phase",
+        }],
+      },
+    });
+    expect(mocks.fetchPage).toHaveBeenCalledTimes(1);
+    expect(mocks.stateWrites).toHaveLength(2);
+    expect(mocks.stateWrites.every((write) => write["cursor"] === "sitemap-phase")).toBe(true);
+  });
+
   it("retries immediately when a parser version changes during backoff", async () => {
     Object.assign(storedState, {
       parserVersion: "fixture-v0",
@@ -239,6 +282,61 @@ describe("free-board vacancy collector", () => {
       cursor: null,
       nextRetryAt: null,
     });
+  });
+
+  it("does not mark a source complete or reconcile missing rows when coverage needs review", async () => {
+    mocks.fetchPage.mockReset().mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Trust",
+        employer: "Example Trust",
+        title: "Staff Nurse",
+        location: "London",
+        salary: null,
+        url: "https://fixture-board.example/jobs/1001",
+        applicationUrl: null,
+        description: null,
+        postedDate: null,
+        targetRegions: [],
+        boardName: "Fixture Board",
+        externalId: "1001",
+        sourceType: "job_board",
+      }],
+      reportedTotal: 21,
+      coverageWarning: "Feed returned 19 raw listings; it reported 21.",
+      nextCursor: null,
+    });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 1,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      selected: 1,
+      sponsorMatched: 1,
+      saved: 1,
+      errors: 1,
+      done: false,
+      remaining: 1,
+      metrics: {
+        sources: [{
+          outcome: "needs_review",
+          nextCursor: null,
+          reportedTotal: 21,
+          coverageWarning: "Feed returned 19 raw listings; it reported 21.",
+          error: "Feed returned 19 raw listings; it reported 21.",
+        }],
+      },
+    });
+    expect(mocks.stateWrites).toHaveLength(1);
+    expect(mocks.stateWrites[0]).toMatchObject({
+      cursor: null,
+      sweepStartedAt: null,
+      lastOutcome: "needs_review",
+      lastError: "Feed returned 19 raw listings; it reported 21.",
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("runs one registered source without advancing other feeds and reports distinct counts", async () => {

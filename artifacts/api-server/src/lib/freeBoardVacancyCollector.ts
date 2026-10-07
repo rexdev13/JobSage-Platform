@@ -36,11 +36,41 @@ type SourceRunMetrics = {
   sitemapGone: number;
   missingCount: number;
   reportedTotal: number | null;
+  coverageWarning?: string;
+  sitemapTotal?: number;
+  sitemapOnlyCount?: number;
   missingReconciliation: boolean;
   outcome: string;
   nextCursor: string | null;
   error?: string;
 };
+
+function summarizeCursorForMetrics(sourceId: string, cursor: string | null): string | null {
+  if (sourceId !== "teaching-vacancies" || cursor == null) return cursor;
+  try {
+    const parsed: unknown = JSON.parse(cursor);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return cursor;
+    const state = parsed as Record<string, unknown>;
+    if (state["phase"] === "list" && Number.isInteger(state["page"])) {
+      return JSON.stringify({
+        phase: "list",
+        page: state["page"],
+        listedIdCount: Array.isArray(state["listedIds"]) ? state["listedIds"].length : 0,
+      });
+    }
+    if (state["phase"] === "sitemap" && Number.isInteger(state["offset"])) {
+      return JSON.stringify({
+        phase: "sitemap",
+        offset: state["offset"],
+        sitemapHash: state["sitemapHash"] ?? null,
+        listedIdCount: Array.isArray(state["listedIds"]) ? state["listedIds"].length : 0,
+      });
+    }
+  } catch {
+    // Older cursors are already short; retain them as-is in metrics.
+  }
+  return cursor;
+}
 
 export type FreeBoardCollectorSummary = {
   selected: number;
@@ -309,7 +339,7 @@ export async function runFreeBoardVacancyCollector(options: {
         reportedTotal: storedState.reportedTotal,
         missingReconciliation: source.reconcileMissingAfterSweep !== false,
         outcome: "skipped_backoff",
-        nextCursor: storedState.cursor,
+        nextCursor: summarizeCursorForMetrics(source.id, storedState.cursor),
       });
       continue;
     }
@@ -350,6 +380,7 @@ export async function runFreeBoardVacancyCollector(options: {
     let pagesProcessed = 0;
     let blockedByInvalidRecord = false;
     let sourceError: unknown = null;
+    let coverageWarning: string | null = null;
     let firstPage = true;
     let deadlineStopped = false;
 
@@ -391,6 +422,10 @@ export async function runFreeBoardVacancyCollector(options: {
       sourceMetrics.recordsFetched += pageRecordsFetched;
       sourceMetrics.sitemapGone += page.goneCount ?? 0;
       if (page.reportedTotal != null) sourceMetrics.reportedTotal = page.reportedTotal;
+      if (page.sitemapTotal != null) sourceMetrics.sitemapTotal = page.sitemapTotal;
+      if (page.sitemapOnlyCount != null) {
+        sourceMetrics.sitemapOnlyCount = page.sitemapOnlyCount;
+      }
       selected += pageRecordsFetched;
 
       const requiredValid = page.adverts.filter(hasRequiredListingIdentity);
@@ -447,6 +482,11 @@ export async function runFreeBoardVacancyCollector(options: {
       }
       cursor = page.nextCursor;
       sourceMetrics.nextCursor = cursor;
+      if (page.coverageWarning) {
+        coverageWarning = page.coverageWarning;
+        sourceMetrics.coverageWarning = coverageWarning;
+        break;
+      }
       await persistSourceState(source, {
         cursor,
         sweepStartedAt: cursor ? sweepStartedAt : null,
@@ -458,6 +498,7 @@ export async function runFreeBoardVacancyCollector(options: {
         consecutiveFailures: 0,
         nextRetryAt: null,
       });
+      if (page.stopAfterPage) break;
     }
 
     if (sourceError) {
@@ -491,6 +532,21 @@ export async function runFreeBoardVacancyCollector(options: {
         lastError: sourceMetrics.error,
         consecutiveFailures: failures,
         nextRetryAt: retryAt(failures, false),
+      });
+    } else if (coverageWarning) {
+      errors += 1;
+      remaining += 1;
+      sourceMetrics.outcome = "needs_review";
+      sourceMetrics.error = coverageWarning;
+      await persistSourceState(source, {
+        cursor,
+        sweepStartedAt: cursor ? sweepStartedAt : null,
+        lastRunAt: new Date(),
+        lastOutcome: "needs_review",
+        lastError: coverageWarning,
+        reportedTotal: sourceMetrics.reportedTotal,
+        consecutiveFailures: 0,
+        nextRetryAt: null,
       });
     } else if (sourceMetrics.nextCursor === null && pagesProcessed > 0) {
       const completedAt = new Date();
@@ -530,6 +586,7 @@ export async function runFreeBoardVacancyCollector(options: {
         nextRetryAt: null,
       });
     }
+    sourceMetrics.nextCursor = summarizeCursorForMetrics(source.id, sourceMetrics.nextCursor);
     metrics.push(sourceMetrics);
   }
 
