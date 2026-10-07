@@ -70,13 +70,46 @@ async function searchDomain(name, town) {
   return domains.slice(0, 3);
 }
 
+// DNS gets rate-limited under load (EAI_AGAIN): cap concurrent lookups, cache answers, retry.
+const dnsCache = new Map();
+let dnsActive = 0;
+const dnsWait = [];
+async function dnsSlot() {
+  if (dnsActive < 16) return void dnsActive++;
+  await new Promise((r) => dnsWait.push(r));
+}
+function dnsFree() {
+  const n = dnsWait.shift();
+  if (n) n();
+  else dnsActive--;
+}
+function lookupDomain(domain) {
+  if (dnsCache.has(domain)) return dnsCache.get(domain);
+  const p = (async () => {
+    await dnsSlot();
+    try {
+      for (let i = 0; i < 3; i++) {
+        try {
+          await dns.lookup(domain);
+          return 'ok';
+        } catch (e) {
+          if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') return 'none';
+          await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+        }
+      }
+      return 'unknown';
+    } finally {
+      dnsFree();
+    }
+  })();
+  dnsCache.set(domain, p);
+  p.then((v) => v === 'unknown' && dnsCache.delete(domain));
+  return p;
+}
+
 async function tryDomain(name, domain) {
   // Cheap pre-check: most guessed domains don't exist, so skip them without any HTTP request.
-  try {
-    await dns.lookup(domain);
-  } catch (e) {
-    if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') return null;
-  }
+  if ((await lookupDomain(domain)) === 'none') return null;
   for (const scheme of ['https://', 'http://']) {
     const r = await fetchPage(scheme + domain);
     if (r.blockedByRobots) return { blocked: true };

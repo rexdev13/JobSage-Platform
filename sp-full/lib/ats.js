@@ -26,7 +26,7 @@ const FETCHERS = {
       json && Array.isArray(json.jobs)
         ? json.jobs.map((x) => J(x.title, [x.city, x.country].filter(Boolean).join(', '), x.url || x.shortlink, 'workable', company))
         : null;
-    return { jobs, netError };
+    return { jobs, netError, boardName: json && json.name };
   },
   async smartrecruiters({ slug }, company) {
     const { json, netError } = await fetchJson(`https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=100`);
@@ -36,7 +36,8 @@ const FETCHERS = {
             J(x.name, [x.location?.city, x.location?.country].filter(Boolean).join(', '), `https://jobs.smartrecruiters.com/${slug}/${x.id}`, 'smartrecruiters', company)
           )
         : null;
-    return { jobs, netError };
+    const c0 = json && json.content && json.content[0] && json.content[0].company;
+    return { jobs, netError, boardName: c0 && c0.name };
   },
   async recruitee({ slug }, company) {
     const { json, netError } = await fetchJson(`https://${slug}.recruitee.com/api/offers/`);
@@ -113,6 +114,13 @@ function generateSlugs(name) {
 
 const SLUG_ATS = ['greenhouse', 'lever', 'ashby', 'workable', 'smartrecruiters']; // recruitee/bamboohr are only used when a site links to them
 
+// Workable/SmartRecruiters tell us the board's company name: reject boards that belong to a different company.
+function boardNameOk(boardName, words) {
+  if (!boardName) return true;
+  const b = cleanName(boardName).replace(/\s+/g, '');
+  return words.every((x) => b.includes(x));
+}
+
 /** Try every slug x ATS from the company name. Returns {found, ats, ref, confidence, jobs, netError}. */
 async function probeByName(company) {
   let netError = false;
@@ -125,10 +133,10 @@ async function probeByName(company) {
       SLUG_ATS.map(async (ats) => {
         const r = await FETCHERS[ats]({ slug }, company);
         if (r.netError) (netError = true), batchErrors++;
-        return r.jobs ? { ats, jobs: r.jobs } : null;
+        return r.jobs ? { ats, jobs: r.jobs, boardName: r.boardName } : null;
       })
     );
-    const hits = checks.filter(Boolean).sort((a, b) => b.jobs.length - a.jobs.length);
+    const hits = checks.filter(Boolean).filter((h) => boardNameOk(h.boardName, w)).sort((a, b) => b.jobs.length - a.jobs.length);
     if (!hits.length && batchErrors === SLUG_ATS.length) break; // every request failed: network/blocked, stop wasting time
     if (hits.length) return { found: true, ats: hits[0].ats, ref: { slug }, confidence, jobs: hits[0].jobs, netError };
   }
