@@ -9,6 +9,14 @@ The product objective is dependable, automated vacancy discovery across sectors 
 
 **How to apply:** Measure coverage, freshness, precision, and recall by sector/provider. Preserve verified employer/source evidence, distinguish no-results from failure, and never claim universal completeness or infer vacancy sponsorship from employer sponsor status. See `.agents/outputs/vacancy-system-architecture-handoff-2026-10-06.md` for the current architecture and proposed direction.
 
+## Coverage investigation scope
+
+When the user asks why Opportunities is not being populated, investigate job-board collection, company-site collection, and employer email acquisition across sectors. Do not substitute application submission or tracker issues for that diagnosis.
+
+**Why:** The user explicitly corrected an investigation that focused on Smart Apply instead of the vacancy/contact supply problem. They require explanations rooted in current code, not assumptions about earlier implementations.
+
+**How to apply:** Trace current worker wiring and candidate filters, compare against production run history, and distinguish implemented adapters from deployed and scheduled adapters. Treat old handoffs and historical counts as leads to verify, not current operational proof.
+
 ## Employer-universe seeding
 
 Companies House monthly live-company data provides legal-company identity, status, registered address, and SIC classifications, but not employer websites or vacancies. An SIC match is a candidate lead, not proof that a company actively operates in that sector or hires.
