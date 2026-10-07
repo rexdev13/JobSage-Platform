@@ -15,6 +15,7 @@ import { ALL_FREE_BOARD_SOURCES } from "../../lib/freeBoardSourceRegistry";
 import {
   parseCharityJobPage,
   parseNhsScotlandJobCards,
+  getJobsAcUkPageCoverageWarning,
 } from "../../lib/supplementalFreeBoardSources";
 import { classifyVacancySource } from "../../lib/vacancySource";
 import { isValidJobBoardVacancyDeepLink } from "../../lib/vacancyUrlPolicy";
@@ -100,11 +101,14 @@ describe("free vacancy source adapters", () => {
       totalCount: 21,
       jobs: [{ title: "Missing location evidence" }],
     }, 1)).toThrow("omitted its location restrictions");
-    expect(parseHimalayasSearchResponse({
+    const empty = parseHimalayasSearchResponse({
       limit: 20,
       totalCount: 21,
       jobs: [],
-    }, 1).coverageWarning).toContain("page 1 was empty");
+    }, 1);
+    expect(empty.coverageWarning).toBeUndefined();
+    expect(empty.stopAfterPage).toBe(true);
+    expect(parseHimalayasCursor(empty.nextCursor).page).toBe(2);
     expect(() => parseHimalayasSearchResponse({
       limit: 20,
       jobs: [],
@@ -156,6 +160,40 @@ describe("free vacancy source adapters", () => {
       }],
     }, 2, parseHimalayasCursor(changingStart.nextCursor));
     expect(changed.coverageWarning).toContain("reported total changed during pagination");
+  });
+
+  it("continues past an empty Himalayas page and checks coverage only at the end", () => {
+    const empty = parseHimalayasSearchResponse({ limit: 20, totalCount: 140, jobs: [] }, 6);
+    const later = parseHimalayasSearchResponse({
+      limit: 20, totalCount: 140,
+      jobs: [{ guid: "later-role", title: "Analyst", companyName: "Example", locationRestrictions: [] }],
+    }, 7, parseHimalayasCursor(empty.nextCursor));
+    expect(later.adverts).toHaveLength(1);
+    expect(later.coverageWarning).toContain("fetched 1 raw listings, but the provider reported 140");
+    expect(later.nextCursor).toBeNull();
+  });
+
+  it("keeps UK and worldwide scope even if Himalayas returns an ineligible row", () => {
+    const result = parseHimalayasSearchResponse({
+      limit: 20, totalCount: 3,
+      jobs: ["United States", "United Kingdom", null].map((country, index) => ({
+        guid: `role-${index}`, title: "Analyst", companyName: "Example",
+        locationRestrictions: country ? [country] : [],
+      })),
+    }, 1);
+    expect(result.recordsFetched).toBe(3);
+    expect(result.adverts.map((advert) => advert.externalId)).toEqual(["role-1", "role-2"]);
+    expect(result.coverageWarning).toBeUndefined();
+  });
+
+  it("never certifies early empty, repeated, short or uncounted jobs.ac.uk pages", () => {
+    expect(getJobsAcUkPageCoverageWarning(1876, 2129, 0, 0)).toContain("expected 25");
+    expect(getJobsAcUkPageCoverageWarning(26, 100, 25, 0)).toContain("previously seen");
+    expect(getJobsAcUkPageCoverageWarning(1, 100, 24, 24)).toContain("expected 25");
+    expect(getJobsAcUkPageCoverageWarning(1, undefined, 0, 0)).toContain("omitted");
+    expect(getJobsAcUkPageCoverageWarning(1, 0, 0, 0)).toBeNull();
+    expect(getJobsAcUkPageCoverageWarning(26, 27, 2, 2)).toBeNull();
+    expect(getJobsAcUkPageCoverageWarning(26, 27, 0, 0)).toContain("expected 2");
   });
 
   it("maps NHS XML records and validates pagination totals", () => {

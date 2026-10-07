@@ -8,7 +8,8 @@ import {
 
 const MAX_FEED_BYTES = 8 * 1024 * 1024;
 const MAX_SITEMAP_BYTES = 20 * 1024 * 1024;
-const TEACHING_VACANCY_DETAIL_BATCH = 10;
+// Each detail is checkpointed independently so pacing cannot discard a batch.
+const TEACHING_VACANCY_DETAIL_BATCH = 1;
 const TEACHING_SITEMAP_CACHE_TTL_MS = 10 * 60_000;
 const MAX_TEACHING_LIST_IDS = 20_000;
 const MAX_TEACHING_CURSOR_CHARS = 1_000_000;
@@ -49,6 +50,7 @@ export class FreeBoardFetchError extends Error {
   readonly status?: number;
   readonly failureKind?: string;
   readonly failureClass?: string;
+  readonly retryAt?: Date;
 
   constructor(result: Extract<CompanySiteFetchResult, { ok: false }>) {
     super(`${result.kind}: ${result.reason}`);
@@ -56,6 +58,7 @@ export class FreeBoardFetchError extends Error {
     this.status = result.status;
     this.failureKind = result.kind;
     this.failureClass = result.failureClass;
+    this.retryAt = result.retryAt;
   }
 }
 
@@ -403,7 +406,14 @@ type TeachingProgress = {
 
 type TeachingCursor =
   | ({ phase: "list"; page: number } & TeachingProgress)
-  | ({ phase: "sitemap"; offset: number; sitemapHash: string | null } & TeachingProgress);
+  | ({
+      phase: "sitemap";
+      offset: number;
+      sitemapHash: string | null;
+      /** Durable snapshot: do not depend on an autoscale process retaining its cache. */
+      sitemapBackfillSlugs?: string[];
+      sitemapTotal?: number;
+    } & TeachingProgress);
 
 let teachingSitemapCache: {
   slugs: string[];
@@ -451,10 +461,25 @@ export function parseTeachingCursor(cursor: string | null): TeachingCursor {
       Number(state.offset) >= 0 &&
       (state.sitemapHash == null || typeof state.sitemapHash === "string")
     ) {
+      const snapshot = state.sitemapBackfillSlugs == null
+        ? undefined
+        : parseTeachingListedIds(state.sitemapBackfillSlugs);
+      if (snapshot && (
+        !state.sitemapHash ||
+        !Number.isInteger(state.sitemapTotal) ||
+        Number(state.sitemapTotal) < snapshot.length ||
+        Number(state.offset) > snapshot.length
+      )) {
+        throw new Error("Invalid sitemap snapshot.");
+      }
       return {
         phase: "sitemap",
         offset: Number(state.offset),
         sitemapHash: state.sitemapHash ?? null,
+        ...(snapshot ? {
+          sitemapBackfillSlugs: snapshot,
+          sitemapTotal: Number(state.sitemapTotal),
+        } : {}),
         ...progress,
       };
     }
@@ -793,26 +818,30 @@ export function parseHimalayasSearchResponse(
   ) {
     throw new Error("Himalayas search response omitted valid paging totals.");
   }
-  const adverts = response.jobs.map((job) => {
+   const adverts = response.jobs.flatMap((job) => {
     if (!job || typeof job !== "object" || Array.isArray(job)) {
       throw new Error("Himalayas search response contained an invalid job.");
     }
-    return mapHimalayasJob(job as HimalayasJob);
+     const typedJob = job as HimalayasJob;
+     const restrictions = parseHimalayasRestrictions(typedJob.locationRestrictions);
+     const ukEligible = restrictions.length === 0 || restrictions.some(({ countryCode }) =>
+       /^(gb|uk|united kingdom|united-kingdom|great britain)$/i.test(countryCode));
+     return ukEligible ? [mapHimalayasJob(typedJob)] : [];
   });
   const currentTotal = Number(response.totalCount);
   const currentLimit = Number(response.limit);
   const totalPages = Math.ceil(currentTotal / currentLimit);
-  const recordsFetched = progress.recordsFetched + adverts.length;
+   const rawCount = response.jobs.length;
+   const recordsFetched = progress.recordsFetched + rawCount;
   const reportedTotalChanged = progress.reportedTotalChanged ||
     (progress.reportedTotal != null && progress.reportedTotal !== currentTotal);
   const pageLimitChanged = progress.pageLimitChanged ||
     (progress.pageLimit != null && progress.pageLimit !== currentLimit);
-  const returnedBeyondReportedPages = page > totalPages && adverts.length > 0;
-  const ended = page >= totalPages || page > totalPages || adverts.length === 0;
+   const returnedBeyondReportedPages = page > totalPages && rawCount > 0;
+   // The live filtered endpoint can return empty intermediate pages followed
+   // by nonempty pages. Only its declared last page bounds this traversal.
+   const ended = page >= totalPages;
   const coverageProblems: string[] = [];
-  if (adverts.length === 0 && page <= totalPages) {
-    coverageProblems.push(`page ${page} was empty before the reported final page ${totalPages}`);
-  }
   if (returnedBeyondReportedPages) {
     coverageProblems.push(`page ${page} returned listings beyond the reported final page ${totalPages}`);
   }
@@ -836,9 +865,10 @@ export function parseHimalayasSearchResponse(
   };
   return {
     adverts,
-    recordsFetched: adverts.length,
+     recordsFetched: rawCount,
     reportedTotal: currentTotal,
     nextCursor: ended || coverageProblems.length > 0 ? null : JSON.stringify(nextState),
+    ...(!ended && rawCount === 0 ? { stopAfterPage: true } : {}),
     ...(coverageProblems.length > 0
       ? { coverageWarning: `Himalayas coverage needs review: ${coverageProblems.join("; ")}.` }
       : {}),
@@ -950,15 +980,37 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
         };
       }
 
-      const { slugs, hash: sitemapHash } = await getTeachingSitemap(deadlineMs);
-      const offset = state.sitemapHash === sitemapHash ? state.offset : 0;
+      if (state.sitemapBackfillSlugs == null) {
+        const { slugs, hash: sitemapHash } = await getTeachingSitemap(deadlineMs);
+        const candidates = getTeachingSitemapBackfillSlugs(slugs, state.listedIds);
+        // Persist the index before making any detail requests on this host.
+        // This also works when the next request runs in a different process.
+        return {
+          adverts: [],
+          recordsFetched: 0,
+          sitemapTotal: slugs.length,
+          sitemapOnlyCount: candidates.length,
+          nextCursor: candidates.length === 0 ? null : encodeTeachingCursor({
+            ...state,
+            offset: 0,
+            sitemapHash,
+            sitemapBackfillSlugs: candidates,
+            sitemapTotal: slugs.length,
+          }),
+          stopAfterPage: true,
+          ...(candidates.length === 0 && state.listCoverageWarning
+            ? { coverageWarning: state.listCoverageWarning }
+            : {}),
+        };
+      }
+      const offset = state.offset;
       const {
         batch,
         nextOffset,
         sitemapOnlyCount,
       } = getTeachingSitemapBackfillBatch(
-        slugs,
-        state.listedIds,
+        state.sitemapBackfillSlugs,
+        [],
         seenExternalIds,
         offset,
         TEACHING_VACANCY_DETAIL_BATCH,
@@ -986,7 +1038,7 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       return {
         adverts,
         goneCount,
-        sitemapTotal: slugs.length,
+        sitemapTotal: state.sitemapTotal,
         sitemapOnlyCount,
         nextCursor: nextOffset >= sitemapOnlyCount
           ? null
@@ -994,7 +1046,6 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
               ...state,
               phase: "sitemap",
               offset: nextOffset,
-              sitemapHash,
             }),
         ...(nextOffset >= sitemapOnlyCount && state.listCoverageWarning
           ? { coverageWarning: state.listCoverageWarning }

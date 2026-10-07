@@ -764,7 +764,15 @@ export async function runFreeBoardVacancyCollector(options: {
       remaining += 1;
       const failures = storedState.consecutiveFailures + 1;
       const permanent = isPermanentSourceFailure(sourceError);
-      const nextRetryAt = retryAt(failures, permanent);
+      const sourceRetryAt = retryAt(failures, permanent);
+      const hostRetry = typeof sourceError === "object" && "retryAt" in sourceError
+        ? (sourceError as { retryAt?: unknown }).retryAt
+        : undefined;
+      const hostRetryAt = hostRetry instanceof Date ? hostRetry.getTime() : 0;
+      const nextRetryAt = new Date(Math.max(
+        sourceRetryAt.getTime(),
+        Number.isFinite(hostRetryAt) ? hostRetryAt : 0,
+      ));
       sourceMetrics.outcome = permanent ? "blocked" : "retryable_failure";
       sourceMetrics.nextCursor = cursor;
       sourceMetrics.error = errorText(sourceError);

@@ -247,6 +247,19 @@ describe("free-board vacancy collector", () => {
     });
   });
 
+  it("retains a host backoff that is later than the source retry", async () => {
+    const hostRetry = new Date(Date.now() + 60 * 60_000);
+    mocks.fetchPage.mockReset().mockRejectedValue(Object.assign(
+      new Error("rate_limited: hostname is paced or in backoff"),
+      { retryAt: hostRetry },
+    ));
+    await runFreeBoardVacancyCollector({ pagesPerSource: 2, deadlineMs: Date.now() + 60_000 });
+    expect(mocks.stateWrites.at(-1)).toMatchObject({
+      cursor: null, lastOutcome: "retryable_failure", nextRetryAt: hostRetry,
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("persists and yields at a source phase boundary before fetching the next phase", async () => {
     mocks.fetchPage.mockReset().mockResolvedValue({
       adverts: [{

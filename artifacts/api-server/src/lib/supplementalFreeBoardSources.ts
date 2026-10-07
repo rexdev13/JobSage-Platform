@@ -283,6 +283,25 @@ function parseJobsAcUkReportedTotal(html: string): number | undefined {
   return Number.isInteger(total) && total >= 0 ? total : undefined;
 }
 
+export function getJobsAcUkPageCoverageWarning(
+  startIndex: number,
+  reportedTotal: number | undefined,
+  returnedCount: number,
+  unseenCount: number,
+): string | null {
+  if (reportedTotal == null) {
+    return "jobs.ac.uk coverage needs review: the search page omitted its result total.";
+  }
+  const expected = Math.min(JOBS_AC_UK_PAGE_SIZE, Math.max(0, reportedTotal - startIndex + 1));
+  if (returnedCount !== expected) {
+    return `jobs.ac.uk coverage needs review: index ${startIndex} returned ${returnedCount} listings; expected ${expected} from the reported total ${reportedTotal}.`;
+  }
+  if (returnedCount > 0 && unseenCount === 0) {
+    return `jobs.ac.uk coverage needs review: index ${startIndex} repeated only previously seen listings before coverage could be verified.`;
+  }
+  return null;
+}
+
 export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
   {
     id: "nhs-scotland",
@@ -376,14 +395,16 @@ export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       ));
       const reachedReportedEnd = reportedTotal != null &&
         startIndex + JOBS_AC_UK_PAGE_SIZE > reportedTotal;
-      const noNewListings = unseen.length === 0;
+      const coverageWarning = getJobsAcUkPageCoverageWarning(
+        startIndex, reportedTotal, fetched.length, unseen.length,
+      );
       return {
         adverts,
         recordsFetched: fetched.length,
         ...(reportedTotal == null ? {} : { reportedTotal }),
-        nextCursor: fetched.length === 0 || reachedReportedEnd || noNewListings
-          ? null
-          : String(startIndex + JOBS_AC_UK_PAGE_SIZE),
+        nextCursor: coverageWarning ? String(startIndex)
+          : reachedReportedEnd ? null : String(startIndex + JOBS_AC_UK_PAGE_SIZE),
+        ...(coverageWarning ? { coverageWarning } : {}),
       };
     },
   },
