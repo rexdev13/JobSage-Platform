@@ -1566,3 +1566,17 @@ mtime_ms = 1791314295565
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8b957291-3984-4f96-b1e3-bfddd677298a/b9123ade-cb04-4ca9-8a48-5c14492d91b7"
 storage_version_token = "1791314353686397"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "3XdXIeuw3vRED0ybsk-gT"
+uri = "file://.agents/outputs/candidate-visible-vacancies-production.csv"
+type = "table"
+title = "Production candidate-visible vacancies"
+description = "Current candidate-feed vacancies grouped by opportunity sector, with employer industry, location, and source."
+logical_id = "0d5891bf-5392-48e0-8668-16f4105d6ae1"
+content_hash = "sha256:9e40315d3a1ecb0e0dd49f14975c8ed90c8a45cec055cef6e6c4ca603b17c1d5"
+size = 740739
+mtime_ms = 1791409718285
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0d5891bf-5392-48e0-8668-16f4105d6ae1/f81a0923-44ef-479d-844c-b754ebbdedab"
+storage_version_token = "1791409719878753"
+content_type = "text/csv"
