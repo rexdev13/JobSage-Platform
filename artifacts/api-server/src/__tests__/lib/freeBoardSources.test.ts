@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FREE_BOARD_SOURCES,
+  parseHimalayasSearchResponse,
   parseNhsVacancyXml,
   parseTeachingSitemapSlugs,
 } from "../../lib/freeBoardSources";
@@ -25,6 +26,70 @@ describe("free vacancy source adapters", () => {
       "charityjob",
     ]);
     expect(FREE_BOARD_SOURCES).toHaveLength(5);
+  });
+
+  it("maps UK-eligible Himalayas search pages and retains worldwide listings", () => {
+    const ukJob = {
+      title: "Remote Policy Analyst",
+      companyName: "Example Sponsor Employer",
+      guid: "remote-policy-analyst",
+      applicationLink: "https://careers.example.org/apply/remote-policy-analyst",
+      locationRestrictions: [{
+        alpha2: "GB",
+        name: "United Kingdom",
+        slug: "united-kingdom",
+      }],
+      employmentType: "Full Time",
+      categories: ["Policy"],
+    };
+    const firstPage = parseHimalayasSearchResponse({
+      limit: 20,
+      totalCount: 21,
+      jobs: [ukJob],
+    }, 1);
+    expect(firstPage).toMatchObject({
+      recordsFetched: 1,
+      reportedTotal: 21,
+      nextCursor: "2",
+    });
+    expect(firstPage.adverts[0]).toMatchObject({
+      externalId: "remote-policy-analyst",
+      organisationName: "Example Sponsor Employer",
+      location: "Remote (United Kingdom)",
+      url: "https://himalayas.app/jobs/remote-policy-analyst",
+      sourceMetadata: {
+        country: "GB",
+        searchScope: "UK-eligible and worldwide",
+      },
+    });
+
+    const lastPage = parseHimalayasSearchResponse({
+      limit: 20,
+      totalCount: 21,
+      jobs: [{ ...ukJob, guid: "worldwide-role", locationRestrictions: [] }],
+    }, 2);
+    expect(lastPage.nextCursor).toBeNull();
+    expect(lastPage.adverts[0]).toMatchObject({
+      location: "Remote (Worldwide)",
+      sourceMetadata: { country: null },
+    });
+  });
+
+  it("fails closed on malformed Himalayas search paging or location evidence", () => {
+    expect(() => parseHimalayasSearchResponse({
+      limit: 20,
+      totalCount: 21,
+      jobs: [{ title: "Missing location evidence" }],
+    }, 1)).toThrow("omitted its location restrictions");
+    expect(() => parseHimalayasSearchResponse({
+      limit: 20,
+      totalCount: 21,
+      jobs: [],
+    }, 1)).toThrow("did not match its reported result count");
+    expect(() => parseHimalayasSearchResponse({
+      limit: 20,
+      jobs: [],
+    }, 1)).toThrow("omitted valid paging totals");
   });
 
   it("maps NHS XML records and validates pagination totals", () => {

@@ -94,3 +94,4 @@
 - [Healthcare industry classification](healthcare-industry-classification.md) — NHS Trust rows may be labeled Public Services, so supplement Healthcare filters with bounded NHS/hospital name searches.
 - [Cross-sector vacancy coverage](cross-sector-vacancy-coverage.md) — target dependable, evidence-based vacancy discovery across job boards and employer sites; report measured coverage, not completeness guarantees.
 - [Free-feed regional domains](free-feed-regional-domains.md) — live job feeds may use country-specific listing hosts that differ from their API endpoint.
+- [Himalayas comparison scope](free-feed-himalayas-scope.md) — count UK-eligible and worldwide listings; retain older global samples as out-of-scope history.

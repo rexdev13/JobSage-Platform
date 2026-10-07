@@ -483,7 +483,9 @@ type HimalayasJob = {
   companyName?: string;
   guid?: string;
   applicationLink?: string;
-  locationRestrictions?: string[];
+  locationRestrictions?: Array<
+    string | { alpha2?: string; name?: string; slug?: string }
+  >;
   employmentType?: string;
   minSalary?: number | null;
   maxSalary?: number | null;
@@ -494,6 +496,124 @@ type HimalayasJob = {
   expiryDate?: number;
   description?: string;
 };
+
+type HimalayasSearchResponse = {
+  jobs?: unknown[];
+  limit?: number;
+  totalCount?: number;
+};
+
+function parseHimalayasRestrictions(value: unknown): Array<{
+  label: string;
+  countryCode: string;
+}> {
+  if (!Array.isArray(value)) {
+    throw new Error("Himalayas job omitted its location restrictions.");
+  }
+  return value.map((restriction) => {
+    if (typeof restriction === "string") {
+      const label = cleanText(restriction);
+      if (!label) throw new Error("Himalayas job had an empty location restriction.");
+      return { label, countryCode: label };
+    }
+    if (!restriction || typeof restriction !== "object" || Array.isArray(restriction)) {
+      throw new Error("Himalayas job had an invalid location restriction.");
+    }
+    const fields = restriction as Record<string, unknown>;
+    const alpha2 = cleanText(fields["alpha2"]).toUpperCase();
+    const name = cleanText(fields["name"]);
+    const slug = cleanText(fields["slug"]);
+    const label = name || alpha2 || slug;
+    const countryCode = alpha2 || name || slug;
+    if (!label || !countryCode) {
+      throw new Error("Himalayas job had an incomplete location restriction.");
+    }
+    return { label, countryCode };
+  });
+}
+
+function mapHimalayasJob(job: HimalayasJob): BoardAdvert {
+  const restrictions = parseHimalayasRestrictions(job.locationRestrictions);
+  const geo = restrictions.length
+    ? restrictions.map((restriction) => restriction.label).join(", ")
+    : "Worldwide";
+  const guid = typeof job.guid === "string" ? job.guid.trim() : "";
+  const url = safeUrl(guid) ?? (
+    /^[a-z0-9-]{1,200}$/i.test(guid)
+      ? `https://himalayas.app/jobs/${encodeURIComponent(guid)}`
+      : ""
+  );
+  const salary = typeof job.minSalary === "number"
+    ? `${job.currency ?? ""} ${job.minSalary}-${job.maxSalary ?? ""} ${job.salaryPeriod ?? ""}`.trim()
+    : null;
+  const source = {
+    id: "himalayas",
+    provider: "himalayas",
+    boardName: "Himalayas",
+    parserVersion: "himalayas-uk-search-v2",
+  };
+  return makeAdvert(source, {
+    externalId: guid,
+    title: job.title,
+    employer: job.companyName,
+    url,
+    applicationUrl: job.applicationLink,
+    locations: [`Remote (${geo})`],
+    salary,
+    description: job.description,
+    postedDate: job.pubDate,
+    closesAt: typeof job.expiryDate === "number"
+      ? new Date(job.expiryDate * 1000).toISOString()
+      : undefined,
+    metadata: {
+      remote: true,
+      country: restrictions.length === 1 ? restrictions[0]?.countryCode ?? null : null,
+      locationRestrictions: restrictions.map((restriction) => restriction.label),
+      searchScope: "UK-eligible and worldwide",
+      employmentType: job.employmentType ?? null,
+      category: Array.isArray(job.categories) ? job.categories : [],
+      detailPageMayBeCloudflareProtected: true,
+    },
+  });
+}
+
+export function parseHimalayasSearchResponse(
+  value: unknown,
+  page: number,
+): FreeBoardPage {
+  if (!Number.isInteger(page) || page < 1) {
+    throw new Error("Himalayas search page cursor is invalid.");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Himalayas search response was not an object.");
+  }
+  const response = value as HimalayasSearchResponse;
+  if (!Array.isArray(response.jobs)) {
+    throw new Error("Himalayas search response omitted its jobs array.");
+  }
+  if (
+    !Number.isInteger(response.totalCount) || Number(response.totalCount) < 0 ||
+    !Number.isInteger(response.limit) || Number(response.limit) < 1
+  ) {
+    throw new Error("Himalayas search response omitted valid paging totals.");
+  }
+  const adverts = response.jobs.map((job) => {
+    if (!job || typeof job !== "object" || Array.isArray(job)) {
+      throw new Error("Himalayas search response contained an invalid job.");
+    }
+    return mapHimalayasJob(job as HimalayasJob);
+  });
+  const totalPages = Math.ceil(Number(response.totalCount) / Number(response.limit));
+  if ((page <= totalPages && adverts.length === 0) || (page > totalPages && adverts.length > 0)) {
+    throw new Error("Himalayas search page did not match its reported result count.");
+  }
+  return {
+    adverts,
+    recordsFetched: adverts.length,
+    reportedTotal: response.totalCount,
+    nextCursor: page < totalPages ? String(page + 1) : null,
+  };
+}
 
 function pageNumber(cursor: string | null): number {
   const page = cursor == null ? 1 : Number(cursor);
@@ -695,66 +815,21 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
     id: "himalayas",
     provider: "himalayas",
     boardName: "Himalayas",
-    parserVersion: "himalayas-v1",
+    parserVersion: "himalayas-uk-search-v2",
     maxPagesPerRun: 100,
+    reconcileMissingAfterSweep: false,
     async fetchPage({ cursor, deadlineMs }) {
-      const params: Record<string, string> = { limit: "20" };
-      if (cursor) params["cursor"] = cursor;
-      const response = await fetchJson<{
-        jobs?: HimalayasJob[];
-        nextCursor?: string | null;
-        totalCount?: number;
-      }>(
-        urlWithCursor("https://himalayas.app/jobs/api", params),
+      const page = pageNumber(cursor);
+      const response = await fetchJson<unknown>(
+        urlWithCursor("https://himalayas.app/jobs/api/search", {
+          country: "GB",
+          exclude_worldwide: "false",
+          page: String(page),
+          sort: "recent",
+        }),
         deadlineMs,
       );
-      if (!Array.isArray(response.jobs)) {
-        throw new Error("Himalayas response omitted its jobs array.");
-      }
-      const jobs = response.jobs;
-      const adverts = jobs.map((job) => {
-        const guid = typeof job.guid === "string" ? job.guid.trim() : "";
-        const url = safeUrl(guid) ?? (
-          /^[a-z0-9-]{1,200}$/i.test(guid)
-            ? `https://himalayas.app/jobs/${encodeURIComponent(guid)}`
-            : ""
-        );
-        const geo = Array.isArray(job.locationRestrictions) && job.locationRestrictions.length
-          ? job.locationRestrictions.join(", ")
-          : "Worldwide";
-        const salary = typeof job.minSalary === "number"
-          ? `${job.currency ?? ""} ${job.minSalary}-${job.maxSalary ?? ""} ${job.salaryPeriod ?? ""}`.trim()
-          : null;
-        return makeAdvert(
-          { id: "himalayas", provider: "himalayas", boardName: "Himalayas", parserVersion: "himalayas-v1" },
-          {
-            externalId: guid,
-            title: job.title,
-            employer: job.companyName,
-            url,
-            applicationUrl: job.applicationLink,
-            locations: [`Remote (${geo})`],
-            salary,
-            description: job.description,
-            postedDate: job.pubDate,
-            closesAt: typeof job.expiryDate === "number"
-              ? new Date(job.expiryDate * 1000).toISOString()
-              : undefined,
-            metadata: {
-              remote: true,
-              country: job.locationRestrictions?.length === 1 ? job.locationRestrictions[0] : null,
-              employmentType: job.employmentType ?? null,
-              category: Array.isArray(job.categories) ? job.categories : [],
-              detailPageMayBeCloudflareProtected: true,
-            },
-          },
-        );
-      });
-      return {
-        adverts,
-        nextCursor: response.nextCursor && jobs.length ? response.nextCursor : null,
-        ...(Number.isFinite(response.totalCount) ? { reportedTotal: response.totalCount } : {}),
-      };
+      return parseHimalayasSearchResponse(response, page);
     },
   },
 ];
