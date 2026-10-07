@@ -1,0 +1,13 @@
+{
+  "name": "sponsor-vacancy-pipeline",
+  "version": "1.0.0",
+  "description": "UK sponsor-licence register -> sectors -> vacancies (ATS + company sites) + role-based recruitment emails",
+  "main": "run.js",
+  "scripts": {
+    "register": "node run.js register",
+    "discover": "node run.js discover",
+    "export": "node run.js export",
+    "test": "node test/test.js"
+  },
+  "dependencies": { "cheerio": "^1.0.0" }
+}
