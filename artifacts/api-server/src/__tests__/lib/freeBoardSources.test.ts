@@ -325,6 +325,7 @@ describe("free vacancy source adapters", () => {
 
     expect(parsed.recordsFetched).toBe(2);
     expect(parsed.adverts).toHaveLength(1);
+    expect(parsed.duplicateListingsSkipped).toBe(1);
     expect(parsed.adverts[0]).toMatchObject({
       externalId: "1086483",
       title: "Legal Advice Lawyer",

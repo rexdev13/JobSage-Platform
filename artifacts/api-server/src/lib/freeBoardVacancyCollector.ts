@@ -1,12 +1,18 @@
 import {
   db,
+  sponsorLicenceIdentityCrosswalkTable,
   sponsorLicenceVacanciesTable,
   sponsorLicencesTable,
+  vacancySourceListingAuditsTable,
   vacancySourceObservationsTable,
   vacancySourceStatesTable,
   vacancySyncLogTable,
 } from "@workspace/db";
 import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import {
+  normalizeSponsorIdentityValue,
+  SPONSOR_IDENTITY_SOURCE,
+} from "./sponsorWebsiteCrossEnvIdentity";
 import {
   normaliseAndDedupeBoardAdverts,
   upsertSharedBoardVacancies,
@@ -26,12 +32,18 @@ type SourceRunMetrics = {
   provider: string;
   pagesFetched: number;
   recordsFetched: number;
+  uniqueListingsSeen: number;
+  duplicateListingsSkipped: number;
+  sweepStartedAt: string | null;
+  sweepUniqueListingsSeen: number;
+  sweepSponsorMatched: number;
+  unmatchedSponsorIdentity: number;
+  sweepUnmatchedSponsorIdentity: number;
   sponsorMatched: number;
   saved: number;
   inserted: number;
   updated: number;
   revived: number;
-  rejectedNonSponsor: number;
   rejectedInvalid: number;
   sitemapGone: number;
   missingCount: number;
@@ -75,6 +87,12 @@ function summarizeCursorForMetrics(sourceId: string, cursor: string | null): str
 export type FreeBoardCollectorSummary = {
   selected: number;
   recordsFetched: number;
+  uniqueListingsSeen: number;
+  duplicateListingsSkipped: number;
+  sweepUniqueListingsSeen: number;
+  sweepSponsorMatched: number;
+  unmatchedSponsorIdentity: number;
+  sweepUnmatchedSponsorIdentity: number;
   sponsorMatched: number;
   saved: number;
   upserted: number;
@@ -97,6 +115,61 @@ function cleanEmployerKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+type ReviewedEmployerAliases = {
+  matches: Map<string, string>;
+  ambiguous: Set<string>;
+};
+
+type SponsorEmployerResolution = {
+  matches: Map<string, string>;
+  unmatchedReasons: Map<string, "no_sponsor_identity_match" | "ambiguous_sponsor_identity">;
+};
+
+async function loadReviewedEmployerAliases(): Promise<ReviewedEmployerAliases> {
+  const rows = await db
+    .select({
+      identitySnapshot: sponsorLicenceIdentityCrosswalkTable.identitySnapshot,
+      resolutionMethod: sponsorLicenceIdentityCrosswalkTable.resolutionMethod,
+      organisationName: sponsorLicencesTable.organisationName,
+    })
+    .from(sponsorLicenceIdentityCrosswalkTable)
+    .innerJoin(
+      sponsorLicencesTable,
+      eq(
+        sponsorLicenceIdentityCrosswalkTable.targetSponsorLicenceId,
+        sponsorLicencesTable.id,
+      ),
+    )
+    .where(eq(
+      sponsorLicenceIdentityCrosswalkTable.sourceSystem,
+      SPONSOR_IDENTITY_SOURCE,
+    ));
+
+  const candidates = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (
+      row.resolutionMethod !== "exact_unique" &&
+      row.resolutionMethod !== "manual_review"
+    ) continue;
+    const alias = normalizeSponsorIdentityValue(
+      row.identitySnapshot["organisationName"],
+    );
+    const canonicalName = row.organisationName.trim();
+    if (!alias || !canonicalName) continue;
+    const names = candidates.get(alias) ?? new Set<string>();
+    names.add(canonicalName);
+    candidates.set(alias, names);
+  }
+
+  const matches = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  for (const [alias, names] of candidates) {
+    if (names.size === 1) matches.set(alias, [...names][0]!);
+    else ambiguous.add(alias);
+  }
+  return { matches, ambiguous };
+}
+
 function hasRequiredListingIdentity(advert: BoardAdvert): boolean {
   if (!advert.externalId?.trim() || !advert.title.trim() || !advert.organisationName.trim()) return false;
   try {
@@ -109,14 +182,17 @@ function hasRequiredListingIdentity(advert: BoardAdvert): boolean {
 
 async function resolveSponsorEmployers(
   adverts: readonly BoardAdvert[],
-): Promise<Map<string, string>> {
+  reviewedAliases: ReviewedEmployerAliases,
+): Promise<SponsorEmployerResolution> {
   const employerKeys = [...new Set(
     adverts
       .map((advert) => advert.organisationName.trim())
       .filter(Boolean)
       .map(cleanEmployerKey),
   )];
-  if (employerKeys.length === 0) return new Map();
+  if (employerKeys.length === 0) {
+    return { matches: new Map(), unmatchedReasons: new Map() };
+  }
   const rows = await db
     .select({ organisationName: sponsorLicencesTable.organisationName })
     .from(sponsorLicencesTable)
@@ -133,25 +209,149 @@ async function resolveSponsorEmployers(
     names.add(row.organisationName.trim());
     canonicalNames.set(key, names);
   }
-  return new Map(
-    [...canonicalNames.entries()]
-      .filter(([, names]) => names.size === 1)
-      .map(([key, names]) => [key, [...names][0]!]),
-  );
+
+  const matches = new Map<string, string>();
+  const unmatchedReasons = new Map<
+    string,
+    "no_sponsor_identity_match" | "ambiguous_sponsor_identity"
+  >();
+  for (const advert of adverts) {
+    const key = cleanEmployerKey(advert.organisationName);
+    const directNames = canonicalNames.get(key);
+    if (directNames?.size === 1) {
+      matches.set(key, [...directNames][0]!);
+      continue;
+    }
+
+    const aliasKey = normalizeSponsorIdentityValue(advert.organisationName);
+    const alias = reviewedAliases.matches.get(aliasKey);
+    if (alias) {
+      matches.set(key, alias);
+      continue;
+    }
+
+    const ambiguous = (directNames?.size ?? 0) > 1 ||
+      reviewedAliases.ambiguous.has(aliasKey);
+    unmatchedReasons.set(
+      key,
+      ambiguous ? "ambiguous_sponsor_identity" : "no_sponsor_identity_match",
+    );
+  }
+  return { matches, unmatchedReasons };
 }
 
 async function getSeenExternalIds(
   sourceId: string,
   sweepStartedAt: Date,
 ): Promise<Set<string>> {
-  const rows = await db
-    .select({ externalId: vacancySourceObservationsTable.externalId })
-    .from(vacancySourceObservationsTable)
-    .where(and(
-      eq(vacancySourceObservationsTable.sourceId, sourceId),
-      gte(vacancySourceObservationsTable.lastSeenAt, sweepStartedAt),
-    ));
-  return new Set(rows.map((row) => row.externalId));
+  const [observations, listingAudits] = await Promise.all([
+    db
+      .select({ externalId: vacancySourceObservationsTable.externalId })
+      .from(vacancySourceObservationsTable)
+      .where(and(
+        eq(vacancySourceObservationsTable.sourceId, sourceId),
+        gte(vacancySourceObservationsTable.lastSeenAt, sweepStartedAt),
+      )),
+    db
+      .select({ externalId: vacancySourceListingAuditsTable.externalId })
+      .from(vacancySourceListingAuditsTable)
+      .where(and(
+        eq(vacancySourceListingAuditsTable.sourceId, sourceId),
+        gte(vacancySourceListingAuditsTable.lastSeenAt, sweepStartedAt),
+      )),
+  ]);
+  return new Set([
+    ...observations.map((row) => row.externalId),
+    ...listingAudits.map((row) => row.externalId),
+  ]);
+}
+
+async function getSweepListingCounts(
+  sourceId: string,
+  sweepStartedAt: Date,
+): Promise<{
+  uniqueListingsSeen: number;
+  sponsorMatched: number;
+  unmatchedSponsorIdentity: number;
+}> {
+  const [observations, listingAudits] = await Promise.all([
+    db
+      .select({ externalId: vacancySourceObservationsTable.externalId })
+      .from(vacancySourceObservationsTable)
+      .where(and(
+        eq(vacancySourceObservationsTable.sourceId, sourceId),
+        gte(vacancySourceObservationsTable.lastSeenAt, sweepStartedAt),
+      )),
+    db
+      .select({ externalId: vacancySourceListingAuditsTable.externalId })
+      .from(vacancySourceListingAuditsTable)
+      .where(and(
+        eq(vacancySourceListingAuditsTable.sourceId, sourceId),
+        gte(vacancySourceListingAuditsTable.lastSeenAt, sweepStartedAt),
+      )),
+  ]);
+  const matchedIds = new Set(observations.map((row) => row.externalId));
+  const unmatchedIds = new Set(
+    listingAudits
+      .map((row) => row.externalId)
+      .filter((externalId) => !matchedIds.has(externalId)),
+  );
+  return {
+    uniqueListingsSeen: new Set([...matchedIds, ...unmatchedIds]).size,
+    sponsorMatched: matchedIds.size,
+    unmatchedSponsorIdentity: unmatchedIds.size,
+  };
+}
+
+async function persistUnmatchedEmployerListings(
+  sourceId: string,
+  source: FreeBoardSource,
+  adverts: readonly BoardAdvert[],
+  unmatchedReasons: ReadonlyMap<
+    string,
+    "no_sponsor_identity_match" | "ambiguous_sponsor_identity"
+  >,
+): Promise<void> {
+  const now = new Date();
+  const unmatched = adverts.flatMap((advert) => {
+    const matchReason = unmatchedReasons.get(cleanEmployerKey(advert.organisationName));
+    const externalId = advert.externalId?.trim();
+    if (!matchReason || !externalId) return [];
+    return [{
+      sourceId,
+      provider: source.provider,
+      boardName: source.boardName,
+      externalId,
+      employerName: advert.organisationName.trim(),
+      title: advert.title.trim(),
+      listingUrl: advert.url,
+      matchReason,
+      parserVersion: source.parserVersion,
+      firstSeenAt: now,
+      lastSeenAt: now,
+    }];
+  });
+  if (unmatched.length === 0) return;
+
+  await db
+    .insert(vacancySourceListingAuditsTable)
+    .values(unmatched)
+    .onConflictDoUpdate({
+      target: [
+        vacancySourceListingAuditsTable.sourceId,
+        vacancySourceListingAuditsTable.externalId,
+      ],
+      set: {
+        provider: sql`excluded.provider`,
+        boardName: sql`excluded.board_name`,
+        employerName: sql`excluded.employer_name`,
+        title: sql`excluded.title`,
+        listingUrl: sql`excluded.listing_url`,
+        matchReason: sql`excluded.match_reason`,
+        parserVersion: sql`excluded.parser_version`,
+        lastSeenAt: sql`excluded.last_seen_at`,
+      },
+    });
 }
 
 async function persistSourceState(
@@ -273,10 +473,14 @@ export async function runFreeBoardVacancyCollector(options: {
   const metrics: SourceRunMetrics[] = [];
   const completedSweeps: string[] = [];
   let selected = 0;
+  let uniqueListingsSeen = 0;
+  let duplicateListingsSkipped = 0;
+  let unmatchedSponsorIdentity = 0;
   let sponsorMatched = 0;
   let upserted = 0;
   let errors = 0;
   let remaining = 0;
+  let reviewedAliases: ReviewedEmployerAliases | null = null;
 
   for (const source of sources) {
     const sourceObservationId = observationSourceId(source);
@@ -301,12 +505,18 @@ export async function runFreeBoardVacancyCollector(options: {
         provider: source.provider,
         pagesFetched: 0,
         recordsFetched: 0,
+        uniqueListingsSeen: 0,
+        duplicateListingsSkipped: 0,
+        sweepStartedAt: null,
+        sweepUniqueListingsSeen: 0,
+        sweepSponsorMatched: 0,
+        unmatchedSponsorIdentity: 0,
+        sweepUnmatchedSponsorIdentity: 0,
         sponsorMatched: 0,
         saved: 0,
         inserted: 0,
         updated: 0,
         revived: 0,
-        rejectedNonSponsor: 0,
         rejectedInvalid: 0,
         sitemapGone: 0,
         missingCount: 0,
@@ -327,12 +537,18 @@ export async function runFreeBoardVacancyCollector(options: {
         provider: source.provider,
         pagesFetched: 0,
         recordsFetched: 0,
+        uniqueListingsSeen: 0,
+        duplicateListingsSkipped: 0,
+        sweepStartedAt: storedState.sweepStartedAt?.toISOString() ?? null,
+        sweepUniqueListingsSeen: 0,
+        sweepSponsorMatched: 0,
+        unmatchedSponsorIdentity: 0,
+        sweepUnmatchedSponsorIdentity: 0,
         sponsorMatched: 0,
         saved: 0,
         inserted: 0,
         updated: 0,
         revived: 0,
-        rejectedNonSponsor: 0,
         rejectedInvalid: 0,
         sitemapGone: 0,
         missingCount: 0,
@@ -362,12 +578,18 @@ export async function runFreeBoardVacancyCollector(options: {
       provider: source.provider,
       pagesFetched: 0,
       recordsFetched: 0,
+      uniqueListingsSeen: 0,
+      duplicateListingsSkipped: 0,
+      sweepStartedAt: sweepStartedAt.toISOString(),
+      sweepUniqueListingsSeen: 0,
+      sweepSponsorMatched: 0,
+      unmatchedSponsorIdentity: 0,
+      sweepUnmatchedSponsorIdentity: 0,
       sponsorMatched: 0,
       saved: 0,
       inserted: 0,
       updated: 0,
       revived: 0,
-      rejectedNonSponsor: 0,
       rejectedInvalid: 0,
       sitemapGone: 0,
       missingCount: 0,
@@ -428,8 +650,30 @@ export async function runFreeBoardVacancyCollector(options: {
       }
       selected += pageRecordsFetched;
 
-      const requiredValid = page.adverts.filter(hasRequiredListingIdentity);
-      const rejectedInvalid = page.adverts.length - requiredValid.length;
+      const pageSeenIds = new Set(seenExternalIds);
+      let duplicateCount = page.duplicateListingsSkipped ?? 0;
+      const uniquePageAdverts = page.adverts.filter((advert) => {
+        const externalId = advert.externalId?.trim() ?? "";
+        if (!externalId) return true;
+        if (pageSeenIds.has(externalId)) {
+          duplicateCount++;
+          return false;
+        }
+        pageSeenIds.add(externalId);
+        return true;
+      });
+      const pageUniqueIds = new Set(
+        uniquePageAdverts
+          .map((advert) => advert.externalId?.trim() ?? "")
+          .filter(Boolean),
+      );
+      sourceMetrics.uniqueListingsSeen += pageUniqueIds.size;
+      sourceMetrics.duplicateListingsSkipped += duplicateCount;
+      uniqueListingsSeen += pageUniqueIds.size;
+      duplicateListingsSkipped += duplicateCount;
+
+      const requiredValid = uniquePageAdverts.filter(hasRequiredListingIdentity);
+      const rejectedInvalid = uniquePageAdverts.length - requiredValid.length;
       sourceMetrics.rejectedInvalid += rejectedInvalid;
       const structuralRows = requiredValid.filter((advert) => !isManualLabourTitle(advert.title));
       const normalizable = normaliseAndDedupeBoardAdverts(structuralRows);
@@ -441,9 +685,15 @@ export async function runFreeBoardVacancyCollector(options: {
         blockedByInvalidRecord = true;
       }
 
-      const sponsorNames = await resolveSponsorEmployers(normalizable);
+      if (normalizable.length > 0 && !reviewedAliases) {
+        reviewedAliases = await loadReviewedEmployerAliases();
+      }
+      const resolution = await resolveSponsorEmployers(
+        normalizable,
+        reviewedAliases ?? { matches: new Map(), ambiguous: new Set() },
+      );
       const sponsorAdverts = normalizable.flatMap((advert) => {
-        const canonicalName = sponsorNames.get(cleanEmployerKey(advert.organisationName));
+        const canonicalName = resolution.matches.get(cleanEmployerKey(advert.organisationName));
         return canonicalName
           ? [{
               ...advert,
@@ -460,7 +710,9 @@ export async function runFreeBoardVacancyCollector(options: {
       });
       sourceMetrics.sponsorMatched += sponsorAdverts.length;
       sponsorMatched += sponsorAdverts.length;
-      sourceMetrics.rejectedNonSponsor += normalizable.length - sponsorAdverts.length;
+      const unmatchedCount = normalizable.length - sponsorAdverts.length;
+      sourceMetrics.unmatchedSponsorIdentity += unmatchedCount;
+      unmatchedSponsorIdentity += unmatchedCount;
 
       if (sponsorAdverts.length > 0) {
         const result = await upsertSharedBoardVacancies(sponsorAdverts, {
@@ -473,6 +725,12 @@ export async function runFreeBoardVacancyCollector(options: {
         sourceMetrics.saved += result.inserted + result.updated + result.revived;
         upserted += result.inserted + result.updated + result.revived;
       }
+      await persistUnmatchedEmployerListings(
+        sourceObservationId,
+        source,
+        normalizable,
+        resolution.unmatchedReasons,
+      );
 
       pagesProcessed += 1;
       if (blockedByInvalidRecord) {
@@ -587,9 +845,28 @@ export async function runFreeBoardVacancyCollector(options: {
       });
     }
     sourceMetrics.nextCursor = summarizeCursorForMetrics(source.id, sourceMetrics.nextCursor);
+    if (pagesProcessed > 0) {
+      const sweepCounts = await getSweepListingCounts(sourceObservationId, sweepStartedAt);
+      sourceMetrics.sweepUniqueListingsSeen = sweepCounts.uniqueListingsSeen;
+      sourceMetrics.sweepSponsorMatched = sweepCounts.sponsorMatched;
+      sourceMetrics.sweepUnmatchedSponsorIdentity =
+        sweepCounts.unmatchedSponsorIdentity;
+    }
     metrics.push(sourceMetrics);
   }
 
+  const sweepUniqueListingsSeen = metrics.reduce(
+    (total, source) => total + source.sweepUniqueListingsSeen,
+    0,
+  );
+  const sweepSponsorMatched = metrics.reduce(
+    (total, source) => total + source.sweepSponsorMatched,
+    0,
+  );
+  const sweepUnmatchedSponsorIdentity = metrics.reduce(
+    (total, source) => total + source.sweepUnmatchedSponsorIdentity,
+    0,
+  );
   const done = remaining === 0 && completedSweeps.length === sources.length;
   const durationMs = Date.now() - startedAt;
   await db.insert(vacancySyncLogTable).values({
@@ -604,6 +881,12 @@ export async function runFreeBoardVacancyCollector(options: {
     metrics: {
       selected,
       recordsFetched: selected,
+      uniqueListingsSeen,
+      duplicateListingsSkipped,
+      sweepUniqueListingsSeen,
+      sweepSponsorMatched,
+      unmatchedSponsorIdentity,
+      sweepUnmatchedSponsorIdentity,
       sponsorMatched,
       saved: upserted,
       upserted,
@@ -619,6 +902,12 @@ export async function runFreeBoardVacancyCollector(options: {
   return {
     selected,
     recordsFetched: selected,
+    uniqueListingsSeen,
+    duplicateListingsSkipped,
+    sweepUniqueListingsSeen,
+    sweepSponsorMatched,
+    unmatchedSponsorIdentity,
+    sweepUnmatchedSponsorIdentity,
     sponsorMatched,
     saved: upserted,
     upserted,

@@ -203,15 +203,17 @@ function parseCharityJobNextPage(html: string, currentPage: number): number | nu
 export function parseCharityJobPage(html: string): {
   adverts: BoardAdvert[];
   recordsFetched: number;
+  duplicateListingsSkipped: number;
 } {
   const source = {
     id: "charityjob",
     provider: "charityjob",
     boardName: "CharityJob",
-    parserVersion: "charityjob-html-v1",
+    parserVersion: "charityjob-html-v2",
   };
   const cards = classBlocks(html, "article", "job-card-wrapper");
   const advertsById = new Map<string, BoardAdvert>();
+  let duplicateListingsSkipped = 0;
   for (const card of cards) {
     if (/\bis-expired-job=["']true["']/i.test(card) ||
         /\bis-future-job=["']true["']/i.test(card)) {
@@ -261,9 +263,15 @@ export function parseCharityJobPage(html: string): {
     });
     if (externalId && !advertsById.has(externalId)) {
       advertsById.set(externalId, advert);
+    } else if (externalId) {
+      duplicateListingsSkipped++;
     }
   }
-  return { adverts: [...advertsById.values()], recordsFetched: cards.length };
+  return {
+    adverts: [...advertsById.values()],
+    recordsFetched: cards.length,
+    duplicateListingsSkipped,
+  };
 }
 
 function parseJobsAcUkReportedTotal(html: string): number | undefined {
@@ -383,10 +391,10 @@ export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
     id: "charityjob",
     provider: "charityjob",
     boardName: "CharityJob",
-    parserVersion: "charityjob-html-v1",
+    parserVersion: "charityjob-html-v2",
     maxPagesPerRun: 200,
     reconcileMissingAfterSweep: false,
-    async fetchPage({ cursor, deadlineMs }) {
+    async fetchPage({ cursor, deadlineMs, seenExternalIds }) {
       const page = cursor == null ? 1 : Number(cursor);
       if (!Number.isInteger(page) || page < 1) {
         throw new Error("CharityJob page cursor is invalid.");
@@ -395,13 +403,17 @@ export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       if (page > 1) url.searchParams.set("page", String(page));
       const html = await fetchText(url.toString(), deadlineMs);
       const parsed = parseCharityJobPage(html);
+      const unseen = parsed.adverts.filter((advert) =>
+        !advert.externalId || !seenExternalIds.has(advert.externalId));
       const nextPage = parseCharityJobNextPage(html, page);
       if (nextPage != null && parsed.adverts.length === 0) {
         throw new Error("CharityJob returned an empty page with a next-page link.");
       }
       return {
-        adverts: parsed.adverts,
+        adverts: unseen,
         recordsFetched: parsed.recordsFetched,
+        duplicateListingsSkipped:
+          parsed.duplicateListingsSkipped + parsed.adverts.length - unseen.length,
         nextCursor: nextPage == null ? null : String(nextPage),
       };
     },

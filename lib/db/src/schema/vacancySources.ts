@@ -63,3 +63,37 @@ export const vacancySourceObservationsTable = pgTable(
     ),
   ],
 );
+
+/**
+ * Public job-board listings that could not be linked to an eligible sponsor.
+ * These rows support sweep-wide deduplication and review, but are never
+ * candidate-visible vacancies.
+ */
+export const vacancySourceListingAuditsTable = pgTable(
+  "vacancy_source_listing_audits",
+  {
+    id: serial("id").primaryKey(),
+    sourceId: text("source_id").notNull(),
+    provider: text("provider").notNull(),
+    boardName: text("board_name").notNull(),
+    externalId: text("external_id").notNull(),
+    employerName: text("employer_name").notNull(),
+    title: text("title").notNull(),
+    listingUrl: text("listing_url").notNull(),
+    matchReason: text("match_reason").notNull(),
+    parserVersion: text("parser_version").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("vacancy_source_listing_audits_source_external_uidx").on(
+      table.sourceId,
+      table.externalId,
+    ),
+    index("vacancy_source_listing_audits_source_seen_idx").on(
+      table.sourceId,
+      table.lastSeenAt,
+    ),
+    index("vacancy_source_listing_audits_employer_idx").on(table.employerName),
+  ],
+);

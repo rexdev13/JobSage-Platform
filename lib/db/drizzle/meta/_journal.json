@@ -148,6 +148,13 @@
       "when": 1791400000000,
       "tag": "0042_free_vacancy_source_state",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791400000001,
+      "tag": "0043_vacancy_source_listing_audits",
+      "breakpoints": true
     }
   ]
 }

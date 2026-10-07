@@ -8,9 +8,18 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   upsert: vi.fn(),
   stateWrites: [] as Array<Record<string, unknown>>,
+  listingAudits: [] as Array<Record<string, unknown>>,
+  observations: [] as Array<Record<string, unknown>>,
+  reviewedAliases: [] as Array<Record<string, unknown>>,
+  sponsorRows: [{ organisationName: "Example Trust" }] as Array<Record<string, unknown>>,
   syncLogs: [] as Array<Record<string, unknown>>,
   tables: {
     states: { sourceId: "sourceId" },
+    listingAudits: {
+      externalId: "externalId",
+      sourceId: "sourceId",
+      lastSeenAt: "lastSeenAt",
+    },
     observations: {
       externalId: "externalId",
       sourceId: "sourceId",
@@ -18,7 +27,13 @@ const mocks = vi.hoisted(() => ({
       vacancyId: "vacancyId",
       missingSince: "missingSince",
     },
-    sponsorLicences: { organisationName: "organisationName" },
+    sponsorLicences: { id: "id", organisationName: "organisationName" },
+    crosswalk: {
+      identitySnapshot: "identitySnapshot",
+      resolutionMethod: "resolutionMethod",
+      targetSponsorLicenceId: "targetSponsorLicenceId",
+      sourceSystem: "sourceSystem",
+    },
     vacancies: { id: "id", sourceMissingSince: "sourceMissingSince", sourceMissingObservations: "sourceMissingObservations" },
     syncLog: {},
   },
@@ -32,7 +47,9 @@ vi.mock("@workspace/db", () => ({
   },
   vacancySourceStatesTable: mocks.tables.states,
   vacancySourceObservationsTable: mocks.tables.observations,
+  vacancySourceListingAuditsTable: mocks.tables.listingAudits,
   sponsorLicencesTable: mocks.tables.sponsorLicences,
+  sponsorLicenceIdentityCrosswalkTable: mocks.tables.crosswalk,
   sponsorLicenceVacanciesTable: mocks.tables.vacancies,
   vacancySyncLogTable: mocks.tables.syncLog,
 }));
@@ -44,6 +61,7 @@ vi.mock("drizzle-orm", () => ({
   inArray: (...values: unknown[]) => ({ inArray: values }),
   isNull: (...values: unknown[]) => ({ isNull: values }),
   lt: (...values: unknown[]) => ({ lt: values }),
+  innerJoin: (...values: unknown[]) => ({ innerJoin: values }),
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
 }));
 
@@ -99,16 +117,29 @@ describe("free-board vacancy collector", () => {
       fetchPage: mocks.fetchPage,
     });
     mocks.stateWrites.length = 0;
+    mocks.listingAudits.length = 0;
+    mocks.observations.length = 0;
+    mocks.reviewedAliases.length = 0;
+    mocks.sponsorRows.splice(0, mocks.sponsorRows.length, {
+      organisationName: "Example Trust",
+    });
     mocks.syncLogs.length = 0;
 
     mocks.select.mockImplementation(() => ({
       from: (table: object) => ({
+        innerJoin: () => ({
+          where: () => Promise.resolve(mocks.reviewedAliases),
+        }),
         where: () => table === mocks.tables.states
           ? { limit: () => Promise.resolve([storedState]) }
           : Promise.resolve(
               table === mocks.tables.sponsorLicences
-                ? [{ organisationName: "Example Trust" }]
-                : [],
+                ? mocks.sponsorRows
+                : table === mocks.tables.listingAudits
+                  ? mocks.listingAudits
+                  : table === mocks.tables.observations
+                    ? mocks.observations
+                  : [],
             ),
       }),
     }));
@@ -116,6 +147,11 @@ describe("free-board vacancy collector", () => {
       values: (values: Record<string, unknown>) => {
         if (table === mocks.tables.states) {
           mocks.stateWrites.push(values);
+          return { onConflictDoUpdate: () => Promise.resolve() };
+        }
+        if (table === mocks.tables.listingAudits) {
+          const rows = Array.isArray(values) ? values : [values];
+          mocks.listingAudits.push(...rows as Array<Record<string, unknown>>);
           return { onConflictDoUpdate: () => Promise.resolve() };
         }
         if (table === mocks.tables.syncLog) {
@@ -132,7 +168,15 @@ describe("free-board vacancy collector", () => {
         }),
       }),
     });
-    mocks.upsert.mockResolvedValue({ inserted: 1, updated: 0, revived: 0 });
+    mocks.upsert.mockImplementation((adverts: Array<Record<string, unknown>>) => {
+      const lastSeenAt = new Date();
+      mocks.observations.push(...adverts.map((advert) => ({
+        externalId: advert["externalId"],
+        sourceId: advert["sourceId"],
+        lastSeenAt,
+      })));
+      return Promise.resolve({ inserted: adverts.length, updated: 0, revived: 0 });
+    });
     mocks.fetchPage
       .mockResolvedValueOnce({
         adverts: [{
@@ -400,5 +444,171 @@ describe("free-board vacancy collector", () => {
     });
     expect(otherFetch).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates listing IDs across pages and persists unmatched employer evidence", async () => {
+    mocks.sponsorRows.splice(0);
+    mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
+    const advert = (externalId: string, organisationName: string) => ({
+      organisationName,
+      employer: organisationName,
+      title: "Community Adviser",
+      location: "London",
+      salary: null,
+      url: `https://fixture-board.example/jobs/${externalId}`,
+      applicationUrl: null,
+      description: null,
+      postedDate: null,
+      targetRegions: [],
+      boardName: "Fixture Board",
+      externalId,
+      sourceType: "job_board",
+    });
+    mocks.fetchPage
+      .mockReset()
+      .mockResolvedValueOnce({
+        adverts: [advert("charity-1", "Unmapped Charity")],
+        recordsFetched: 1,
+        nextCursor: "page-2",
+      })
+      .mockResolvedValueOnce({
+        adverts: [
+          advert("charity-1", "Unmapped Charity"),
+          advert("charity-2", "Another Unmapped Charity"),
+        ],
+        recordsFetched: 2,
+        nextCursor: null,
+      });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 2,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      recordsFetched: 3,
+      uniqueListingsSeen: 2,
+      duplicateListingsSkipped: 1,
+      sweepUniqueListingsSeen: 2,
+      unmatchedSponsorIdentity: 2,
+      sweepUnmatchedSponsorIdentity: 2,
+      sponsorMatched: 0,
+      done: true,
+    });
+    expect(mocks.fetchPage.mock.calls[1]?.[0]?.seenExternalIds.has("charity-1")).toBe(true);
+    expect(mocks.listingAudits.map((row) => row["externalId"])).toEqual([
+      "charity-1",
+      "charity-2",
+    ]);
+    expect(mocks.listingAudits).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        employerName: "Unmapped Charity",
+        matchReason: "no_sponsor_identity_match",
+      }),
+    ]));
+  });
+
+  it("uses a reviewed sponsor identity crosswalk for an employer alias", async () => {
+    mocks.sponsorRows.splice(0);
+    mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
+    mocks.reviewedAliases.push({
+      identitySnapshot: { organisationName: "Example & Support" },
+      resolutionMethod: "manual_review",
+      organisationName: "Example Trust",
+    });
+    mocks.fetchPage.mockReset().mockResolvedValue({
+      adverts: [{
+        organisationName: "Example and Support",
+        employer: "Example and Support",
+        title: "Staff Nurse",
+        location: "London",
+        salary: null,
+        url: "https://fixture-board.example/jobs/alias-1001",
+        applicationUrl: null,
+        description: null,
+        postedDate: null,
+        targetRegions: [],
+        boardName: "Fixture Board",
+        externalId: "alias-1001",
+        sourceType: "job_board",
+      }],
+      recordsFetched: 1,
+      nextCursor: null,
+    });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 1,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      uniqueListingsSeen: 1,
+      sweepUniqueListingsSeen: 1,
+      sweepSponsorMatched: 1,
+      sponsorMatched: 1,
+      saved: 1,
+    });
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        organisationName: "Example Trust",
+        employer: "Example Trust",
+      })],
+      { enrichContacts: false, queueVerifications: true },
+    );
+    expect(mocks.listingAudits).toHaveLength(0);
+  });
+
+  it("keeps a crosswalk alias with conflicting sponsor targets unmatched", async () => {
+    mocks.sponsorRows.splice(0);
+    mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
+    mocks.reviewedAliases.push(
+      {
+        identitySnapshot: { organisationName: "Example & Support" },
+        resolutionMethod: "exact_unique",
+        organisationName: "Example Trust",
+      },
+      {
+        identitySnapshot: { organisationName: "Example & Support" },
+        resolutionMethod: "manual_review",
+        organisationName: "Example Foundation",
+      },
+    );
+    mocks.fetchPage.mockReset().mockResolvedValue({
+      adverts: [{
+        organisationName: "Example and Support",
+        employer: "Example and Support",
+        title: "Community Nurse",
+        location: "London",
+        salary: null,
+        url: "https://fixture-board.example/jobs/ambiguous-1001",
+        applicationUrl: null,
+        description: null,
+        postedDate: null,
+        targetRegions: [],
+        boardName: "Fixture Board",
+        externalId: "ambiguous-1001",
+        sourceType: "job_board",
+      }],
+      recordsFetched: 1,
+      nextCursor: null,
+    });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 1,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary.sponsorMatched).toBe(0);
+    expect(summary.sweepUnmatchedSponsorIdentity).toBe(1);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.listingAudits).toEqual([
+      expect.objectContaining({
+        externalId: "ambiguous-1001",
+        matchReason: "ambiguous_sponsor_identity",
+      }),
+    ]);
   });
 });

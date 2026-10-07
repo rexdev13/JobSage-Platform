@@ -18,6 +18,8 @@ export type FreeBoardPage = {
   nextCursor: string | null;
   /** Raw listing rows in the fetched response, including repeats filtered before normalization. */
   recordsFetched?: number;
+  /** Duplicate listing IDs removed by a source adapter before returning adverts. */
+  duplicateListingsSkipped?: number;
   reportedTotal?: number;
   goneCount?: number;
   coverageWarning?: string;
