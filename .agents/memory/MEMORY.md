@@ -96,3 +96,4 @@
 - [Cross-sector vacancy coverage](cross-sector-vacancy-coverage.md) — compare adapter completion with provider totals; report measured coverage, not source-state labels alone.
 - [Free-feed regional domains](free-feed-regional-domains.md) — live job feeds may use country-specific listing hosts that differ from their API endpoint.
 - [Himalayas comparison scope](free-feed-himalayas-scope.md) — count UK-eligible and worldwide listings; retain older global samples as out-of-scope history.
+- [In-process production auth](production-request-auth.md) — send secrets through an HTTP client in memory, not command-line header arguments that appear in process listings.
