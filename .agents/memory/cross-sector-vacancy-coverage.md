@@ -9,6 +9,14 @@ The product objective is dependable, automated vacancy discovery across sectors 
 
 **How to apply:** Measure coverage, freshness, precision, and recall by sector/provider. Preserve verified employer/source evidence, distinguish no-results from failure, and never claim universal completeness or infer vacancy sponsorship from employer sponsor status. See `.agents/outputs/vacancy-system-architecture-handoff-2026-10-06.md` for the current architecture and proposed direction.
 
+## Provider-total verification
+
+Do not treat a source's `complete` outcome as proof that all provider-reported results were consumed when pagination ends on an empty or no-new-listings page. If the cursor has not reached the reported end, retain existing observations and mark coverage for review; report raw fetched rows separately from sponsor-matched imports.
+
+**Why:** A production Jobs.ac.uk sweep ended on an empty page before its reported result total, while the adapter still classified the run as complete. That is a coverage gap even when missing-record reconciliation is disabled.
+
+**How to apply:** For every paginated adapter with a reported total, verify the cursor/end condition against that total and add a regression test for empty or duplicate-only pages before the end. Keep source visibility and prior observations unchanged until coverage is validated.
+
 ## Coverage investigation scope
 
 When the user asks why Opportunities is not being populated, investigate job-board collection, company-site collection, and employer email acquisition across sectors. Do not substitute application submission or tracker issues for that diagnosis.
