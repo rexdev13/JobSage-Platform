@@ -81,7 +81,7 @@ export default function LearningHubPage() {
               Clear guidance for your next step.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-[#d2ddd4] sm:text-lg">
-              Practical, staff-reviewed videos for building your healthcare career in the UK — from first application to settling in.
+              Practical, staff-reviewed videos for building your career in the UK — from finding opportunities and making your first application to settling into a new role.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[#d2ddd4]">
               <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#d9c99c]" /> Trusted, selected resources</span>

@@ -237,7 +237,7 @@ export default function AdminLearningVideosPage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a34135]">Knowledge, kept current</p>
             <h1 className="mt-2 font-display text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Learning library</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#68756d] sm:text-base">Maintain the videos candidates rely on for their UK healthcare journey. Every item should have a clear source, named reviewer and review date.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#68756d] sm:text-base">Manage staff-reviewed videos that support candidates across their UK career journeys. Every item should have a clear source, named reviewer and review date.</p>
           </div>
           <button onClick={openNew} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#a34135] px-5 text-sm font-semibold text-white shadow-[0_5px_12px_rgba(113,49,38,0.16)] transition hover:bg-[#88382e] active:scale-[0.98]"><Plus className="h-4 w-4" /> Add a video</button>
         </header>
