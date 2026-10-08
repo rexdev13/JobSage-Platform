@@ -50,6 +50,8 @@ tags:
     description: Public help and support ticket submission.
   - name: Feedback
     description: Public product feedback and administrator review.
+  - name: Learning
+    description: Candidate learning videos and staff-managed publishing.
 paths:
   /healthz:
     get:
@@ -4494,6 +4496,249 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
           description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /learning-videos:
+    get:
+      tags: [Learning]
+      operationId: listLearningVideos
+      summary: List current learning videos available to candidates
+      responses:
+        "200":
+          description: Published videos that are within their review period.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningVideosResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Candidate or staff access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/learning-videos:
+    get:
+      tags: [Learning]
+      operationId: listAdminLearningVideos
+      summary: List all learning videos for staff management
+      responses:
+        "200":
+          description: All learning videos, including drafts and archived entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningVideosResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Administrator access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      tags: [Learning]
+      operationId: createLearningVideo
+      summary: Create a staff-curated learning video
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningVideoInput"
+      responses:
+        "201":
+          description: Learning video created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningVideo"
+        "400":
+          description: Invalid video metadata or media source.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Administrator access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/learning-videos/upload-url:
+    post:
+      tags: [Learning]
+      operationId: requestLearningVideoUploadUrl
+      summary: Request a private upload URL for a staff-owned video
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningVideoUploadRequest"
+      responses:
+        "200":
+          description: Upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningVideoUploadUrl"
+        "400":
+          description: Unsupported video type or size.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Administrator access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/learning-videos/{id}:
+    patch:
+      tags: [Learning]
+      operationId: updateLearningVideo
+      summary: Update or archive a staff-curated learning video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningVideoInput"
+      responses:
+        "200":
+          description: Learning video updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningVideo"
+        "400":
+          description: Invalid video metadata or media source.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Administrator access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Learning video not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /learning-videos/{id}/media:
+    get:
+      tags: [Learning]
+      operationId: streamLearningVideoMedia
+      summary: Stream a published uploaded learning video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Video media.
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial video media for browser seeking.
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Candidate or administrator access required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Video media is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "416":
+          description: Requested byte range is not satisfiable.
           content:
             application/json:
               schema:
@@ -9148,3 +9393,88 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SupportTicketReply"
+
+    LearningVideo:
+      type: object
+      required: [id, title, description, category, videoEmbedUrl, mediaUrl, durationSeconds, language, applicability, sourceLabel, sourceUrl, transcript, reviewedBy, reviewedAt, reviewDueAt, status, sortOrder, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        category:
+          type: string
+          enum: [application, sponsorship, medical, professional_registration, relocation, jobsage]
+        videoEmbedUrl: { type: ["string", "null"], format: uri }
+        mediaUrl: { type: ["string", "null"], format: uri-reference }
+        durationSeconds: { type: ["integer", "null"] }
+        language: { type: string }
+        applicability: { type: ["string", "null"] }
+        sourceLabel: { type: string }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        transcript: { type: ["string", "null"] }
+        reviewedBy: { type: string }
+        reviewedAt: { type: string, format: date }
+        reviewDueAt: { type: string, format: date }
+        status:
+          type: string
+          enum: [draft, published, archived]
+        sortOrder: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LearningVideosResponse:
+      type: object
+      required: [videos]
+      properties:
+        videos:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningVideo"
+
+    LearningVideoInput:
+      type: object
+      required: [title, description, category, sourceLabel, reviewedBy, reviewedAt, reviewDueAt]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string, maxLength: 3000 }
+        category:
+          type: string
+          enum: [application, sponsorship, medical, professional_registration, relocation, jobsage]
+        videoUrl:
+          type: ["string", "null"]
+          format: uri
+          description: For creation, provide this or storageKey, not both. Updates may omit both to preserve the current source.
+        storageKey:
+          type: ["string", "null"]
+          description: Staff-owned private upload path returned by the upload-url endpoint. For creation, provide this or videoUrl, not both. Updates may omit both to preserve the current source.
+        durationSeconds: { type: ["integer", "null"], minimum: 1, maximum: 86400 }
+        language: { type: string, minLength: 2, maxLength: 24 }
+        applicability: { type: ["string", "null"], maxLength: 1000 }
+        sourceLabel: { type: string, minLength: 1, maxLength: 160 }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        transcript: { type: ["string", "null"], maxLength: 50000 }
+        reviewedBy: { type: string, minLength: 1, maxLength: 160 }
+        reviewedAt: { type: string, format: date }
+        reviewDueAt: { type: string, format: date }
+        status:
+          type: string
+          enum: [draft, published, archived]
+        sortOrder: { type: integer, minimum: 0, maximum: 100000 }
+
+    LearningVideoUploadRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 262144000 }
+        contentType:
+          type: string
+          enum: [video/mp4, video/webm, video/quicktime]
+
+    LearningVideoUploadUrl:
+      type: object
+      required: [uploadUrl, storageKey, maxBytes]
+      properties:
+        uploadUrl: { type: string, format: uri }
+        storageKey: { type: string }
+        maxBytes: { type: integer }

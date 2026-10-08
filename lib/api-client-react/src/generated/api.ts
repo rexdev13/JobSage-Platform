@@ -96,6 +96,11 @@ import type {
   JobListing,
   JourneyStatusResponse,
   LeadListResponse,
+  LearningVideo,
+  LearningVideoInput,
+  LearningVideoUploadRequest,
+  LearningVideoUploadUrl,
+  LearningVideosResponse,
   ListAdminAuditEventsParams,
   ListAdminDescriptionFeedbackParams,
   ListAdminFeedbackParams,
@@ -13226,6 +13231,510 @@ export function useListSponsorWebsiteImportStaging<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List current learning videos available to candidates
+ */
+export const getListLearningVideosUrl = () => {
+  return `/api/learning-videos`;
+};
+
+export const listLearningVideos = async (
+  options?: RequestInit,
+): Promise<LearningVideosResponse> => {
+  return customFetch<LearningVideosResponse>(getListLearningVideosUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLearningVideosQueryKey = () => {
+  return [`/api/learning-videos`] as const;
+};
+
+export const getListLearningVideosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLearningVideos>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLearningVideos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLearningVideosQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLearningVideos>>
+  > = ({ signal }) => listLearningVideos({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLearningVideos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLearningVideosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLearningVideos>>
+>;
+export type ListLearningVideosQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List current learning videos available to candidates
+ */
+
+export function useListLearningVideos<
+  TData = Awaited<ReturnType<typeof listLearningVideos>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLearningVideos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLearningVideosQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all learning videos for staff management
+ */
+export const getListAdminLearningVideosUrl = () => {
+  return `/api/admin/learning-videos`;
+};
+
+export const listAdminLearningVideos = async (
+  options?: RequestInit,
+): Promise<LearningVideosResponse> => {
+  return customFetch<LearningVideosResponse>(getListAdminLearningVideosUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminLearningVideosQueryKey = () => {
+  return [`/api/admin/learning-videos`] as const;
+};
+
+export const getListAdminLearningVideosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminLearningVideos>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminLearningVideos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminLearningVideosQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminLearningVideos>>
+  > = ({ signal }) => listAdminLearningVideos({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminLearningVideos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminLearningVideosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminLearningVideos>>
+>;
+export type ListAdminLearningVideosQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List all learning videos for staff management
+ */
+
+export function useListAdminLearningVideos<
+  TData = Awaited<ReturnType<typeof listAdminLearningVideos>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminLearningVideos>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminLearningVideosQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a staff-curated learning video
+ */
+export const getCreateLearningVideoUrl = () => {
+  return `/api/admin/learning-videos`;
+};
+
+export const createLearningVideo = async (
+  learningVideoInput: LearningVideoInput,
+  options?: RequestInit,
+): Promise<LearningVideo> => {
+  return customFetch<LearningVideo>(getCreateLearningVideoUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(learningVideoInput),
+  });
+};
+
+export const getCreateLearningVideoMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLearningVideo>>,
+    TError,
+    { data: BodyType<LearningVideoInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLearningVideo>>,
+  TError,
+  { data: BodyType<LearningVideoInput> },
+  TContext
+> => {
+  const mutationKey = ["createLearningVideo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLearningVideo>>,
+    { data: BodyType<LearningVideoInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLearningVideo(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLearningVideoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLearningVideo>>
+>;
+export type CreateLearningVideoMutationBody = BodyType<LearningVideoInput>;
+export type CreateLearningVideoMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a staff-curated learning video
+ */
+export const useCreateLearningVideo = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLearningVideo>>,
+    TError,
+    { data: BodyType<LearningVideoInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLearningVideo>>,
+  TError,
+  { data: BodyType<LearningVideoInput> },
+  TContext
+> => {
+  return useMutation(getCreateLearningVideoMutationOptions(options));
+};
+
+/**
+ * @summary Request a private upload URL for a staff-owned video
+ */
+export const getRequestLearningVideoUploadUrlUrl = () => {
+  return `/api/admin/learning-videos/upload-url`;
+};
+
+export const requestLearningVideoUploadUrl = async (
+  learningVideoUploadRequest: LearningVideoUploadRequest,
+  options?: RequestInit,
+): Promise<LearningVideoUploadUrl> => {
+  return customFetch<LearningVideoUploadUrl>(
+    getRequestLearningVideoUploadUrlUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(learningVideoUploadRequest),
+    },
+  );
+};
+
+export const getRequestLearningVideoUploadUrlMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>,
+    TError,
+    { data: BodyType<LearningVideoUploadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>,
+  TError,
+  { data: BodyType<LearningVideoUploadRequest> },
+  TContext
+> => {
+  const mutationKey = ["requestLearningVideoUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>,
+    { data: BodyType<LearningVideoUploadRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestLearningVideoUploadUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestLearningVideoUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>
+>;
+export type RequestLearningVideoUploadUrlMutationBody =
+  BodyType<LearningVideoUploadRequest>;
+export type RequestLearningVideoUploadUrlMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Request a private upload URL for a staff-owned video
+ */
+export const useRequestLearningVideoUploadUrl = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>,
+    TError,
+    { data: BodyType<LearningVideoUploadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestLearningVideoUploadUrl>>,
+  TError,
+  { data: BodyType<LearningVideoUploadRequest> },
+  TContext
+> => {
+  return useMutation(getRequestLearningVideoUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Update or archive a staff-curated learning video
+ */
+export const getUpdateLearningVideoUrl = (id: number) => {
+  return `/api/admin/learning-videos/${id}`;
+};
+
+export const updateLearningVideo = async (
+  id: number,
+  learningVideoInput: LearningVideoInput,
+  options?: RequestInit,
+): Promise<LearningVideo> => {
+  return customFetch<LearningVideo>(getUpdateLearningVideoUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(learningVideoInput),
+  });
+};
+
+export const getUpdateLearningVideoMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLearningVideo>>,
+    TError,
+    { id: number; data: BodyType<LearningVideoInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLearningVideo>>,
+  TError,
+  { id: number; data: BodyType<LearningVideoInput> },
+  TContext
+> => {
+  const mutationKey = ["updateLearningVideo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLearningVideo>>,
+    { id: number; data: BodyType<LearningVideoInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLearningVideo(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLearningVideoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLearningVideo>>
+>;
+export type UpdateLearningVideoMutationBody = BodyType<LearningVideoInput>;
+export type UpdateLearningVideoMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update or archive a staff-curated learning video
+ */
+export const useUpdateLearningVideo = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLearningVideo>>,
+    TError,
+    { id: number; data: BodyType<LearningVideoInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLearningVideo>>,
+  TError,
+  { id: number; data: BodyType<LearningVideoInput> },
+  TContext
+> => {
+  return useMutation(getUpdateLearningVideoMutationOptions(options));
+};
+
+/**
+ * @summary Stream a published uploaded learning video
+ */
+export const getStreamLearningVideoMediaUrl = (id: number) => {
+  return `/api/learning-videos/${id}/media`;
+};
+
+export const streamLearningVideoMedia = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getStreamLearningVideoMediaUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStreamLearningVideoMediaQueryKey = (id: number) => {
+  return [`/api/learning-videos/${id}/media`] as const;
+};
+
+export const getStreamLearningVideoMediaQueryOptions = <
+  TData = Awaited<ReturnType<typeof streamLearningVideoMedia>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof streamLearningVideoMedia>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getStreamLearningVideoMediaQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof streamLearningVideoMedia>>
+  > = ({ signal }) =>
+    streamLearningVideoMedia(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof streamLearningVideoMedia>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StreamLearningVideoMediaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof streamLearningVideoMedia>>
+>;
+export type StreamLearningVideoMediaQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Stream a published uploaded learning video
+ */
+
+export function useStreamLearningVideoMedia<
+  TData = Awaited<ReturnType<typeof streamLearningVideoMedia>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof streamLearningVideoMedia>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStreamLearningVideoMediaQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

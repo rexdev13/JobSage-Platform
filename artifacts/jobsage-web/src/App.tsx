@@ -72,6 +72,8 @@ const GetStartedPage            = lazy(() => import("@/pages/GetStartedPage"));
 const HelpSupportPage           = lazy(() => import("@/pages/HelpSupportPage"));
 const FeedbackPage              = lazy(() => import("@/pages/FeedbackPage"));
 const MarketerBookingPage       = lazy(() => import("@/pages/MarketerBookingPage"));
+const LearningHubPage           = lazy(() => import("@/pages/LearningHubPage"));
+const AdminLearningVideosPage   = lazy(() => import("@/pages/AdminLearningVideosPage"));
 
 // Shared QueryClient — single instance for the whole app.
 const queryClient = new QueryClient();
@@ -242,6 +244,19 @@ function ReviewerGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function LearningAccessGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  const allowed = user && (user.role === "candidate" || user.role === "reviewer" || isAdminRole(user.role));
+
+  useEffect(() => {
+    if (!isLoading && user && !allowed) setLocation("/");
+  }, [isLoading, user, allowed, setLocation]);
+
+  if (isLoading || !allowed) return null;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     // Single Suspense boundary — shows LoadingScreen while any lazy chunk loads.
@@ -297,7 +312,13 @@ function Router() {
                 <Route path="/recommendations" component={RecommendationLettersPage} />
                 <Route path="/identity" component={IdentityVerificationPage} />
                 <Route path="/feedback" component={FeedbackPage} />
+                <Route path="/learning">
+                  <LearningAccessGuard><LearningHubPage /></LearningAccessGuard>
+                </Route>
 
+                <Route path="/admin/learning-videos">
+                  <AdminGuard><AdminLearningVideosPage /></AdminGuard>
+                </Route>
                 <Route path="/admin/rulesets">
                   <AdminGuard><AdminRulesetsPage /></AdminGuard>
                 </Route>

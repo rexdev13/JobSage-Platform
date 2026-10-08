@@ -4716,3 +4716,266 @@ export const ListSponsorWebsiteImportStagingResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary List current learning videos available to candidates
+ */
+export const ListLearningVideosResponse = zod.object({
+  videos: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      category: zod.enum([
+        "application",
+        "sponsorship",
+        "medical",
+        "professional_registration",
+        "relocation",
+        "jobsage",
+      ]),
+      videoEmbedUrl: zod.string().url().nullable(),
+      mediaUrl: zod.string().nullable(),
+      durationSeconds: zod.number().nullable(),
+      language: zod.string(),
+      applicability: zod.string().nullable(),
+      sourceLabel: zod.string(),
+      sourceUrl: zod.string().url().nullable(),
+      transcript: zod.string().nullable(),
+      reviewedBy: zod.string(),
+      reviewedAt: zod.date(),
+      reviewDueAt: zod.date(),
+      status: zod.enum(["draft", "published", "archived"]),
+      sortOrder: zod.number(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all learning videos for staff management
+ */
+export const ListAdminLearningVideosResponse = zod.object({
+  videos: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      category: zod.enum([
+        "application",
+        "sponsorship",
+        "medical",
+        "professional_registration",
+        "relocation",
+        "jobsage",
+      ]),
+      videoEmbedUrl: zod.string().url().nullable(),
+      mediaUrl: zod.string().nullable(),
+      durationSeconds: zod.number().nullable(),
+      language: zod.string(),
+      applicability: zod.string().nullable(),
+      sourceLabel: zod.string(),
+      sourceUrl: zod.string().url().nullable(),
+      transcript: zod.string().nullable(),
+      reviewedBy: zod.string(),
+      reviewedAt: zod.date(),
+      reviewDueAt: zod.date(),
+      status: zod.enum(["draft", "published", "archived"]),
+      sortOrder: zod.number(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a staff-curated learning video
+ */
+export const createLearningVideoBodyTitleMax = 160;
+
+export const createLearningVideoBodyDescriptionMax = 3000;
+
+export const createLearningVideoBodyDurationSecondsMax = 86400;
+
+export const createLearningVideoBodyLanguageMin = 2;
+export const createLearningVideoBodyLanguageMax = 24;
+
+export const createLearningVideoBodyApplicabilityMax = 1000;
+
+export const createLearningVideoBodySourceLabelMax = 160;
+
+export const createLearningVideoBodyTranscriptMax = 50000;
+
+export const createLearningVideoBodyReviewedByMax = 160;
+
+export const createLearningVideoBodySortOrderMin = 0;
+export const createLearningVideoBodySortOrderMax = 100000;
+
+export const CreateLearningVideoBody = zod.object({
+  title: zod.string().min(1).max(createLearningVideoBodyTitleMax),
+  description: zod.string().max(createLearningVideoBodyDescriptionMax),
+  category: zod.enum([
+    "application",
+    "sponsorship",
+    "medical",
+    "professional_registration",
+    "relocation",
+    "jobsage",
+  ]),
+  videoUrl: zod.string().url().nullish(),
+  storageKey: zod.string().nullish(),
+  durationSeconds: zod
+    .number()
+    .min(1)
+    .max(createLearningVideoBodyDurationSecondsMax)
+    .nullish(),
+  language: zod
+    .string()
+    .min(createLearningVideoBodyLanguageMin)
+    .max(createLearningVideoBodyLanguageMax)
+    .optional(),
+  applicability: zod
+    .string()
+    .max(createLearningVideoBodyApplicabilityMax)
+    .nullish(),
+  sourceLabel: zod.string().min(1).max(createLearningVideoBodySourceLabelMax),
+  sourceUrl: zod.string().url().nullish(),
+  transcript: zod.string().max(createLearningVideoBodyTranscriptMax).nullish(),
+  reviewedBy: zod.string().min(1).max(createLearningVideoBodyReviewedByMax),
+  reviewedAt: zod.date(),
+  reviewDueAt: zod.date(),
+  status: zod.enum(["draft", "published", "archived"]).optional(),
+  sortOrder: zod
+    .number()
+    .min(createLearningVideoBodySortOrderMin)
+    .max(createLearningVideoBodySortOrderMax)
+    .optional(),
+});
+
+/**
+ * @summary Request a private upload URL for a staff-owned video
+ */
+export const requestLearningVideoUploadUrlBodyNameMax = 255;
+
+export const requestLearningVideoUploadUrlBodySizeMax = 262144000;
+
+export const RequestLearningVideoUploadUrlBody = zod.object({
+  name: zod.string().min(1).max(requestLearningVideoUploadUrlBodyNameMax),
+  size: zod.number().min(1).max(requestLearningVideoUploadUrlBodySizeMax),
+  contentType: zod.enum(["video/mp4", "video/webm", "video/quicktime"]),
+});
+
+export const RequestLearningVideoUploadUrlResponse = zod.object({
+  uploadUrl: zod.string().url(),
+  storageKey: zod.string(),
+  maxBytes: zod.number(),
+});
+
+/**
+ * @summary Update or archive a staff-curated learning video
+ */
+export const UpdateLearningVideoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateLearningVideoBodyTitleMax = 160;
+
+export const updateLearningVideoBodyDescriptionMax = 3000;
+
+export const updateLearningVideoBodyDurationSecondsMax = 86400;
+
+export const updateLearningVideoBodyLanguageMin = 2;
+export const updateLearningVideoBodyLanguageMax = 24;
+
+export const updateLearningVideoBodyApplicabilityMax = 1000;
+
+export const updateLearningVideoBodySourceLabelMax = 160;
+
+export const updateLearningVideoBodyTranscriptMax = 50000;
+
+export const updateLearningVideoBodyReviewedByMax = 160;
+
+export const updateLearningVideoBodySortOrderMin = 0;
+export const updateLearningVideoBodySortOrderMax = 100000;
+
+export const UpdateLearningVideoBody = zod.object({
+  title: zod.string().min(1).max(updateLearningVideoBodyTitleMax),
+  description: zod.string().max(updateLearningVideoBodyDescriptionMax),
+  category: zod.enum([
+    "application",
+    "sponsorship",
+    "medical",
+    "professional_registration",
+    "relocation",
+    "jobsage",
+  ]),
+  videoUrl: zod.string().url().nullish(),
+  storageKey: zod.string().nullish(),
+  durationSeconds: zod
+    .number()
+    .min(1)
+    .max(updateLearningVideoBodyDurationSecondsMax)
+    .nullish(),
+  language: zod
+    .string()
+    .min(updateLearningVideoBodyLanguageMin)
+    .max(updateLearningVideoBodyLanguageMax)
+    .optional(),
+  applicability: zod
+    .string()
+    .max(updateLearningVideoBodyApplicabilityMax)
+    .nullish(),
+  sourceLabel: zod.string().min(1).max(updateLearningVideoBodySourceLabelMax),
+  sourceUrl: zod.string().url().nullish(),
+  transcript: zod.string().max(updateLearningVideoBodyTranscriptMax).nullish(),
+  reviewedBy: zod.string().min(1).max(updateLearningVideoBodyReviewedByMax),
+  reviewedAt: zod.date(),
+  reviewDueAt: zod.date(),
+  status: zod.enum(["draft", "published", "archived"]).optional(),
+  sortOrder: zod
+    .number()
+    .min(updateLearningVideoBodySortOrderMin)
+    .max(updateLearningVideoBodySortOrderMax)
+    .optional(),
+});
+
+export const UpdateLearningVideoResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "application",
+    "sponsorship",
+    "medical",
+    "professional_registration",
+    "relocation",
+    "jobsage",
+  ]),
+  videoEmbedUrl: zod.string().url().nullable(),
+  mediaUrl: zod.string().nullable(),
+  durationSeconds: zod.number().nullable(),
+  language: zod.string(),
+  applicability: zod.string().nullable(),
+  sourceLabel: zod.string(),
+  sourceUrl: zod.string().url().nullable(),
+  transcript: zod.string().nullable(),
+  reviewedBy: zod.string(),
+  reviewedAt: zod.date(),
+  reviewDueAt: zod.date(),
+  status: zod.enum(["draft", "published", "archived"]),
+  sortOrder: zod.number(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Stream a published uploaded learning video
+ */
+export const StreamLearningVideoMediaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const StreamLearningVideoMediaHeader = zod.object({
+  Range: zod.string().optional(),
+});

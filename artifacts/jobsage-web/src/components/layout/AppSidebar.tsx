@@ -92,6 +92,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
         { name: "Help & Support", href: "/help", icon: HelpCircle, roles: ["candidate", "reviewer", "admin"] },
         { name: "Feedback", href: "/feedback", icon: MessageSquareText, roles: ["candidate", "reviewer", "admin"] },
         { name: "Interview Preparation", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Learning Hub", href: "/learning", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
         { name: "Visa & Legal Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
       ],
     },
@@ -105,6 +106,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       label: "Operations",
       items: [
         { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
+        { name: "Learning Library", href: "/admin/learning-videos", icon: BookOpen, roles: ["admin"] },
         { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["admin"] },
         { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["admin"] },
         { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["admin"] },
@@ -129,6 +131,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["employer", "admin"] },
     { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer", "admin"] },
     { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
+    { name: "Learning Library", href: "/admin/learning-videos", icon: BookOpen, roles: ["admin", "super_admin"] },
     { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin", "super_admin"] },
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },

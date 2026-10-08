@@ -3069,6 +3069,165 @@ export interface SupportTicketDetail {
   replies: SupportTicketReply[];
 }
 
+export type LearningVideoCategory =
+  (typeof LearningVideoCategory)[keyof typeof LearningVideoCategory];
+
+export const LearningVideoCategory = {
+  application: "application",
+  sponsorship: "sponsorship",
+  medical: "medical",
+  professional_registration: "professional_registration",
+  relocation: "relocation",
+  jobsage: "jobsage",
+} as const;
+
+export type LearningVideoStatus =
+  (typeof LearningVideoStatus)[keyof typeof LearningVideoStatus];
+
+export const LearningVideoStatus = {
+  draft: "draft",
+  published: "published",
+  archived: "archived",
+} as const;
+
+export interface LearningVideo {
+  id: number;
+  title: string;
+  description: string;
+  category: LearningVideoCategory;
+  /** @nullable */
+  videoEmbedUrl: string | null;
+  /** @nullable */
+  mediaUrl: string | null;
+  /** @nullable */
+  durationSeconds: number | null;
+  language: string;
+  /** @nullable */
+  applicability: string | null;
+  sourceLabel: string;
+  /** @nullable */
+  sourceUrl: string | null;
+  /** @nullable */
+  transcript: string | null;
+  reviewedBy: string;
+  reviewedAt: string;
+  reviewDueAt: string;
+  status: LearningVideoStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LearningVideosResponse {
+  videos: LearningVideo[];
+}
+
+export type LearningVideoInputCategory =
+  (typeof LearningVideoInputCategory)[keyof typeof LearningVideoInputCategory];
+
+export const LearningVideoInputCategory = {
+  application: "application",
+  sponsorship: "sponsorship",
+  medical: "medical",
+  professional_registration: "professional_registration",
+  relocation: "relocation",
+  jobsage: "jobsage",
+} as const;
+
+export type LearningVideoInputStatus =
+  (typeof LearningVideoInputStatus)[keyof typeof LearningVideoInputStatus];
+
+export const LearningVideoInputStatus = {
+  draft: "draft",
+  published: "published",
+  archived: "archived",
+} as const;
+
+export interface LearningVideoInput {
+  /**
+   * @minLength 1
+   * @maxLength 160
+   */
+  title: string;
+  /** @maxLength 3000 */
+  description: string;
+  category: LearningVideoInputCategory;
+  /** @nullable */
+  videoUrl?: string | null;
+  /** @nullable */
+  storageKey?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 86400
+   * @nullable
+   */
+  durationSeconds?: number | null;
+  /**
+   * @minLength 2
+   * @maxLength 24
+   */
+  language?: string;
+  /**
+   * @maxLength 1000
+   * @nullable
+   */
+  applicability?: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 160
+   */
+  sourceLabel: string;
+  /** @nullable */
+  sourceUrl?: string | null;
+  /**
+   * @maxLength 50000
+   * @nullable
+   */
+  transcript?: string | null;
+  /**
+   * @minLength 1
+   * @maxLength 160
+   */
+  reviewedBy: string;
+  reviewedAt: string;
+  reviewDueAt: string;
+  status?: LearningVideoInputStatus;
+  /**
+   * @minimum 0
+   * @maximum 100000
+   */
+  sortOrder?: number;
+}
+
+export type LearningVideoUploadRequestContentType =
+  (typeof LearningVideoUploadRequestContentType)[keyof typeof LearningVideoUploadRequestContentType];
+
+export const LearningVideoUploadRequestContentType = {
+  "video/mp4": "video/mp4",
+  "video/webm": "video/webm",
+  "video/quicktime": "video/quicktime",
+} as const;
+
+export interface LearningVideoUploadRequest {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  name: string;
+  /**
+   * @minimum 1
+   * @maximum 262144000
+   */
+  size: number;
+  contentType: LearningVideoUploadRequestContentType;
+}
+
+export interface LearningVideoUploadUrl {
+  uploadUrl: string;
+  storageKey: string;
+  maxBytes: number;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.

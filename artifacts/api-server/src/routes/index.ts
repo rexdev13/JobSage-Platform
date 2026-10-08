@@ -45,6 +45,7 @@ import supportRouter from "./support";
 import readinessRouter from "./readiness";
 import feedbackRouter from "./feedback";
 import descriptionFeedbackRouter from "./descriptionFeedback";
+import learningVideosRouter from "./learningVideos";
 
 const router: IRouter = Router();
 
@@ -94,5 +95,6 @@ router.use(supportRouter);
 router.use(readinessRouter);
 router.use(feedbackRouter);
 router.use(descriptionFeedbackRouter);
+router.use(learningVideosRouter);
 
 export default router;
