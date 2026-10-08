@@ -1412,6 +1412,8 @@ export default function OpportunitiesPage() {
           onSuccess: () => {
             setRegionSaveState("saved");
             void queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+            void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+            void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey() });
           },
           onError: () => {
             setRegionSaveState("error");
