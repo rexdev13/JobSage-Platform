@@ -97,3 +97,4 @@
 - [Free-feed regional domains](free-feed-regional-domains.md) — live job feeds may use country-specific listing hosts that differ from their API endpoint.
 - [Himalayas comparison scope](free-feed-himalayas-scope.md) — count UK-eligible and worldwide listings; retain older global samples as out-of-scope history.
 - [In-process production auth](production-request-auth.md) — send secrets through an HTTP client in memory, not command-line header arguments that appear in process listings.
+- [Candidate video library](candidate-video-library.md) — launch videos are staff-curated; candidates cannot upload or publish.
