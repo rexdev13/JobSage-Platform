@@ -1495,7 +1495,7 @@ export default function OpportunitiesPage() {
                 : noProfile
                 ? "Complete your profile to see a personalised ranked list."
                 : data
-                ? `${filteredRoles.length} of ${roles.length} ${isCompanySiteTab ? "company-site vacancies" : "job-board vacancies"} ranked by fit — highest match first`
+                ? `${filteredRoles.length} ${isCompanySiteTab ? "company-site vacancies" : "job-board vacancies"} shown — ranked by fit, highest match first`
                 : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
@@ -1598,7 +1598,7 @@ export default function OpportunitiesPage() {
                     <div>
                       <h2 className="text-sm font-semibold text-foreground">Refine opportunities</h2>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Region filters keep roles with an unknown or national location visible.
+                        Choose every region you would consider: vacancies in any selected region can appear, so adding regions may broaden results. Unknown and national locations stay visible.
                       </p>
                     </div>
                   </div>
