@@ -21,6 +21,23 @@ export interface CareerJourneyStage {
   status: JourneyStageStatus;
 }
 
+export interface CareerJourneyNextStep {
+  label: string;
+  href: string;
+}
+
+const nextStepForStage: Record<(typeof CAREER_JOURNEY_STAGES)[number], CareerJourneyNextStep> = {
+  Upload: { label: "Upload your CV", href: "/documents" },
+  Enhance: { label: "Enhance your CV", href: "/documents" },
+  Match: { label: "Review matched jobs", href: "/opportunities" },
+  Apply: { label: "Apply to a suitable role", href: "/opportunities" },
+  Interview: { label: "Prepare for interviews", href: "/interview-prep" },
+  Offer: { label: "Track your applications", href: "/applications" },
+  Visa: { label: "Review your UK visa guidance", href: "/regulatory-guidance" },
+  Relocate: { label: "Review relocation guidance", href: "/regulatory-guidance" },
+  "Start Your New Career in the UK": { label: "View your full UK career journey", href: "/path" },
+};
+
 export function deriveCareerJourney(evidence: JourneyEvidence): CareerJourneyStage[] {
   const originalCv = evidence.documents.some(
     (document) =>
@@ -61,4 +78,21 @@ export function deriveCareerJourney(evidence: JourneyEvidence): CareerJourneySta
     label,
     status: index < completeCount ? "complete" : index === completeCount ? "current" : "upcoming",
   }));
+}
+
+export function getCareerJourneyOverview(evidence: JourneyEvidence): {
+  completeCount: number;
+  totalStages: number;
+  progressPercent: number;
+  nextStep: CareerJourneyNextStep | null;
+} {
+  const stages = deriveCareerJourney(evidence);
+  const completeCount = stages.filter((stage) => stage.status === "complete").length;
+  const currentStage = stages.find((stage) => stage.status === "current");
+  return {
+    completeCount,
+    totalStages: stages.length,
+    progressPercent: Math.round((completeCount / stages.length) * 100),
+    nextStep: currentStage ? nextStepForStage[currentStage.label] : null,
+  };
 }

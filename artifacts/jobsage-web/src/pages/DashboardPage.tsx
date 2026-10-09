@@ -54,6 +54,7 @@ import { JourneyIslands } from "@/components/JourneyIslands";
 import { deriveIslandStates, activeStepNumber } from "@/lib/journeySteps";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 import { countPendingApplications, countUpcomingInterviews, getMonthlyReportOverview } from "@/lib/dashboardOverview";
+import { getCareerJourneyOverview } from "@/lib/candidateJourney";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -359,10 +360,16 @@ function OverviewMetric({
 }
 
 function DashboardOverview({
-  rolesQuery, applicationsQuery, reportQuery,
+  rolesQuery, documentsQuery, applicationsQuery, reportQuery,
 }: {
   rolesQuery: {
     data: { roles?: unknown[] } | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => unknown;
+  };
+  documentsQuery: {
+    data: { documents?: Array<{ documentType?: string | null; label?: string | null }> } | undefined;
     isLoading: boolean;
     isError: boolean;
     refetch: () => unknown;
@@ -382,6 +389,20 @@ function DashboardOverview({
 }) {
   const monthly = getMonthlyReportOverview(reportQuery.data);
   const applications = applicationsQuery.data?.applications ?? [];
+  const journeyLoading = documentsQuery.isLoading || rolesQuery.isLoading || applicationsQuery.isLoading;
+  const journeyError = documentsQuery.isError || rolesQuery.isError || applicationsQuery.isError;
+  const journey = !journeyLoading && !journeyError
+    ? getCareerJourneyOverview({
+        documents: documentsQuery.data?.documents ?? [],
+        matchedRoleCount: rolesQuery.data?.roles?.length ?? 0,
+        applications,
+      })
+    : null;
+  const retryJourney = () => {
+    if (documentsQuery.isError) void documentsQuery.refetch();
+    if (rolesQuery.isError) void rolesQuery.refetch();
+    if (applicationsQuery.isError) void applicationsQuery.refetch();
+  };
   return (
     <section aria-labelledby="dashboard-overview-heading" className="mb-5">
       <div className="mb-3 flex items-end justify-between gap-3">
@@ -391,6 +412,49 @@ function DashboardOverview({
         </div>
         <span className="hidden text-[11px] text-muted-foreground sm:block">Live from your JOBSAGE records</span>
       </div>
+      <Card className="mb-3 border-primary/15 bg-primary/[0.035] p-4">
+        {journeyLoading ? (
+          <div className="space-y-2" aria-label="Loading UK Career Journey summary">
+            <div className="h-5 w-56 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+          </div>
+        ) : journeyError ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-destructive" role="status">Your UK Career Journey summary could not be loaded.</p>
+            <button type="button" onClick={retryJourney}
+              className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary underline underline-offset-2">
+              <RotateCw className="h-3 w-3" />Retry
+            </button>
+          </div>
+        ) : journey ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-foreground">
+                You’re {journey.progressPercent}% through your UK Career Journey
+              </p>
+              {journey.nextStep && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Next step:</span>{" "}
+                  <Link href={journey.nextStep.href} className="font-medium text-primary hover:underline">
+                    {journey.nextStep.label}
+                  </Link>
+                </p>
+              )}
+            </div>
+            <div
+              role="progressbar"
+              aria-label="UK Career Journey progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={journey.progressPercent}
+              className="h-2 w-full overflow-hidden rounded-full bg-muted sm:w-36"
+            >
+              <div className="h-full rounded-full bg-primary transition-[width]"
+                style={{ width: `${journey.progressPercent}%` }} />
+            </div>
+          </div>
+        ) : null}
+      </Card>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <OverviewMetric
           title="Matched opportunities" href="/opportunities" icon={Briefcase}
@@ -403,7 +467,9 @@ function DashboardOverview({
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span>
               <div className="min-w-0 flex-1">
-                <Link href="/my-report" className="text-xs font-semibold text-foreground hover:text-primary">Monthly insight</Link>
+                <Link href="/my-report" className="text-xs font-semibold text-foreground hover:text-primary">
+                  {monthly ? `Your ${monthly.periodLabel} Insight` : "Monthly insight"}
+                </Link>
                 {reportQuery.isLoading ? (
                   <div className="mt-2 h-7 w-28 animate-pulse rounded-md bg-muted" aria-label="Loading monthly insight" />
                 ) : reportQuery.isError ? (
@@ -553,7 +619,8 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { data: profile } = useGetMyProfile();
   const { data: eligibilityHistory } = useListEligibilityHistory();
-  const { data: documents } = useListMyDocuments();
+  const documentsQuery = useListMyDocuments();
+  const { data: documents } = documentsQuery;
   const matchedRolesQuery = useListMatchedRoles();
   const { data: matchedRoles } = matchedRolesQuery;
   const { data: plan } = useGetRemediationPlan({
@@ -737,6 +804,7 @@ export default function DashboardPage() {
 
         <DashboardOverview
           rolesQuery={matchedRolesQuery}
+          documentsQuery={documentsQuery}
           applicationsQuery={applicationsQuery}
           reportQuery={reportQuery}
         />

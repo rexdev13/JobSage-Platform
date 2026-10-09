@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CANDIDATE_NAVIGATION, getUnreadBadgeText, isNavigationItemActive } from "./candidateNavigation";
-import { CAREER_JOURNEY_STAGES, deriveCareerJourney } from "./candidateJourney";
+import { CAREER_JOURNEY_STAGES, deriveCareerJourney, getCareerJourneyOverview } from "./candidateJourney";
 
 describe("candidate navigation configuration", () => {
   it("uses the required section order", () => {
@@ -112,5 +112,24 @@ describe("candidate career journey evidence", () => {
     });
     expect(stages[4].status).toBe("current");
     expect(stages[5].status).toBe("upcoming");
+  });
+  it("derives the dashboard percentage and next step from completed evidence", () => {
+    expect(getCareerJourneyOverview(empty)).toEqual({
+      completeCount: 0,
+      totalStages: 9,
+      progressPercent: 0,
+      nextStep: { label: "Upload your CV", href: "/documents" },
+    });
+    const overview = getCareerJourneyOverview({
+      documents: [
+        { documentType: "cv", label: "Original CV" },
+        { documentType: "cv", label: "AI Enhanced CV" },
+      ],
+      matchedRoleCount: 2,
+      applications: [{ status: "applied" }],
+    });
+    expect(overview.completeCount).toBe(4);
+    expect(overview.progressPercent).toBe(44);
+    expect(overview.nextStep).toEqual({ label: "Prepare for interviews", href: "/interview-prep" });
   });
 });
