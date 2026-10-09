@@ -1877,9 +1877,9 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
         : null,
     ].filter(Boolean).join("\n");
 
-    // 4. Call gpt-4o-mini
+    // 4. Call the stronger model for candidate-readiness analysis
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       response_format: { type: "json_object" },
       messages: [
         {

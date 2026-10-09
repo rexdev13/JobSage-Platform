@@ -134,7 +134,7 @@ ${roleContext.externalUrl ? `Vacancy URL: ${roleContext.externalUrl}` : ""}
   const userMessage = `Candidate profile:\n${profileText}\n\nRole:\n${roleText}\n\nQuestions to answer:\n${questionsText}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },

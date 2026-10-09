@@ -323,7 +323,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     });
 
     const completion = await openai.chat.completions.create({
-      model:       "gpt-4o-mini",
+      model:       "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user",   content: userPrompt },

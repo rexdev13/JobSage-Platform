@@ -174,7 +174,7 @@ Return ONLY valid JSON — no markdown, no commentary:
 
   // ── 6. Call LLM ───────────────────────────────────────────────────────────
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     messages: [
       {
         role: "system",

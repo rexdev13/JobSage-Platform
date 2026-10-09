@@ -14,12 +14,21 @@ function sourceFiles(directory: string): string[] {
 
 const STRONGER_MODEL_OVERRIDES: Record<string, string> = {
   "lib/applyUrlBackfill.ts": "gpt-4o",
+  "lib/candidateAiMatch.ts": "gpt-4o",
   "lib/contactEnrichmentRunner.ts": "gpt-5.4-mini",
   "lib/coverLetterGenerator.ts": "gpt-4o",
   "lib/cvParser.ts": "gpt-4o",
+  "lib/progressReportGenerator.ts": "gpt-4o",
+  "lib/smartApply.ts": "gpt-4o",
+  "lib/sponsorVacancyMatch.ts": "gpt-4o",
+  "lib/vacancyGapAnalysis.ts": "gpt-4o",
   "routes/ai.ts": "gpt-4o",
+  "routes/careerProfiles.ts": "gpt-4o",
   "routes/coverLetter.ts": "gpt-4o",
+  "routes/cvEnhancement.ts": "gpt-4o",
   "routes/identity.ts": "gpt-4o",
+  "routes/interviewPrep.ts": "gpt-4o",
+  "routes/roles.ts": "gpt-4o",
   "routes/smartApply.ts": "gpt-4o",
   "routes/sponsorLicences.ts": "gpt-4o",
 };

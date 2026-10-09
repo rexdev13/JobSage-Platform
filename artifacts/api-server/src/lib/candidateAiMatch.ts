@@ -69,7 +69,7 @@ Return ONLY valid JSON:
 {"scores":[{"roleId":<integer>,"score":<0-100>,"explanation":"<string>"}]}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     max_tokens: Math.min(8000, roles.length * 80 + 300),
     temperature: 0.2,
