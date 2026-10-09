@@ -189,7 +189,7 @@ Always respond in clear, plain English. Be concise — aim for 2-4 short paragra
     ];
 
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 600,
       stream: true,
       messages,

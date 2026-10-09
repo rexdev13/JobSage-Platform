@@ -155,7 +155,7 @@ async function renderPdfFirstPageAsPng(pdfBuffer: Buffer): Promise<Buffer> {
 async function callVisionApi(base64: string, mimeType: string): Promise<CvExtractedFields> {
   const dataUrl = `data:${mimeType};base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -179,7 +179,7 @@ async function callVisionApiWithPdf(pdfBuffer: Buffer): Promise<CvExtractedField
   const base64 = pdfBuffer.toString("base64");
   const dataUrl = `data:application/pdf;base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -190,7 +190,7 @@ async function callVisionApiWithPdf(pdfBuffer: Buffer): Promise<CvExtractedField
             type: "text",
             text: "Extract the professional profile data from this CV:",
           },
-          { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
+          { type: "file", file: { filename: "cv.pdf", file_data: dataUrl } },
         ],
       },
     ],
@@ -219,7 +219,7 @@ export async function extractCvFields(
     if (textContent) {
       const truncated = textContent.slice(0, 8000);
       const textResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         max_completion_tokens: 1200,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -241,7 +241,7 @@ export async function extractCvFields(
       console.warn("[cvParser] pdftoppm render failed, falling back to direct PDF vision:", renderErr);
     }
 
-    // Fallback: send the raw PDF bytes directly to GPT-4o (no system binary required).
+    // Fallback: send the PDF as a file content part (no system binary required).
     try {
       return await callVisionApiWithPdf(buffer);
     } catch (visionErr) {

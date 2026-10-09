@@ -619,7 +619,7 @@ Guidelines:
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 500,
       stream: true,
       messages: [

@@ -377,6 +377,7 @@ describe("Smart Apply extension endpoints", () => {
       });
 
     expect(response.status).toBe(200);
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
     const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
     expect(prompt).toContain("Staff Nurse");
     expect(prompt).toContain("Example NHS Trust");
@@ -431,6 +432,7 @@ describe("Smart Apply extension endpoints", () => {
       .send({ roleId: 2_000_123, message: "Help me answer this question." });
 
     expect(response.status).toBe(200);
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini", stream: true });
     const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
     expect(prompt).toContain("Sponsor NHS Trust");
     expect(prompt).toContain("https://careers.sponsor.example/nurse");
