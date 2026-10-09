@@ -24,6 +24,13 @@ export function isUsableEmployerEmail(value: string | null | undefined): value i
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+/** Public sponsor/advert mailboxes need an explicit recruitment purpose. */
+export function isUsableRecruitmentEmail(value: string | null | undefined): value is string {
+  if (!isUsableEmployerEmail(value)) return false;
+  const local = value.trim().toLowerCase().split("@")[0] ?? "";
+  return /(?:^|[._+-])(?:recruit(?:ment|ing)?|jobs?|careers?|talent|hiring|hr|people|resourcing|applications?|vacanc(?:y|ies)|workwithus|joinus)(?:$|[._+-])/i.test(local);
+}
+
 function normalizedCompanyName(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -53,7 +60,7 @@ export async function resolveEmployerRecipient(
               lower(btrim(${companyName}))`,
       )
       .limit(1);
-    if (isUsableEmployerEmail(licenceRow?.contactEmail)) {
+    if (isUsableRecruitmentEmail(licenceRow?.contactEmail)) {
       return { email: licenceRow.contactEmail.trim(), route: "sponsor_contact_email" };
     }
   } catch {
@@ -72,7 +79,7 @@ export async function resolveEmployerRecipient(
           ),
         )
         .limit(1);
-      if (isUsableEmployerEmail(roleRow?.contactEmail)) {
+      if (isUsableRecruitmentEmail(roleRow?.contactEmail)) {
         return { email: roleRow.contactEmail.trim(), route: "employer_contact_email" };
       }
     } catch {
@@ -184,7 +191,7 @@ export async function getDirectContactEligibility(
     const sponsor = reference.sponsorLicenceId
       ? sponsorById.get(reference.sponsorLicenceId)
       : sponsorByName.get(normalizedCompanyName(reference.companyName));
-    if (isUsableEmployerEmail(sponsor?.contactEmail)) return true;
+    if (isUsableRecruitmentEmail(sponsor?.contactEmail)) return true;
 
     const profile = profileByName.get(normalizedCompanyName(reference.companyName));
     if (isUsableEmployerEmail(profile?.contactEmail)) return true;

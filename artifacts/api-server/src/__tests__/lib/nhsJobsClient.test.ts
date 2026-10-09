@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   employerNamesCloselyMatch,
   candidateEmployerMatchesSponsor,
+  createCandidateSponsorMatcher,
   MAX_CANDIDATE_HTML_PAGES,
   parseNhsJobsCandidateHtml,
   parseNhsJobsHtml,
@@ -84,6 +85,18 @@ describe("NHS Jobs HTML parser", () => {
     expect(candidateEmployerMatchesSponsor("Homerton College", "Homerton Healthcare NHS Foundation Trust")).toBe(false);
     expect(candidateEmployerMatchesSponsor("Imperial Centre Limited", "Imperial College Healthcare NHS Trust")).toBe(false);
     expect(candidateEmployerMatchesSponsor("Care 4 Care Services Ltd", "Cygnet Health Care")).toBe(false);
+  });
+
+  it("indexes the register and rejects ambiguous candidate-wide identities", () => {
+    const resolve = createCandidateSponsorMatcher([
+      "Great Ormond Street Hospital NHS Trust",
+      "Chelsea & Westminster NHS Foundation Trust",
+      "Chelsea and Westminster Services Limited",
+    ]);
+    expect(resolve("Great Ormond Street Hospital for Children NHS Foundation Trust"))
+      .toBe("Great Ormond Street Hospital NHS Trust");
+    expect(resolve("Chelsea and Westminster")).toBeNull();
+    expect(resolve("Unrelated Clinic")).toBeNull();
   });
 
   it("returns employer identity for candidate-wide sponsor matching", () => {

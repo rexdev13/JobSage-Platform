@@ -6,7 +6,8 @@
   "scripts": {
     "register": "node run.js register",
     "discover": "node run.js discover",
-    "export": "node run.js export"
+    "export": "node run.js export",
+    "test": "node --test --test-isolation=none test/*.test.js"
   },
   "dependencies": { "cheerio": "^1.0.0" }
 }

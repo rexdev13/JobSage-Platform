@@ -1,4 +1,5 @@
 export * from "./generated/api";
+export * from "./professionCatalog";
 export * from "./generated/types/aiRemediationSuggestion";
 export * from "./generated/types/aiRemediationSuggestions";
 export * from "./generated/types/annotateReviewCaseRequest";

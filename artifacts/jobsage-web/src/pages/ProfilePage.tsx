@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   useGetMyProfile,
   useUpsertMyProfile,
-  useListProfessions,
   useRequestUploadUrl,
   useGetJourneyStatus,
   getGetJourneyStatusQueryKey,
@@ -22,6 +21,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
 import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { PROFESSION_OPTIONS } from "@workspace/api-zod/profession-catalog";
 import { useToast } from "@/hooks/use-toast";
 import {
   CAREER_PROFILE_MAKER_DESCRIPTION,
@@ -39,29 +39,7 @@ type AlertFrequency = "daily" | "weekly" | "off";
 type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
 type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
 
-const FALLBACK_PROFESSIONS = [
-  "Doctor",
-  "Nurse",
-  "Midwife",
-  "Allied Health Professional",
-  "Clinical Academic",
-  "Dentist",
-  "Pharmacist",
-  "Optometrist",
-  "Physiotherapist",
-  "Radiographer",
-  "Paramedic",
-  "Occupational Therapist",
-  "Social Worker",
-  "Teacher / Lecturer",
-  "Engineer",
-  "Accountant",
-  "IT Professional",
-  "Lawyer / Solicitor",
-  "Architect",
-  "Software Engineering",
-  "Business Development Manager",
-];
+const FALLBACK_PROFESSIONS = PROFESSION_OPTIONS;
 
 const REGULATED_PROFESSION_KEYWORDS = [
   "doctor",
@@ -223,88 +201,8 @@ function TooltipLabel({
   );
 }
 
-function ProfessionCombobox({
-  id,
-  value,
-  onChange,
-  onBlur,
-  suggestions,
-}: {
-  id?: string;
-  value: string;
-  onChange: (val: string) => void;
-  onBlur?: () => void;
-  suggestions: string[];
-}) {
-  const [inputValue, setInputValue] = useState(value);
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filtered =
-    inputValue.trim() === ""
-      ? suggestions
-      : suggestions.filter((p) => p.toLowerCase().includes(inputValue.toLowerCase()));
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <Input
-        id={id}
-        value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => { setOpen(false); onBlur?.(); }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setOpen(false);
-        }}
-        placeholder="e.g. Doctor, Nurse, Engineer…"
-        autoComplete="off"
-        required
-      />
-      {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg max-h-52 overflow-y-auto text-sm">
-          {filtered.map((p) => (
-            <li
-              key={p}
-              className={`px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground ${
-                p === inputValue ? "bg-accent/50 font-medium" : ""
-              }`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setInputValue(p);
-                onChange(p);
-                setOpen(false);
-              }}
-            >
-              {p}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export default function ProfilePage() {
   const { data: profile } = useGetMyProfile();
-  const { data: professionsData } = useListProfessions();
   const upsertMutation = useUpsertMyProfile();
   const queryClient = useQueryClient();
   const { data: journeyData } = useGetJourneyStatus({
@@ -312,7 +210,7 @@ export default function ProfilePage() {
   });
   const { toast } = useToast();
 
-  const professionSuggestions = professionsData?.professions ?? FALLBACK_PROFESSIONS;
+  const professionSuggestions = FALLBACK_PROFESSIONS;
 
   const [formData, setFormData] = useState<ProfileFormData>({
     profession: "",
@@ -759,16 +657,26 @@ export default function ProfilePage() {
                   Profession *
                   {!formData.profession && <NotFoundBadge />}
                 </Label>
-                <ProfessionCombobox
+                <Select
                   id="profile-field-profession"
+                  name="profession"
                   value={formData.profession}
-                  onChange={(val) => setFormData((prev) => ({ ...prev, profession: val }))}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, profession: event.target.value }))}
                   onBlur={handleBlur}
-                  suggestions={professionSuggestions}
-                />
+                  required
+                >
+                  <option value="" disabled>Select profession...</option>
+                  {formData.profession && !professionSuggestions.includes(formData.profession) && (
+                    <option value={formData.profession} disabled>
+                      {formData.profession} (choose a supported profession)
+                    </option>
+                  )}
+                  {professionSuggestions.map((profession) => (
+                    <option key={profession} value={profession}>{profession}</option>
+                  ))}
+                </Select>
                 <FieldHint>
-                  Start typing to search. If your profession isn't listed, type it in — it will
-                  become a suggestion for others once 3 or more candidates enter it.
+                  Choose from the same profession catalogue used for vacancy matching.
                 </FieldHint>
               </div>
 

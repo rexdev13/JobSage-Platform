@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./profession-catalog": "./src/professionCatalog.ts"
   },
   "dependencies": {
     "zod": "catalog:"

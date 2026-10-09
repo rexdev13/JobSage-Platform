@@ -17,7 +17,7 @@ const FETCHERS = {
   },
   async ashby({ slug }, company) {
     const { json, netError } = await fetchJson(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
-    const jobs = json && Array.isArray(json.jobs) ? json.jobs.map((x) => J(x.title, x.location, x.jobUrl, 'ashby', company)) : null;
+    const jobs = json && Array.isArray(json.jobs) ? json.jobs.filter((x) => x.isListed !== false).map((x) => J(x.title, x.location, x.jobUrl, 'ashby', company)) : null;
     return { jobs, netError };
   },
   async workable({ slug }, company) {

@@ -17,6 +17,8 @@
     "backfill:healthcare-vacancy-contacts": "tsx src/scripts/healthcareVacancyContactBackfill.ts",
     "backfill:reed-professions": "NODE_ENV=development tsx src/scripts/reedProfessionBackfill.ts",
     "backfill:additional-boards": "NODE_ENV=development tsx src/scripts/additionalBoardProfessionBackfill.ts",
+    "audit:vacancy-coverage": "tsx src/tools/liveVacancyCoverageAudit.ts",
+    "audit:vacancy-merge": "tsx src/tools/mergeLiveVacancyAudit.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",

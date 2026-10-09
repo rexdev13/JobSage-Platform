@@ -20,6 +20,10 @@ describe("vacancy title professional-scope policy", () => {
     "Software Engineer",
     "Construction Engineer",
     "Clinical Research Administrator",
+    "Head Chef",
+    "Restaurant Manager",
+    "Electrician",
+    "Bricklayer",
   ])("does not globally reject the professional title %s", (title) => {
     expect(isManualLabourTitle(title)).toBe(false);
   });

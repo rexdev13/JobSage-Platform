@@ -76,16 +76,16 @@ export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
 export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
 export const FREE_BOARD_HTTP_BUDGET_MS = 45_000;
 export const LIVENESS_HTTP_BUDGET_MS = 18_000;
-export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 22_000;
-export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 2;
-export const PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT = 2;
+export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 45_000;
+export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 3;
+export const PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT = 3;
 /**
- * Twenty results gives each profession page materially more coverage than the
- * old eight-result cap while staying inside the 22-second HTTP budget. The
+ * Forty results gives each profession page enough depth for sector coverage
+ * while staying inside the 45-second HTTP budget. The
  * source clients still enforce their own request, page, pacing, URL, and
  * response limits.
  */
-export const PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY = 20;
+export const PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY = 40;
 
 export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,

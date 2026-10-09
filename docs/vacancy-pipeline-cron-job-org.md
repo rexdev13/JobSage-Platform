@@ -32,12 +32,12 @@ at cursor `0`, then schedule the next request with the returned `nextCursor`.
 When `done` is `true`, restart at cursor `0`.
 
 ```text
-Schedule: */20 * * * *
-Body: {"kind":"reed_professions","limit":2,"cursor":0}
+Schedule: */10 * * * *
+Body: {"kind":"reed_professions","limit":3,"cursor":0}
 ```
 
-Replace `0` with the previous response's `nextCursor`. The server processes two
-profession categories per request and records attempted queries, discovered
+Replace `0` with the previous response's `nextCursor`. The server processes up to three
+profession categories and 40 results per category per request, and records attempted queries, discovered
 rows, classified rows, upserts, candidate-visible rows, and
 `emptySuccess` flags per profession.
 
@@ -48,10 +48,35 @@ profession for jobs.ac.uk and the education profession for Teaching Vacancies.
 
 ```text
 Schedule: 10 * * * *
-Body: {"kind":"additional_boards","limit":2,"cursor":0}
+Body: {"kind":"additional_boards","limit":3,"cursor":0}
 ```
 
 Replace `0` with the returned `nextCursor`; restart at `0` after `done: true`.
+
+### Free public UK board feeds
+
+This job resumes the stored cursor for NHS Jobs, Teaching Vacancies, NHS
+Scotland, jobs.ac.uk, CharityJob and the other configured free feeds. It keeps
+source observations, sponsor matching, deduplication and missing-listing
+reconciliation inside the protected writer lock.
+
+```text
+Schedule: 5,25,45 * * * *
+Body: {"kind":"free_board_sources","limit":5}
+```
+
+### Reviewed free ATS directory
+
+Only reviewed provider/board mappings are eligible; the reference allowlist is
+not employer-identity proof by itself.
+
+```text
+Schedule: 15 * * * *
+Body: {"kind":"free_source_ats","limit":10,"cursor":0}
+```
+
+Advance `cursor` from the prior response and restart at zero when `done` is
+true. Keep these minutes clear of other vacancy-writer calls.
 
 ### Company-site probe
 
@@ -89,5 +114,6 @@ Body: {"kind":"liveness","limit":40}
 - Keep the cron-job.org request timeout above 30 seconds.
 - Keep cron-job.org response logging limited to status, duration, and redacted
   summary fields. Never log the secret or full provider responses.
-- The backfill endpoints are deliberately capped at two profession categories
-  per request to keep each request inside the 22-second HTTP budget.
+- The profession backfill endpoints are deliberately capped at three categories
+  per request and use a 45-second internal budget. Do not raise either bound
+  without measuring provider latency and the hosting request timeout.

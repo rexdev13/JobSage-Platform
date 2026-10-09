@@ -5,7 +5,7 @@ import {
   vacancySyncLogTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { candidateEmployerMatchesSponsor, searchNhsJobsForCandidate } from "./nhsJobsClient";
+import { createCandidateSponsorMatcher, searchNhsJobsForCandidate } from "./nhsJobsClient";
 import { searchJobsAcUk, type JobsAcUkSearchResult } from "./jobsAcUkClient";
 import {
   searchTeachingVacancies,
@@ -62,6 +62,11 @@ export const NHS_PROFESSION_BACKFILL_TARGETS: readonly ReedProfessionBackfillTar
   { profession: "Social Worker", category: "SOCIAL_WORK", keywords: "social worker" },
   { profession: "Pharmacist", category: "PHARMACY", keywords: "pharmacist" },
   { profession: "Dentist", category: "DENTAL", keywords: "dentist" },
+  { profession: "Registered Nurse", category: "NMC", keywords: "registered nurse" },
+  { profession: "Medical Practitioner", category: "GMC", keywords: "medical practitioner" },
+  { profession: "Occupational Therapist", category: "HCPC", keywords: "occupational therapist" },
+  { profession: "Radiographer", category: "HCPC", keywords: "radiographer" },
+  { profession: "Paramedic", category: "HCPC", keywords: "paramedic" },
 ];
 
 const NHS_BOARD_NAMES = ["NHS Jobs", "Trac", "HealthJobsUK"] as const;
@@ -253,14 +258,13 @@ export function matchAdditionalBoardAdverts(
   boardName: string | readonly string[],
 ): { adverts: BoardAdvert[]; sponsorMatched: number } {
   const sponsorNames = uniqueSponsorNames(sponsors);
+  const resolveSponsor = createCandidateSponsorMatcher(sponsorNames);
   const allowedBoardNames = new Set(typeof boardName === "string" ? [boardName] : boardName);
   const matched: BoardAdvert[] = [];
   let sponsorMatched = 0;
 
   for (const vacancy of vacancies) {
-    const organisationName = sponsorNames.find((name) =>
-      candidateEmployerMatchesSponsor(name, vacancy.employer),
-    );
+    const organisationName = resolveSponsor(vacancy.employer);
     if (!organisationName) continue;
     sponsorMatched++;
     const url = canonicalVacancyUrl(vacancy.url);

@@ -171,10 +171,10 @@ describe("runVacancyJob liveness deadline", () => {
       deadlineMs: Date.now() + 5_000,
     });
 
-    expect(PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY).toBe(20);
+    expect(PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY).toBe(40);
     expect(runReedProfessionBackfillMock).toHaveBeenCalledWith(expect.objectContaining({
-      perCategoryLimit: 20,
-      totalPersistLimit: 40,
+      perCategoryLimit: 40,
+      totalPersistLimit: 120,
       targets: expect.any(Array),
     }));
   });
@@ -197,7 +197,7 @@ describe("runVacancyJob liveness deadline", () => {
     });
 
     expect(runAdditionalBoardProfessionBackfillMock).toHaveBeenCalledWith(expect.objectContaining({
-      perCategoryLimit: 20,
+      perCategoryLimit: 40,
       sources: [],
     }));
   });

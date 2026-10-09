@@ -9,6 +9,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2, Shield } from "lucide-react";
 import { JourneyIslands } from "@/components/JourneyIslands";
 import { JOURNEY_STEPS } from "@/lib/journeySteps";
 import type { IslandState } from "@/lib/journeySteps";
+import { PROFESSION_OPTIONS } from "@workspace/api-zod/profession-catalog";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
@@ -17,30 +18,6 @@ const UK_REGIONS = [
   "East of England", "East Midlands", "London", "North East", "North West", "South East",
   "South West", "West Midlands", "Yorkshire and the Humber", "Northern Ireland", "Scotland",
   "Wales", "National / Multiple Regions",
-];
-
-const ONBOARDING_PROFESSIONS = [
-  "Doctor",
-  "Nurse",
-  "Midwife",
-  "Allied Health Professional",
-  "Clinical Academic",
-  "Dentist",
-  "Pharmacist",
-  "Optometrist",
-  "Physiotherapist",
-  "Radiographer",
-  "Paramedic",
-  "Occupational Therapist",
-  "Social Worker",
-  "Teacher / Lecturer",
-  "Engineer",
-  "Accountant",
-  "IT Professional",
-  "Lawyer / Solicitor",
-  "Architect",
-  "Software Engineering",
-  "Business Development Manager",
 ];
 
 type ProfileData = {
@@ -215,7 +192,7 @@ export default function OnboardingPage() {
                     <Label htmlFor="profession">Profession <span className="text-destructive">*</span></Label>
                     <Select name="profession" value={data.profession} onChange={handleChange} required>
                       <option value="" disabled>Select profession...</option>
-                      {ONBOARDING_PROFESSIONS.map((p) => (
+                      {PROFESSION_OPTIONS.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </Select>

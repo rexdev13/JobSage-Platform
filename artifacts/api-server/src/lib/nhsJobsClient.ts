@@ -453,3 +453,40 @@ export async function searchNhsJobsForCandidate(
     transientFailure: interrupted,
   };
 }
+
+/**
+ * Build one indexed resolver for candidate-wide board searches. The previous
+ * callers scanned the full sponsor register for every advert, which becomes
+ * quadratic at live-register scale. Ambiguous matches remain rejected.
+ */
+export function createCandidateSponsorMatcher(
+  organisationNames: readonly string[],
+): (listedEmployer: string) => string | null {
+  const uniqueNames = [...new Set(organisationNames.map((name) => name.trim()).filter(Boolean))];
+  const exact = new Map<string, Set<string>>();
+  const byWord = new Map<string, Set<string>>();
+  for (const name of uniqueNames) {
+    const words = [...new Set(meaningfulWords(name))];
+    if (words.length === 0) continue;
+    const key = [...words].sort().join(" ");
+    const exactNames = exact.get(key) ?? new Set<string>();
+    exactNames.add(name);
+    exact.set(key, exactNames);
+    for (const word of words) {
+      const names = byWord.get(word) ?? new Set<string>();
+      names.add(name);
+      byWord.set(word, names);
+    }
+  }
+  return (listedEmployer: string): string | null => {
+    const words = [...new Set(meaningfulWords(listedEmployer))];
+    if (words.length === 0) return null;
+    const exactNames = exact.get([...words].sort().join(" "));
+    if (exactNames?.size === 1) return [...exactNames][0]!;
+    const candidateSets = words.map((word) => byWord.get(word)).filter((set): set is Set<string> => Boolean(set));
+    if (candidateSets.length === 0) return null;
+    const seed = candidateSets.sort((a, b) => a.size - b.size)[0]!;
+    const matches = [...seed].filter((name) => candidateEmployerMatchesSponsor(name, listedEmployer));
+    return matches.length === 1 ? matches[0]! : null;
+  };
+}

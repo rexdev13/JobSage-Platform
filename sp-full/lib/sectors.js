@@ -13,15 +13,9 @@ const RULES = [
   ['media_creative', /\b(media|design\w*|creative|studios?|marketing|advertis\w*|film\w*|production\w*|publishing|publishers?|entertainment|games?|gaming|music|sport\w*|fitness|gym)\b/],
 ];
 
-const ROUTE_HINTS = [
-  [/health and care/i, 'healthcare'],
-  [/scale-?up/i, 'tech'],
-];
-
 function classify(name, routes = '') {
   const n = ' ' + String(name).toLowerCase().replace(/[^a-z0-9\s&-]/g, ' ') + ' ';
   for (const [sector, re] of RULES) if (re.test(n)) return sector;
-  for (const [re, sector] of ROUTE_HINTS) if (re.test(routes)) return sector;
   return 'other';
 }
 

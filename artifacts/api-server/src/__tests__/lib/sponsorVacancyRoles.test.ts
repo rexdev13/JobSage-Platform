@@ -44,6 +44,7 @@ vi.mock("drizzle-orm", () => ({
 
 const {
   classifyVacancyCategory,
+  classifyVacancyCategoryWithEvidence,
   fetchSponsorVacanciesAsRoles,
   inferVacancySponsorshipStatus,
   presentApplyLink,
@@ -287,8 +288,8 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["Clinical Pharmacist", "PHARMACY"],
     ["Nurse Pharmacist Practitioner", "PHARMACY"],
     ["Senior Social Worker", "SOCIAL_WORK"],
-    ["Social Care Worker", "SOCIAL_WORK"],
-    ["Social Care Practitioner", "SOCIAL_WORK"],
+    ["Social Care Worker", "CARE_SUPPORT"],
+    ["Social Care Practitioner", "CARE_SUPPORT"],
     ["Management Accountant", "ACCOUNTING"],
     ["Finance Officer", "ACCOUNTING"],
     ["Audit Officer", "ACCOUNTING"],
@@ -301,6 +302,11 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["Project Architect", "ARCHITECTURE"],
     ["Business Development Manager", "BUSINESS_DEVELOPMENT"],
     ["University Lecturer", "EDUCATION"],
+    ["Head Chef", "HOSPITALITY"],
+    ["Senior Quantity Surveyor", "CONSTRUCTION"],
+    ["Manufacturing Production Manager", "MANUFACTURING"],
+    ["Retail Store Manager", "RETAIL"],
+    ["Senior Investment Analyst", "FINANCE"],
     ["Clinical Research Administrator", "GMC"],
   ])("classifies %s as %s", (title, expected) => {
     expect(classifyVacancyCategory(title, null)).toBe(expected);
@@ -320,6 +326,14 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["Cloud Engineer", "IT"],
     ["Data Analyst", "IT"],
     ["Database Administrator", "IT"],
+    ["Secondary Care - Audiologist", "HCPC"],
+    ["Clinical/Counselling Psychologist", "HCPC"],
+    ["Mammographer", "HCPC"],
+    ["ENT Consaultant", "GMC"],
+    ["Consultant In Palliative Medicine", "GMC"],
+    ["Consultant Geriatrician", "GMC"],
+    ["Consultant in Acute Medicine", "GMC"],
+    ["Consultant in Stroke Medicine", "GMC"],
   ])("classifies common job-board title %s as %s", (title, expected) => {
     expect(classifyVacancyCategory(title, null)).toBe(expected);
   });
@@ -327,18 +341,85 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   it.each([
     ["Apprenticeship Development Manager"],
     ["Admissions Officer (Maternity Cover)"],
-    ["Project Coordinator (Equality, Diversity and Inclusion)"],
     ["Catering and Hospitality Assistant"],
   ])("keeps observed unrelated board title %s unclassified", (title) => {
     expect(classifyVacancyCategory(title, null)).toBeNull();
   });
 
   it.each([
-    ["Apply to the Prep School Nursery"],
     ["Nursing Assistant Job In UK. CoS Available"],
     ["Healthcare Support Worker"],
+    ["Medical Receptionist"],
+  ])("classifies healthcare support title %s separately from NMC", (title) => {
+    expect(classifyVacancyCategory(title, null)).toBe("HEALTHCARE_SUPPORT");
+  });
+
+  it.each([
+    ["Research Funding and Awards Specialist", "RESEARCH_ACADEMIA"],
+    ["Project Coordinator (Equality, Diversity and Inclusion)", "PROJECT_PROGRAMME"],
+    ["HR Business Partner", "HR_RECRUITMENT"],
+    ["Marketing Campaigns Officer", "MARKETING_COMMUNICATIONS"],
+    ["Procurement Executive", "PROCUREMENT_SUPPLY_CHAIN"],
+    ["Public Affairs Officer", "PUBLIC_POLICY"],
+    ["Facilities Manager", "FACILITIES_MAINTENANCE"],
+    ["Logistics Manager", "TRANSPORT_LOGISTICS"],
+    ["Video Producer", "MEDIA_CREATIVE"],
+    ["Senior Care Assistant", "CARE_SUPPORT"],
+    ["Residential Support Worker", "CARE_SUPPORT"],
+    ["Advanced Clinical Practitioner", "HEALTHCARE_CLINICAL"],
+    ["Assistant Psychologist", "HEALTHCARE_CLINICAL"],
+    ["Clinical Coder", "ADMINISTRATION"],
+    ["Employee Relations Advisor", "HR_RECRUITMENT"],
+    ["Payroll Officer", "ACCOUNTING"],
+    ["Support Worker", "CARE_SUPPORT"],
+    ["Female Night Support Worker", "CARE_SUPPORT"],
+    ["Housekeeping Services Assistant", "HOSPITALITY"],
+    ["Kitchen Assistant - Care Home", "HOSPITALITY"],
+    ["Administration Assistant", "ADMINISTRATION"],
+    ["Facilities Service Assistant", "FACILITIES_MAINTENANCE"],
+    ["Clinical Associate Psychologist", "HEALTHCARE_CLINICAL"],
+    ["Cardiac Physiologist", "HEALTHCARE_CLINICAL"],
+    ["Buyer", "PROCUREMENT_SUPPLY_CHAIN"],
+    ["Consultant Neuropsychiatrist", "GMC"],
+    ["Consultant in Respiratory Medicine", "GMC"],
+    ["Senior Health and Social Care Support Worker", "CARE_SUPPORT"],
+    ["Mental Health Support Worker", "HEALTHCARE_SUPPORT"],
+    ["Ward Manager", "HEALTHCARE_CLINICAL"],
+    ["Leverhulme Early Career Fellow", "RESEARCH_ACADEMIA"],
+    ["Finance Business Partner", "ACCOUNTING"],
+    ["Chief Operating Officer", "OPERATIONS_MANAGEMENT"],
+    ["IT Infrastructure Analyst", "IT"],
+    ["Mechanical Technician", "ENGINEERING"],
+    ["Digital Content Officer", "MEDIA_CREATIVE"],
+  ])("classifies expanded professional title %s as %s", (title, expected) => {
+    expect(classifyVacancyCategory(title, null)).toBe(expected);
+  });
+
+  it.each([
+    ["IT Support Worker"],
+    ["Learning Support Worker"],
+    ["Support Worker Analytics Manager"],
+  ])("does not mistake qualified support titles for a generic care Support Worker: %s", (title) => {
+    expect(classifyVacancyCategory(title, null)).not.toBe("CARE_SUPPORT");
+  });
+
+  it("reports explainable classification confidence", () => {
+    expect(classifyVacancyCategoryWithEvidence("HR Business Partner", null)).toEqual({
+      category: "HR_RECRUITMENT",
+      confidence: "high",
+      reason: "title_pattern",
+    });
+    expect(classifyVacancyCategoryWithEvidence("Unspecified role", "We need a registered nurse.")).toEqual({
+      category: "NMC",
+      confidence: "medium",
+      reason: "description_pattern",
+    });
+  });
+
+  it.each([
+    ["Apply to the Prep School Nursery"],
     ["Careers Why I chose a job in social care for my first nursing role"],
-  ])("does not classify non-NMC title %s as a nursing vacancy", (title) => {
+  ])("keeps editorial healthcare title %s unclassified", (title) => {
     expect(classifyVacancyCategory(title, null)).toBeNull();
   });
 

@@ -1,64 +1,12 @@
-/**
- * Candidate opportunity taxonomy.
- *
- * This is intentionally separate from statutory regulators. The roles and
- * employer-jobs tables still store GMC/NMC/HCPC only; categories such as
- * EDUCATION and ACCOUNTING describe the opportunity feed, not a regulator.
- */
-export type StatutoryRegulator = "GMC" | "NMC" | "HCPC";
+/** Candidate opportunity taxonomy, shared with every frontend profession form. */
+import {
+  PROFESSION_CATALOG,
+  PROFESSION_OPTIONS,
+  type OpportunityCategory,
+  type StatutoryRegulator,
+} from "@workspace/api-zod/profession-catalog";
 
-export type OpportunityCategory =
-  | StatutoryRegulator
-  | "DENTAL"
-  | "PHARMACY"
-  | "SOCIAL_WORK"
-  | "EDUCATION"
-  | "ENGINEERING"
-  | "ACCOUNTING"
-  | "IT"
-  | "LEGAL"
-  | "ARCHITECTURE"
-  | "BUSINESS_DEVELOPMENT";
-
-const PROFESSION_CATEGORIES: Record<string, OpportunityCategory> = {
-  doctor: "GMC",
-  clinical_academic: "GMC",
-  nurse: "NMC",
-  midwife: "NMC",
-  allied_health_professional: "HCPC",
-  dentist: "DENTAL",
-  dental: "DENTAL",
-  pharmacist: "PHARMACY",
-  pharmacy: "PHARMACY",
-  optometrist: "HCPC",
-  physiotherapist: "HCPC",
-  radiographer: "HCPC",
-  paramedic: "HCPC",
-  occupational_therapist: "HCPC",
-  social_worker: "SOCIAL_WORK",
-  social_work: "SOCIAL_WORK",
-  teacher: "EDUCATION",
-  teaching: "EDUCATION",
-  teacher_lecturer: "EDUCATION",
-  lecturer: "EDUCATION",
-  education: "EDUCATION",
-  engineer: "ENGINEERING",
-  engineering: "ENGINEERING",
-  accountant: "ACCOUNTING",
-  accounting: "ACCOUNTING",
-  it_professional: "IT",
-  it: "IT",
-  // Stored "Software Engineering" profiles use the IT opportunity feed.
-  software_engineering: "IT",
-  lawyer: "LEGAL",
-  solicitor: "LEGAL",
-  lawyer_solicitor: "LEGAL",
-  legal: "LEGAL",
-  architect: "ARCHITECTURE",
-  architecture: "ARCHITECTURE",
-  business_development_manager: "BUSINESS_DEVELOPMENT",
-  business_development: "BUSINESS_DEVELOPMENT",
-};
+export type { OpportunityCategory, StatutoryRegulator };
 
 /**
  * Convert display, stored, machine, and common alias forms to one key.
@@ -74,10 +22,17 @@ export function normalizeProfession(profession: string | null | undefined): stri
     .replace(/^_|_$/g, "");
 }
 
+const PROFESSION_CATEGORIES = new Map<string, OpportunityCategory>();
+for (const entry of PROFESSION_CATALOG) {
+  for (const value of [entry.label, ...entry.aliases]) {
+    PROFESSION_CATEGORIES.set(normalizeProfession(value), entry.category);
+  }
+}
+
 export function professionCategoryFor(
   profession: string | null | undefined,
 ): OpportunityCategory | null {
-  return PROFESSION_CATEGORIES[normalizeProfession(profession)] ?? null;
+  return PROFESSION_CATEGORIES.get(normalizeProfession(profession)) ?? null;
 }
 
 export function statutoryRegulatorForCategory(
@@ -108,26 +63,4 @@ export function opportunityCategoriesMatch(
   );
 }
 
-export const ONBOARDING_PROFESSIONS = [
-  "Doctor",
-  "Nurse",
-  "Midwife",
-  "Allied Health Professional",
-  "Clinical Academic",
-  "Dentist",
-  "Pharmacist",
-  "Optometrist",
-  "Physiotherapist",
-  "Radiographer",
-  "Paramedic",
-  "Occupational Therapist",
-  "Social Worker",
-  "Teacher / Lecturer",
-  "Engineer",
-  "Accountant",
-  "IT Professional",
-  "Lawyer / Solicitor",
-  "Architect",
-  "Software Engineering",
-  "Business Development Manager",
-] as const;
+export const ONBOARDING_PROFESSIONS = PROFESSION_OPTIONS;

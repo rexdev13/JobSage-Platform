@@ -99,10 +99,10 @@ describe("resolveEmployerRecipient", () => {
   });
 
   it("prefers a stored sponsor contact email", async () => {
-    dbSelectResults.push([{ contactEmail: "contact@sponsor.co.uk" }]);
+    dbSelectResults.push([{ contactEmail: "recruitment@sponsor.co.uk" }]);
 
     await expect(resolveEmployerRecipient("Sponsor Corp", 42)).resolves.toEqual({
-      email: "contact@sponsor.co.uk",
+      email: "recruitment@sponsor.co.uk",
       route: "sponsor_contact_email",
     });
   });
@@ -130,11 +130,21 @@ describe("resolveEmployerRecipient", () => {
 
   it("uses the persisted role contact when the Send CV request carries a role ID", async () => {
     dbSelectResults.push([]);
-    dbSelectResults.push([{ contactEmail: "ifeo55394@gmail.com" }]);
+    dbSelectResults.push([{ contactEmail: "jobs@testjobsage.co.uk" }]);
 
     await expect(resolveEmployerRecipient("Test JobSage Email", null, undefined, 1234)).resolves.toEqual({
-      email: "ifeo55394@gmail.com",
+      email: "jobs@testjobsage.co.uk",
       route: "employer_contact_email",
+    });
+  });
+
+  it("does not promote a generic public sponsor mailbox to Send CV", async () => {
+    dbSelectResults.push([{ contactEmail: "info@sponsor.co.uk" }]);
+    dbSelectResults.push([]);
+
+    await expect(resolveEmployerRecipient("Sponsor Corp", 42)).resolves.toEqual({
+      email: "ops@jobsage.co.uk",
+      route: "ops_fallback",
     });
   });
 

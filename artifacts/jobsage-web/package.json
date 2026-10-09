@@ -87,6 +87,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@workspace/api-zod": "workspace:*",
     "canvas-confetti": "^1.9.4"
   }
 }

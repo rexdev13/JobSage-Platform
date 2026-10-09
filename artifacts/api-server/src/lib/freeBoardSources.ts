@@ -71,6 +71,61 @@ export async function fetchText(
   if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
     throw new Error("Free vacancy feed URLs must use HTTPS without credentials.");
   }
+  if (process.env.JOBSAGE_NO_WRITE_PUBLIC_FEED_AUDIT === "true") {
+    const allowedHosts = [
+      "jobs.nhs.uk",
+      "teaching-vacancies.service.gov.uk",
+      "arbeitnow.com",
+      "jobicy.com",
+      "himalayas.app",
+      "jobs.scot.nhs.uk",
+      "jobs.ac.uk",
+      "charityjob.co.uk",
+    ];
+    const allowed = (hostname: string) => allowedHosts.some(
+      (host) => hostname === host || hostname.endsWith(`.${host}`),
+    );
+    if (!allowed(parsed.hostname)) throw new Error(`No-write audit host is not allowlisted: ${parsed.hostname}`);
+    let current = parsed;
+    for (let redirects = 0; redirects <= 5; redirects++) {
+      const remainingMs = deadlineMs - Date.now();
+      if (remainingMs <= 0) throw new Error("No-write audit request deadline exceeded.");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Math.min(15_000, remainingMs));
+      try {
+        const response = await fetch(current, {
+          signal: controller.signal,
+          redirect: "manual",
+          headers: {
+            Accept: "application/json, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+            "User-Agent": "JOBSAGE no-write vacancy audit/1.0 (+https://jobsage.co.uk)",
+          },
+        });
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get("location");
+          if (!location) throw new Error(`Public feed redirect ${response.status} omitted Location.`);
+          const next = new URL(location, current);
+          if (next.protocol !== "https:" || !allowed(next.hostname)) {
+            throw new Error(`Public feed redirected to a non-allowlisted host: ${next.hostname}`);
+          }
+          current = next;
+          continue;
+        }
+        if (!response.ok) throw new Error(`Public feed returned HTTP ${response.status}.`);
+        const contentLength = Number(response.headers.get("content-length"));
+        if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+          throw new Error(`Public feed exceeded the ${maxBytes}-byte response limit.`);
+        }
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.byteLength > maxBytes) throw new Error(`Public feed exceeded the ${maxBytes}-byte response limit.`);
+        return new TextDecoder().decode(bytes);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    throw new Error("Public feed exceeded the redirect limit.");
+  }
   const result = await fetchCompanySitePage(
     parsed.toString(),
     parsed.hostname,

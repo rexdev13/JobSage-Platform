@@ -2,7 +2,16 @@ import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, profilesTable, usersTable, careerProfilesTable } from "@workspace/db";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
+import {
+  GetMyProfileResponse,
+  UpsertMyProfileBody,
+  UpsertMyProfileResponse,
+} from "@workspace/api-zod";
+import {
+  PROFESSION_CATALOG,
+  PROFESSION_OPTIONS,
+  canonicalProfessionLabel,
+} from "@workspace/api-zod/profession-catalog";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
@@ -48,49 +57,16 @@ export function hasMakerProfileFactsChanged(
   );
 }
 
-const WELL_KNOWN_PROFESSIONS = [
-  "Doctor",
-  "Nurse",
-  "Midwife",
-  "Allied Health Professional",
-  "Clinical Academic",
-  "Dentist",
-  "Pharmacist",
-  "Optometrist",
-  "Physiotherapist",
-  "Radiographer",
-  "Paramedic",
-  "Occupational Therapist",
-  "Social Worker",
-  "Teacher / Lecturer",
-  "Engineer",
-  "Accountant",
-  "IT Professional",
-  "Lawyer / Solicitor",
-  "Architect",
-  "Software Engineering",
-  "Business Development Manager",
-];
-
 router.get("/professions", requireAuthenticated, async (_req: Request, res: Response): Promise<void> => {
-  const rows = await db.execute(
-    sql`SELECT max(trim(profession)) AS profession, cast(count(*) as int) AS count
-        FROM profiles
-        WHERE profession IS NOT NULL AND trim(profession) != ''
-        GROUP BY lower(trim(profession))
-        HAVING count(*) >= 3`
-  );
-
-  const wellKnownLower = WELL_KNOWN_PROFESSIONS.map((w) => w.toLowerCase());
-
-  const popularCustom = (rows.rows as { profession: string; count: number }[])
-    .map((r) => r.profession)
-    .filter(Boolean)
-    .filter((p) => !wellKnownLower.includes(p.toLowerCase().replace(/_/g, " ").trim()));
-
-  const merged = [...WELL_KNOWN_PROFESSIONS, ...popularCustom];
-
-  res.json({ professions: merged });
+  res.json({
+    professions: PROFESSION_OPTIONS,
+    catalogue: PROFESSION_CATALOG.map(({ label, category, sector, regulator }) => ({
+      label,
+      category,
+      sector,
+      regulator,
+    })),
+  });
 });
 
 router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
@@ -140,6 +116,13 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   }
 
   const d = parsed.data;
+  const canonicalProfession = canonicalProfessionLabel(d.profession);
+  if (!canonicalProfession) {
+    res.status(400).json({
+      error: "Choose a supported profession from the JobSage profession catalogue.",
+    });
+    return;
+  }
 
   // Resolve a JOBSAGE email alias for this candidate.
   // Look up any existing profile first so we never overwrite an already-assigned alias.
@@ -174,7 +157,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
 
   const values = {
     userId: req.user!.id,
-    profession: d.profession,
+    profession: canonicalProfession,
     specialty: d.specialty,
     qualificationCountry: d.qualificationCountry,
     qualificationType: d.qualificationType,
@@ -203,7 +186,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   // CV extraction submits a partial profile payload. Keep a candidate's
   // recorded safeguarding evidence unless the client explicitly changes it.
   const updateValues: Record<string, unknown> = {
-    profession: d.profession,
+    profession: canonicalProfession,
     specialty: d.specialty,
     qualificationCountry: d.qualificationCountry,
     qualificationType: d.qualificationType,

@@ -60,6 +60,7 @@ import {
   type BehaviouralEngagement,
 } from "../lib/behavioralRanking";
 import { isLikelyEditorialTitle, isManualLabourTitle } from "../lib/vacancyTitlePolicy";
+import { getDirectContactEligibility } from "../lib/employerRecipient";
 import {
   TOP_MATCH_MIN_SCORE,
   compareOpportunityRanking,
@@ -511,6 +512,9 @@ router.get("/roles", async (req, res): Promise<void> => {
     );
   const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles]
     .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
+  const sendCvEligibility = await getDirectContactEligibility(
+    regulatorRoles.map((role) => ({ companyName: role.employer })),
+  );
 
   const isRegistered =
     profile.registrationStatus != null &&
@@ -744,10 +748,9 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
-      // Send CV may be saved while recipient resolution is pending. The
-      // server never guesses an email; a missing destination becomes a
-      // pending Send CV record instead.
-      sendCvEligible: true,
+      // Only expose Send CV when the server can resolve an explicit employer
+      // account/profile or a recruitment-labelled persisted mailbox.
+      sendCvEligible: sendCvEligibility[index] === true,
       applyUrl: role.applyUrl ?? null,
       linkVerified: role.linkVerified ?? false,
       linkCheckedAt: role.linkCheckedAt ?? null,
