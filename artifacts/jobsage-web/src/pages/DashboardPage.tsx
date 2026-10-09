@@ -822,8 +822,8 @@ export default function DashboardPage() {
               if (matchedRolesQuery.isError) void matchedRolesQuery.refetch();
               if (applicationsQuery.isError) void applicationsQuery.refetch();
             }}
-            layout="vertical"
-            className="max-w-sm"
+            layout="grid"
+            className="w-full"
             testId="dashboard-career-journey"
           />
         </motion.div>
