@@ -1,0 +1,44 @@
+I need to set up a professional company email address for JobSage: developer@jobsage.co.uk.
+
+The website is hosted on Replit and already uses Resend to send emails.
+
+**My goal:**
+- Receive emails sent to developer@jobsage.co.uk.
+- Have those emails automatically forwarded to an existing Gmail inbox.
+- Be able to receive Google Play and Apple Developer verification messages.
+- Keep the setup free if possible.
+- Preserve all existing JobSage functionality.
+
+Please do the following:
+
+1. Inspect the existing Replit project and determine how Resend is configured.
+2. Identify the verified Resend domain, existing DNS configuration and any existing incoming email setup.
+3. Determine whether Resend Receiving is already enabled.
+4. If receiving is not configured, implement a secure inbound email webhook using the existing application architecture.
+5. Verify the webhook signature and retrieve received email content through Resend's Receiving API.
+6. Implement forwarding to a configurable Gmail destination, preserving the original sender details and message content.
+7. Handle attachments, duplicate events, retries, errors and secure logging.
+8. Use Replit Secrets for credentials. Never hardcode or print API keys or verification codes.
+9. Preserve existing email-sending functionality, website availability and production data.
+10. Test the implementation without sending real emails or changing DNS until I explicitly approve.
+
+**Important restrictions:**
+- Do not modify production DNS automatically.
+- Do not replace existing MX records without my approval.
+- Do not delete or overwrite existing Resend configuration.
+- Do not make unnecessary database changes.
+- Do not expose private incoming emails or credentials publicly.
+- Prefer the existing Resend free plan.
+
+Once implementation and local tests are complete, tell me:
+
+- What you implemented.
+- Whether receiving is already enabled.
+- Which DNS changes, if any, I need to make.
+- Whether the forwarding system is ready for a live test.
+- What still requires manual action.
+- Whether there will be any recurring costs.
+
+The Gmail forwarding destination should be configurable and must not be hardcoded.
+
+Do not claim the setup works end-to-end until a real incoming email has been successfully received and forwarded.
