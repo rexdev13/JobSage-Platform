@@ -26,12 +26,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [impersonation, setImpersonation] = React.useState<ImpersonationState | null>(null);
   const [quotaOpen, setQuotaOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
-  const drawerWasOpenRef = React.useRef(false);
-
   React.useEffect(() => {
-    if (drawerWasOpenRef.current && !mobileMenuOpen) menuButtonRef.current?.focus();
-    drawerWasOpenRef.current = mobileMenuOpen;
-  }, [mobileMenuOpen]);
+    if (!window.matchMedia) return;
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMobileMenuOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   function openEnhancement() {
     if (mobileMenuOpen) {
@@ -70,9 +71,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
+    <div className={`flex h-[100dvh] w-full overflow-hidden bg-background ${impersonation ? "pt-12" : ""}`}>
       {impersonation && (
-        <div className="fixed left-0 right-0 top-0 z-[100] flex min-h-10 items-center justify-between gap-2 bg-amber-500 px-3 py-2 text-xs text-amber-950 shadow-md sm:px-4 sm:text-sm">
+        <div className="fixed left-0 right-0 top-0 z-[100] flex h-12 items-center justify-between gap-2 bg-amber-500 px-3 py-2 text-xs text-amber-950 shadow-md sm:px-4 sm:text-sm">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-amber-900 animate-pulse" />
             <span className="min-w-0 flex-1 truncate font-semibold">
@@ -101,12 +102,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SheetContent
           side="left"
           id="mobile-navigation-drawer"
-          aria-describedby="mobile-navigation-description"
-          className={`fixed z-[60] flex h-[100dvh] max-h-[100dvh] w-[min(88vw,320px)] max-w-[320px] sm:max-w-[320px] flex-col overflow-hidden border-r border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sidebar-foreground [&>button:first-of-type]:hidden ${impersonation ? "top-10 h-[calc(100dvh-2.5rem)]" : ""}`}
+          onCloseAutoFocus={(event) => { event.preventDefault(); menuButtonRef.current?.focus(); }}
+          style={impersonation ? { top: 48, height: "calc(100dvh - 48px)" } : undefined}
+          className="fixed z-[60] flex h-[100dvh] max-h-[100dvh] w-[min(88vw,320px)] max-w-[320px] sm:max-w-[320px] flex-col overflow-hidden border-r border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sidebar-foreground [&>button:first-of-type]:hidden"
           data-testid="mobile-navigation-drawer"
         >
           <SheetTitle className="sr-only">JOBSAGE navigation</SheetTitle>
-          <SheetDescription id="mobile-navigation-description" className="sr-only">
+          <SheetDescription className="sr-only">
             Navigate JOBSAGE candidate tools and career resources.
           </SheetDescription>
           <SheetClose asChild>
@@ -115,32 +117,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <X className="h-5 w-5" />
             </Button>
           </SheetClose>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <AppSidebar onNavigate={() => setMobileMenuOpen(false)} onEnhance={openEnhancement} />
           </div>
         </SheetContent>
       </Sheet>
 
       {/* Desktop Sidebar */}
-      <div className={`hidden md:flex ${impersonation ? "mt-10" : ""}`}>
+      <div className="hidden md:flex">
         <AppSidebar onEnhance={openEnhancement} />
       </div>
 
       {/* Main Content */}
-      <div className={`flex min-w-0 flex-col flex-1 w-full overflow-hidden ${impersonation ? "mt-10" : ""}`}>
+      <div className="flex min-w-0 flex-col flex-1 w-full overflow-hidden">
         <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md md:hidden">
-          <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto object-contain" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JOBSAGE" className="h-9 w-auto object-contain" />
           <Button ref={menuButtonRef} variant="ghost" size="icon"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Open navigation menu"
             aria-haspopup="dialog"
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation-drawer"
+            className="min-h-11 min-w-11"
             data-testid="button-open-navigation">
             <Menu className="w-6 h-6" />
           </Button>
         </header>
-        <main className="flex-1 overflow-y-auto relative z-0 bg-gray-50/30">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 bg-gray-50/30">
           {children}
         </main>
       </div>

@@ -1,5 +1,5 @@
 export type CandidateNavEntry =
-  | { label: string; href: string; kind: "route" }
+  | { label: string; href: string; kind: "route"; badge?: "unread-messages" }
   | { label: string; kind: "action"; action: "enhance-cv" }
   | { label: string; kind: "coming-soon" };
 
@@ -26,7 +26,7 @@ export const CANDIDATE_NAVIGATION: CandidateNavSection[] = [
       { label: "Matched Jobs", href: "/opportunities", kind: "route" },
       { label: "Application Tracker", href: "/applications", kind: "route" },
       { label: "Interviews", href: "/calendar", kind: "route" },
-      { label: "Messages", href: "/inbox", kind: "route" },
+      { label: "Messages", href: "/inbox", kind: "route", badge: "unread-messages" },
     ],
   },
   {

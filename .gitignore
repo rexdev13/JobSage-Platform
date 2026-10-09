@@ -55,3 +55,6 @@ Thumbs.db
 /scripts/data/sponsor_contacts_*.csv
 /scripts/data/sponsor_contacts_*.json
 /scripts/data/cache/
+
+# Generated verification captures and build outputs
+/generated-artifacts/

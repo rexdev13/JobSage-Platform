@@ -49,7 +49,7 @@ describe("candidate navigation configuration", () => {
 
   it("preserves a readable live unread message badge", () => {
     expect(CANDIDATE_NAVIGATION.flatMap((section) => section.items)
-      .find((item) => item.label === "Messages")).toMatchObject({ href: "/inbox", kind: "route" });
+       .find((item) => item.label === "Messages")).toMatchObject({ href: "/inbox", kind: "route", badge: "unread-messages" });
     expect(getUnreadBadgeText(3)).toBe("3");
     expect(getUnreadBadgeText(108)).toBe("99+");
     expect(getUnreadBadgeText(0)).toBeNull();
@@ -103,5 +103,14 @@ describe("candidate career journey evidence", () => {
       "current", "upcoming", "upcoming", "upcoming", "upcoming", "upcoming",
       "upcoming", "upcoming", "upcoming",
     ]);
+  });
+  it("does not accept an invalid date as interview evidence", () => {
+    const stages = deriveCareerJourney({
+      documents: [{ documentType: "cv" }, { documentType: "cv", label: "AI Enhanced CV" }],
+      matchedRoleCount: 1,
+      applications: [{ status: "applied", interviewDate: "not-a-date" }],
+    });
+    expect(stages[4].status).toBe("current");
+    expect(stages[5].status).toBe("upcoming");
   });
 });

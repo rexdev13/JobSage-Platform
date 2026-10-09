@@ -98,6 +98,15 @@ const legacyCandidateGroups = [
       { name: "Performance Report", href: "/my-report", icon: BarChart2, roles: ["reviewer", "admin"] },
     ],
   },
+  {
+    label: "Operations",
+    items: [
+      "Review Queue", "Learning Library", "Employer Dashboard", "Post a Job",
+      "Talent Search", "Campaigns", "Organisation Profile", "Ruleset Management",
+      "Role Management", "Audit Logs", "User Management", "Waitlist Leads", "Calendar",
+    ].map((name) => otherRoleNavigation.find((item) => item.name === name)!)
+      .map((item) => ({ ...item, roles: item.name === "Review Queue" ? ["reviewer", "admin"] : ["admin"] })),
+  },
 ];
 
 const iconForCandidateItem: Record<string, LucideIcon> = {
@@ -181,7 +190,7 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
   };
 
   const renderCandidateJourney = () => {
-    const { documents, isLoading: docsLoading, isError: docsError, refetch: refetchDocs } = documentsQuery;
+    const { data: documents, isLoading: docsLoading, isError: docsError, refetch: refetchDocs } = documentsQuery;
     const { data: matched, isLoading: matchesLoading, isError: matchesError, refetch: refetchMatches } = matchedQuery;
     const { data: applications, isLoading: appsLoading, isError: appsError, refetch: refetchApps } = applicationsQuery;
     if (docsLoading || matchesLoading || appsLoading) {
@@ -271,7 +280,7 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
                       );
                     }
                     return renderLink(item.label, item.href, iconForCandidateItem[item.label],
-                      item.label === "Messages" ? inboxData?.unreadCount : undefined);
+                      item.badge === "unread-messages" ? inboxData?.unreadCount : undefined);
                   })}
                 </div>
               </section>
@@ -287,11 +296,11 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
                 )}</div>
               </section>
             ))}
-            <div className="space-y-0.5">
+            {role !== "reviewer" && role !== "admin" && <div className="space-y-0.5">
               {otherRoleNavigation.filter((item) => !!role && item.roles.includes(role)).map((item) =>
                 renderLink(item.name, item.href, item.icon),
               )}
-            </div>
+            </div>}
           </div>
         )}
       </nav>

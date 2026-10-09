@@ -37,8 +37,8 @@ export function deriveCareerJourney(evidence: JourneyEvidence): CareerJourneySta
   const hasInterview = evidence.applications.some(
     (application) =>
       application.status === "interview" ||
-      (typeof application.interviewDate === "string" &&
-        application.interviewDate.trim().length > 0),
+       (typeof application.interviewDate === "string" &&
+         Number.isFinite(Date.parse(application.interviewDate))),
   );
   const hasOffer = evidence.applications.some((application) => application.status === "offer");
   const evidenceByStage = [
