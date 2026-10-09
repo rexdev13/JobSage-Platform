@@ -11,8 +11,9 @@ employer reply emails into the JOBSAGE platform inbox.
    JOBSAGE alias (e.g. `john.smith.a1b2c3@mail.jobsage.co.uk`).
 2. The employer's reply goes back **to** that alias.
 3. Resend receives the inbound email (via MX records pointing at Resend's servers),
-   then POSTs the parsed email to our webhook endpoint.
-4. The webhook resolves the alias → candidate, stores the message in the inbox,
+   then POSTs an `email.received` metadata event to our webhook endpoint.
+4. The API retrieves full content and attachments from Resend's Receiving API.
+5. The webhook resolves the alias → candidate, stores the message in the inbox,
    advances the speculative application status, and notifies the candidate.
 
 ---
@@ -56,7 +57,7 @@ Resend dashboard after adding the domain.
    ```
    https://jobsage.co.uk/api/webhooks/inbound-email
    ```
-3. Under **Events**, select `email.inbound_received`.
+3. Under **Events**, select `email.received`.
 4. Copy the **Signing Secret** that Resend displays — it starts with `whsec_`.
 
 ---
@@ -96,28 +97,10 @@ an invalid or missing signature are rejected with HTTP 401.
 
 ## Step 5 — Test the integration
 
-Use Resend's **Send Test Email** feature or `curl` to POST a sample payload:
-
-```bash
-curl -X POST https://jobsage.co.uk/api/webhooks/inbound-email \
-  -H "Content-Type: application/json" \
-  -H "x-webhook-secret: YOUR_SECRET" \
-  -d '{
-    "type": "email.inbound_received",
-    "data": {
-      "from": "Hiring Manager <hr@testcompany.com>",
-      "to": ["john.smith.a1b2c3@mail.jobsage.co.uk"],
-      "subject": "Re: [Speculative CV] John Smith → Test Company",
-      "text": "Thank you for your application. We would love to invite you for an interview.",
-      "messageId": "<test-12345@testcompany.com>"
-    }
-  }'
-```
-
-Expected response:
-```json
-{ "ok": true, "category": "interview_invited", "matchedApplicationId": 42 }
-```
+For candidate-alias replies, use the controlled local/staging runner below. A
+current Resend delivery contains metadata and an `email_id`, not the full body;
+the application fetches message content from Resend's Receiving API. Do not
+paste a real message or signing secret into a shell command.
 
 ---
 
@@ -183,27 +166,35 @@ the previous message to bypass webhook deduplication.
 
 ## Webhook payload format
 
-Resend delivers inbound emails with this shape:
+Current Resend `email.received` webhooks contain email metadata and an
+`email_id`. The application retrieves the message body and attachments through
+the Receiving API:
 
 ```json
 {
-  "type": "email.inbound_received",
-  "created_at": "2025-01-01T12:00:00.000Z",
+  "type": "email.received",
+  "created_at": "2026-10-09T12:00:00.000Z",
   "data": {
     "from": "Sender Name <sender@company.com>",
     "to": ["alias@mail.jobsage.co.uk"],
+    "received_for": ["alias@mail.jobsage.co.uk"],
     "subject": "Re: ...",
-    "text": "Plain text body",
-    "html": "<p>HTML body</p>",
-    "headers": [{ "name": "Message-ID", "value": "<msg-id@company.com>" }],
-    "messageId": "<msg-id@company.com>",
-    "attachments": []
+    "message_id": "<msg-id@company.com>",
+    "email_id": "received-email-id",
+    "attachments": [
+      {
+        "id": "attachment-id",
+        "filename": "document.pdf",
+        "content_type": "application/pdf"
+      }
+    ]
   }
 }
 ```
 
-The handler also accepts flat payloads (fields at root level) for forward
-compatibility with future Resend API versions.
+The handler continues to accept the legacy `email.inbound_received` shape for
+the existing controlled smoke test, but production Resend webhooks should use
+`email.received`.
 
 ---
 
@@ -227,9 +218,49 @@ Status is only advanced — a reply cannot move an application backward (except
 
 - **No-reply/automated senders** are silently ignored (no feedback loops).
 - **Unknown aliases** (no matching candidate) return HTTP 200 to prevent Resend retries.
-- **Duplicate deliveries** are deduplicated using the Resend `messageId`.
+- **Duplicate candidate-reply deliveries** are deduplicated using the original
+  message ID. Developer-mail forwards use the Resend send API idempotency key
+  derived from the immutable received-email ID.
 - **Rate limiting** caps inbound processing at 20 emails per minute per sender.
 - The endpoint returns HTTP 200 for all "safe skip" cases so Resend does not retry.
+
+---
+
+## Developer verification mailbox forwarding
+
+The API server forwards mail addressed exactly to `developer@jobsage.co.uk` to
+the destination in `INBOUND_EMAIL_FORWARD_TO`. The destination is configuration,
+not a source-code constant. If it is missing or invalid, the webhook returns a
+retryable error instead of silently discarding the message.
+
+Forwarding uses the Resend Receiving API to retain the original sender, recipient,
+date, subject, message body, reply address, and attachments. The outbound message
+uses JOBSAGE's configured Resend sender; the original sender details are shown in
+the forwarded message. Attachments are downloaded from Resend's signed attachment
+URLs and attached individually. Logs include only provider message IDs and
+failure stage/status, never message content, sender, recipient, or attachment
+names.
+
+Set `INBOUND_EMAIL_FORWARD_TO` in the API server's environment to the intended
+Gmail address. Configure the value in both the development environment and the
+published app's Production environment if both need forwarding. Production
+environment changes take effect only after publishing a new app version.
+
+### Read-only configuration check
+
+The last read-only check found `jobsage.co.uk` verified in Resend with its
+Receiving MX record verified in `eu-west-1`. Public DNS currently returns that
+same root MX record (`inbound-smtp.eu-west-1.amazonaws.com`, priority 10).
+Resend already has an `email.received` webhook at
+`https://jobsage.co.uk/api/webhooks/inbound-email`; the signing secret matched
+the inspected workspace environment without exposing either secret value.
+
+The existing `mail.jobsage.co.uk` MX record was left untouched. Its public MX
+currently points to `inbound.resend.com`. No DNS records were changed. Resend's
+public pricing currently lists inbound email on the Free plan, though the
+account's active billing plan was not inspected. This read-only check and local
+mocked tests are not proof of end-to-end delivery; a real received-and-forwarded
+message has not been tested.
 
 ---
 

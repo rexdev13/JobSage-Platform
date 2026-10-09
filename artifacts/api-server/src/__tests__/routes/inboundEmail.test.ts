@@ -1,7 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createHmac } from "crypto";
+
+const mockReceivingProvider = vi.hoisted(() => {
+  class MockResendReceivingError extends Error {
+    constructor(
+      readonly stage: string,
+      readonly statusCode?: number,
+    ) {
+      super(stage);
+    }
+  }
+  return {
+    getReceivedEmail: vi.fn(),
+    forwardReceivedEmail: vi.fn(),
+    ResendReceivingError: MockResendReceivingError,
+  };
+});
+
+vi.mock("../../lib/resendReceiving", () => mockReceivingProvider);
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -140,6 +158,11 @@ describe("POST /webhooks/inbound-email", () => {
     updatedStatuses.length = 0;
     process.env.INBOUND_EMAIL_WEBHOOK_SECRET = TEST_SECRET;
     process.env.NODE_ENV = "test";
+    delete process.env.INBOUND_EMAIL_FORWARD_TO;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // -------------------------------------------------------------------------
@@ -378,5 +401,180 @@ describe("POST /webhooks/inbound-email", () => {
     expect(res.status).toBe(200);
     expect(res.body.skipped).toBe("automated sender");
     expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it("forwards modern developer-mail events before filtering automated senders", async () => {
+    process.env.INBOUND_EMAIL_FORWARD_TO = "jobsage.inbox@gmail.com";
+    mockReceivingProvider.forwardReceivedEmail.mockResolvedValue("forwarded-email-1");
+    const app = await buildApp();
+    const payload = {
+      type: "email.received",
+      data: {
+        email_id: "received-email-1",
+        from: "no-reply@google.com",
+        to: ["developer@jobsage.co.uk"],
+        received_for: ["developer@jobsage.co.uk"],
+        subject: "Developer account verification",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const headers = buildSvixHeaders(body);
+
+    const res = await request(app)
+      .post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json")
+      .set(headers)
+      .send(body);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, forwarded: true });
+    expect(mockReceivingProvider.forwardReceivedEmail).toHaveBeenCalledWith(
+      "received-email-1",
+      "jobsage.inbox@gmail.com",
+    );
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(JSON.stringify(res.body)).not.toContain("Developer account verification");
+  });
+
+  it("fails visibly when developer forwarding is not configured", async () => {
+    const app = await buildApp();
+    const payload = {
+      type: "email.received",
+      data: {
+        email_id: "received-email-unconfigured",
+        from: "no-reply@apple.com",
+        to: ["developer@jobsage.co.uk"],
+        subject: "Apple Developer verification",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const headers = buildSvixHeaders(body);
+
+    const res = await request(app)
+      .post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json")
+      .set(headers)
+      .send(body);
+
+    expect(res.status).toBe(503);
+    expect(mockReceivingProvider.forwardReceivedEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable error without logging private message details", async () => {
+    process.env.INBOUND_EMAIL_FORWARD_TO = "jobsage.inbox@gmail.com";
+    mockReceivingProvider.forwardReceivedEmail.mockRejectedValue(
+      new Error("private message body must not be logged"),
+    );
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const app = await buildApp();
+    const payload = {
+      type: "email.received",
+      data: {
+        email_id: "received-private-email",
+        from: "Private Sender <private.sender@example.com>",
+        to: ["developer@jobsage.co.uk"],
+        subject: "Private verification content",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const headers = buildSvixHeaders(body);
+
+    const res = await request(app)
+      .post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json")
+      .set(headers)
+      .send(body);
+
+    expect(res.status).toBe(503);
+    const loggedText = JSON.stringify(errorLog.mock.calls);
+    expect(loggedText).toContain("received-private-email");
+    expect(loggedText).not.toContain("private message body");
+    expect(loggedText).not.toContain("private.sender@example.com");
+    expect(loggedText).not.toContain("Private verification content");
+    expect(loggedText).not.toContain("jobsage.inbox@gmail.com");
+  });
+
+  it("reports a failed developer forward even when a candidate alias is also processed", async () => {
+    process.env.INBOUND_EMAIL_FORWARD_TO = "jobsage.inbox@gmail.com";
+    mockReceivingProvider.forwardReceivedEmail.mockRejectedValue(new Error("provider unavailable"));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "user-1", email: "cand@test.com", firstName: "Jane" }]))
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain(201));
+    const app = await buildApp();
+    const payload = {
+      type: "email.received",
+      data: {
+        email_id: "received-combined-email",
+        from: "Recruiter <recruiter@company.com>",
+        to: ["developer@jobsage.co.uk", "jane.smith.abc@mail.jobsage.co.uk"],
+        subject: "Thanks for your application",
+        text: "We will be in touch soon.",
+        message_id: "<combined-message@company.com>",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const headers = buildSvixHeaders(body);
+
+    const res = await request(app)
+      .post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json")
+      .set(headers)
+      .send(body);
+
+    expect(res.status).toBe(503);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toBe("Developer mailbox forwarding unavailable");
+    expect(insertedMessages).toHaveLength(1);
+  });
+
+  it("loads full Resend content for a metadata-only candidate reply", async () => {
+    const app = await buildApp();
+    mockReceivingProvider.getReceivedEmail.mockResolvedValue({
+      id: "received-candidate-email",
+      from: "Sarah Recruiter <sarah@acme.com>",
+      to: ["jane.smith.abc@mail.jobsage.co.uk"],
+      subject: "Interview invitation",
+      text: "We would like to invite you for an interview next week.",
+      html: null,
+      headers: { "message-id": "<modern-interview@acme.com>" },
+      message_id: "<modern-interview@acme.com>",
+      created_at: "2026-10-09T09:00:00.000Z",
+      cc: null,
+      bcc: null,
+      reply_to: null,
+      raw: null,
+      attachments: [],
+      object: "email",
+    });
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "user-1", email: "cand@test.com", firstName: "Jane" }]))
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain(199));
+
+    const payload = {
+      type: "email.received",
+      data: {
+        email_id: "received-candidate-email",
+        from: "Sarah Recruiter <sarah@acme.com>",
+        to: ["jane.smith.abc@mail.jobsage.co.uk"],
+        subject: "Interview invitation",
+        message_id: "<modern-interview@acme.com>",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const headers = buildSvixHeaders(body);
+    const res = await request(app)
+      .post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json")
+      .set(headers)
+      .send(body);
+
+    expect(res.status).toBe(200);
+    expect(mockReceivingProvider.getReceivedEmail).toHaveBeenCalledWith("received-candidate-email");
+    expect(insertedMessages[0]?.messageText).toContain("invite you for an interview");
+    expect(res.body.category).toBe("interview_invited");
   });
 });

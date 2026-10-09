@@ -26,6 +26,11 @@ import {
 } from "@workspace/db";
 import { eq, and, or } from "drizzle-orm";
 import { sendEmployerReplyNotification } from "../lib/email";
+import {
+  forwardReceivedEmail,
+  getReceivedEmail,
+  ResendReceivingError,
+} from "../lib/resendReceiving";
 
 const router = Router();
 
@@ -209,8 +214,10 @@ interface ResendInboundPayload {
   type?: string;
   created_at?: string;
   data?: {
+    email_id?: string;
     from?: string;
     to?: string | string[];
+    received_for?: string | string[];
     subject?: string;
     text?: string;
     html?: string;
@@ -221,7 +228,9 @@ interface ResendInboundPayload {
   };
   // Resend may also send the fields at the top level for some webhook versions
   from?: string;
+  email_id?: string;
   to?: string | string[];
+  received_for?: string | string[];
   subject?: string;
   text?: string;
   headers?: Array<{ name: string; value: string }> | Record<string, string>;
@@ -255,6 +264,40 @@ function extractMessageId(payload: ResendInboundPayload): string | null {
   return null;
 }
 
+function asAddressList(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function safeReceivingFailure(error: unknown): { stage: string; statusCode?: number } {
+  if (error instanceof ResendReceivingError) {
+    return {
+      stage: error.stage,
+      ...(error.statusCode !== undefined ? { statusCode: error.statusCode } : {}),
+    };
+  }
+  return { stage: "unexpected" };
+}
+
+function isUsableForwardDestination(value: string | undefined): value is string {
+  return Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()));
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<\s*(br|\/p|\/div|\/li|\/tr|\/h[1-6])\b[^>]*>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // ---------------------------------------------------------------------------
 // Webhook handler
 // ---------------------------------------------------------------------------
@@ -274,46 +317,61 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     return;
   }
 
+  if (payload.type && !["email.received", "email.inbound_received"].includes(payload.type)) {
+    res.status(200).json({ ok: true, skipped: "not an inbound email event" });
+    return;
+  }
+
   // --- 2. Extract email fields ------------------------------------------
   const rawFrom = (extractField(payload, "from") as string) ?? "";
   const rawToField = extractField(payload, "to") as string | string[] | undefined;
-  const toAddresses: string[] = Array.isArray(rawToField)
-    ? rawToField
-    : typeof rawToField === "string"
-    ? [rawToField]
-    : [];
-  const subject = (extractField(payload, "subject") as string) ?? "(no subject)";
-  const bodyText = (extractField(payload, "text") as string) ?? "";
-  const rawHeaders = (extractField(payload, "headers") as Array<{ name: string; value: string }> | Record<string, string> | undefined);
-  const externalMessageId = extractMessageId(payload);
+  const receivedFor = payload.data?.received_for ?? payload.received_for;
+  const toAddresses = [...asAddressList(rawToField), ...asAddressList(receivedFor)];
+  let subject = (extractField(payload, "subject") as string) || "(no subject)";
+  let bodyText = (extractField(payload, "text") as string) ?? "";
+  let rawHeaders = extractField(payload, "headers") as
+    | Array<{ name: string; value: string }>
+    | Record<string, string>
+    | undefined;
+  let externalMessageId = extractMessageId(payload);
+  const emailId = payload.data?.email_id ?? payload.email_id;
+  const developerMailbox = "developer@jobsage.co.uk";
+  const isDeveloperMailboxMessage = toAddresses.some(
+    (address) => parseEmailAddress(address).email === developerMailbox,
+  );
+  let developerMailForwarded = false;
+  let developerForwardFailed = false;
 
-  if (!rawFrom) {
-    res.status(400).json({ error: "Missing from address" });
-    return;
+  // Route this exact mailbox before the existing auto-reply filter: provider
+  // verification mail is commonly sent by no-reply/automated senders.
+  if (isDeveloperMailboxMessage) {
+    const destination = process.env.INBOUND_EMAIL_FORWARD_TO?.trim();
+    if (!emailId || !isUsableForwardDestination(destination)) {
+      developerForwardFailed = true;
+      console.error("[inbound-email] Developer mailbox forwarding is not configured", {
+        hasEmailId: Boolean(emailId),
+        destinationConfigured: Boolean(destination),
+      });
+    } else {
+      try {
+        const forwardedEmailId = await forwardReceivedEmail(emailId, destination);
+        developerMailForwarded = true;
+        console.info("[inbound-email] Developer mailbox forward succeeded", {
+          receivedEmailId: emailId,
+          forwardedEmailId,
+        });
+      } catch (error) {
+        developerForwardFailed = true;
+        console.error("[inbound-email] Developer mailbox forward failed", {
+          receivedEmailId: emailId,
+          ...safeReceivingFailure(error),
+        });
+      }
+    }
   }
 
   const sender = parseEmailAddress(rawFrom);
   const senderDomain = emailDomain(sender.email);
-
-  // Guard: ignore no-reply/automated senders to avoid feedback loops
-  if (
-    sender.email.startsWith("noreply") ||
-    sender.email.startsWith("no-reply") ||
-    sender.email.startsWith("donotreply") ||
-    sender.email.includes("mailer-daemon") ||
-    sender.email.includes("postmaster@")
-  ) {
-    console.log(`[inbound-email] Ignoring automated sender: ${sender.email}`);
-    res.status(200).json({ ok: true, skipped: "automated sender" });
-    return;
-  }
-
-  // --- 3. Rate limit by sender ------------------------------------------
-  if (!checkSenderRateLimit(sender.email)) {
-    console.warn(`[inbound-email] Rate limit hit for sender: ${sender.email}`);
-    res.status(429).json({ error: "Too many requests from this sender" });
-    return;
-  }
 
   // --- 4. Find the JOBSAGE alias among the recipients ------------------
   const MAIL_DOMAIN = process.env.JOBSAGE_MAIL_DOMAIN ?? "mail.jobsage.co.uk";
@@ -322,8 +380,52 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     .find((e) => e.endsWith(`@${MAIL_DOMAIN}`));
 
   if (!aliasRecipient) {
-    console.log(`[inbound-email] No @${MAIL_DOMAIN} recipient found in: ${toAddresses.join(", ")}`);
-    res.status(200).json({ ok: true, skipped: "no jobsage alias in recipients" });
+    if (!isDeveloperMailboxMessage) {
+      console.log(`[inbound-email] No @${MAIL_DOMAIN} recipient found in: ${toAddresses.join(", ")}`);
+    }
+    res.status(developerForwardFailed ? 503 : 200).json({
+      ok: !developerForwardFailed,
+      ...(developerMailForwarded ? { forwarded: true } : {}),
+      skipped: isDeveloperMailboxMessage ? undefined : "no jobsage alias in recipients",
+      ...(developerForwardFailed ? { error: "Developer mailbox forwarding unavailable" } : {}),
+    });
+    return;
+  }
+
+  // Guard: ignore no-reply/automated senders on the candidate-alias workflow,
+  // but only after the developer mailbox has had a chance to forward them.
+  if (
+    sender.email.startsWith("noreply") ||
+    sender.email.startsWith("no-reply") ||
+    sender.email.startsWith("donotreply") ||
+    sender.email.includes("mailer-daemon") ||
+    sender.email.includes("postmaster@")
+  ) {
+    console.log(`[inbound-email] Ignoring automated sender: ${sender.email}`);
+    res.status(developerForwardFailed ? 503 : 200).json({
+      ok: !developerForwardFailed,
+      skipped: "automated sender",
+      ...(developerMailForwarded ? { forwarded: true } : {}),
+      ...(developerForwardFailed ? { error: "Developer mailbox forwarding unavailable" } : {}),
+    });
+    return;
+  }
+
+  if (!rawFrom) {
+    res.status(developerForwardFailed ? 503 : 400).json({
+      error: developerForwardFailed ? "Developer mailbox forwarding unavailable" : "Missing from address",
+    });
+    return;
+  }
+
+  // --- 3. Rate limit by sender ------------------------------------------
+  if (!checkSenderRateLimit(sender.email)) {
+    console.warn(`[inbound-email] Rate limit hit for sender: ${sender.email}`);
+    res.status(developerForwardFailed ? 503 : 429).json({
+      error: developerForwardFailed
+        ? "Developer mailbox forwarding unavailable"
+        : "Too many requests from this sender",
+    });
     return;
   }
 
@@ -350,7 +452,12 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
   if (!candidateUserId) {
     console.log(`[inbound-email] No candidate found for alias: ${aliasRecipient}`);
     // Return 200 so Resend doesn't retry — alias has no matching candidate
-    res.status(200).json({ ok: true, skipped: "alias not matched to any candidate" });
+    res.status(developerForwardFailed ? 503 : 200).json({
+      ok: !developerForwardFailed,
+      skipped: "alias not matched to any candidate",
+      ...(developerMailForwarded ? { forwarded: true } : {}),
+      ...(developerForwardFailed ? { error: "Developer mailbox forwarding unavailable" } : {}),
+    });
     return;
   }
 
@@ -370,6 +477,26 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     candidateFirstName = u?.firstName ?? "there";
   }
 
+  // Modern Resend `email.received` webhooks contain metadata only. Fetch the
+  // full body and headers for the existing candidate-reply workflow when the
+  // event payload does not include them.
+  if ((!bodyText || !externalMessageId) && emailId) {
+    try {
+      const receivedEmail = await getReceivedEmail(emailId);
+      bodyText = bodyText || receivedEmail.text || (receivedEmail.html ? htmlToText(receivedEmail.html) : "");
+      if (subject === "(no subject)") subject = receivedEmail.subject || subject;
+      rawHeaders = rawHeaders ?? receivedEmail.headers ?? undefined;
+      externalMessageId = externalMessageId ?? receivedEmail.message_id ?? null;
+    } catch (error) {
+      console.error("[inbound-email] Failed to retrieve received email content", {
+        receivedEmailId: emailId,
+        ...safeReceivingFailure(error),
+      });
+      res.status(500).json({ error: "Failed to retrieve received email content" });
+      return;
+    }
+  }
+
   // --- 6. Deduplicate --------------------------------------------------
   if (externalMessageId) {
     const [existing] = await db
@@ -379,7 +506,12 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
       .limit(1);
     if (existing) {
       console.log(`[inbound-email] Duplicate delivery, message already stored: ${externalMessageId}`);
-      res.status(200).json({ ok: true, skipped: "duplicate" });
+      res.status(developerForwardFailed ? 503 : 200).json({
+        ok: !developerForwardFailed,
+        skipped: "duplicate",
+        ...(developerMailForwarded ? { forwarded: true } : {}),
+        ...(developerForwardFailed ? { error: "Developer mailbox forwarding unavailable" } : {}),
+      });
       return;
     }
   }
@@ -516,12 +648,14 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     `[inbound-email] Processed reply from ${sender.email} → alias ${aliasRecipient}, candidate ${candidateUserId}, category=${category}, appId=${matchedApplicationId ?? "none"}`,
   );
 
-  res.status(200).json({
-    ok: true,
+  res.status(developerForwardFailed ? 503 : 200).json({
+    ok: !developerForwardFailed,
+    ...(developerMailForwarded ? { forwarded: true } : {}),
     candidateUserId,
     messageId: insertedMessageId,
     category,
     matchedApplicationId,
+    ...(developerForwardFailed ? { error: "Developer mailbox forwarding unavailable" } : {}),
   });
 });
 
