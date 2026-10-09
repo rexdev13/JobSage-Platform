@@ -13,6 +13,8 @@ import {
   useToggleProfileBoost,
   getGetMyProfileQueryKey,
   useGetMyAnalytics,
+  useGetMyProgressReport,
+  getGetMyProgressReportQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -40,6 +42,9 @@ import {
   Briefcase,
   Activity,
   ShieldAlert,
+  Clock3,
+  RotateCw,
+  FileText,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -48,6 +53,7 @@ import { cn } from "@/components/ui-enhanced";
 import { JourneyIslands } from "@/components/JourneyIslands";
 import { deriveIslandStates, activeStepNumber } from "@/lib/journeySteps";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
+import { countPendingApplications, countUpcomingInterviews, getMonthlyReportOverview } from "@/lib/dashboardOverview";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -303,6 +309,149 @@ function StatCard({
   );
 }
 
+function OverviewMetric({
+  title, href, icon: Icon, loading, error, onRetry, value, detail, tone = "primary",
+}: {
+  title: string;
+  href: string;
+  icon: typeof Briefcase;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+  value?: number;
+  detail: string;
+  tone?: "primary" | "quiet";
+}) {
+  return (
+    <div className="group min-w-0">
+      <Card className={cn("h-full p-4 transition-colors group-hover:border-primary/30", tone === "quiet" && "bg-muted/25")}>
+        <div className="flex items-start gap-3">
+          <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            tone === "primary" ? "bg-primary/10 text-primary" : "bg-background text-muted-foreground")}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <Link href={href} className="text-xs font-semibold text-foreground hover:text-primary">{title}</Link>
+            {loading ? (
+              <div className="mt-2 h-7 w-16 animate-pulse rounded-md bg-muted" aria-label={`Loading ${title}`} />
+            ) : error ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-destructive" role="status">{title} could not be loaded</span>
+                <button type="button" className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary underline underline-offset-2"
+                  onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRetry(); }}>
+                  <RotateCw className="h-3 w-3" />Retry
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="mt-1 font-display text-2xl font-bold leading-none text-foreground">{value}</p>
+                <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{detail}</p>
+              </>
+            )}
+          </div>
+          <Link href={href} aria-label={`Open ${title}`} className="mt-1 shrink-0 text-muted-foreground/50 transition-colors hover:text-primary">
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function DashboardOverview({
+  rolesQuery, applicationsQuery, reportQuery,
+}: {
+  rolesQuery: {
+    data: { roles?: unknown[] } | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => unknown;
+  };
+  applicationsQuery: {
+    data: { applications?: Array<{ status?: string | null; interviewDate?: string | null }> } | undefined;
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => unknown;
+  };
+  reportQuery: {
+    data: Parameters<typeof getMonthlyReportOverview>[0];
+    isLoading: boolean;
+    isError: boolean;
+    refetch: () => unknown;
+  };
+}) {
+  const monthly = getMonthlyReportOverview(reportQuery.data);
+  const applications = applicationsQuery.data?.applications ?? [];
+  return (
+    <section aria-labelledby="dashboard-overview-heading" className="mb-5">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary">Your activity</p>
+          <h2 id="dashboard-overview-heading" className="mt-0.5 text-base font-semibold text-foreground">A clear view of what’s next</h2>
+        </div>
+        <span className="hidden text-[11px] text-muted-foreground sm:block">Live from your JOBSAGE records</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <OverviewMetric
+          title="Matched opportunities" href="/opportunities" icon={Briefcase}
+          loading={rolesQuery.isLoading} error={rolesQuery.isError} onRetry={() => { void rolesQuery.refetch(); }}
+          value={rolesQuery.data?.roles?.length ?? 0}
+          detail={rolesQuery.data?.roles?.length === 0 ? "No roles matched your profile yet" : "Roles returned for your profile"}
+        />
+        <div className="group min-w-0">
+          <Card className="h-full border-primary/15 bg-primary/[0.035] p-4 transition-colors group-hover:border-primary/30">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span>
+              <div className="min-w-0 flex-1">
+                <Link href="/my-report" className="text-xs font-semibold text-foreground hover:text-primary">Monthly insight</Link>
+                {reportQuery.isLoading ? (
+                  <div className="mt-2 h-7 w-28 animate-pulse rounded-md bg-muted" aria-label="Loading monthly insight" />
+                ) : reportQuery.isError ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-destructive" role="status">Monthly report could not be loaded</span>
+                    <button type="button" className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary underline underline-offset-2"
+                      onClick={(event) => { event.preventDefault(); event.stopPropagation(); reportQuery.refetch(); }}>
+                      <RotateCw className="h-3 w-3" />Retry
+                    </button>
+                  </div>
+                ) : monthly ? (
+                  <>
+                    <p className="mt-1 font-display text-lg font-bold leading-tight text-foreground">{monthly.periodLabel}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{monthly.applicationsThisMonth} applications this month</p>
+                    <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-foreground/80">
+                      {monthly.recommendations ?? "Open the report to review your latest progress."}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">Your report is not available yet.</p>
+                )}
+              </div>
+              <Link href="/my-report" aria-label="Open monthly report" className="mt-1 shrink-0 text-muted-foreground/50 transition-colors hover:text-primary">
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </Card>
+        </div>
+        <OverviewMetric
+          title="Pending applications" href="/applications" icon={ClipboardList}
+          loading={applicationsQuery.isLoading} error={applicationsQuery.isError} onRetry={() => { void applicationsQuery.refetch(); }}
+          value={countPendingApplications(applications)}
+          detail={applicationsQuery.data?.applications?.length === 0 ? "No applications on your tracker yet" :
+            countPendingApplications(applications) === 0 ? "No applications awaiting a response" : "Applied or shortlisted"}
+          tone="quiet"
+        />
+        <OverviewMetric
+          title="Upcoming interviews" href="/calendar" icon={Clock3}
+          loading={applicationsQuery.isLoading} error={applicationsQuery.isError} onRetry={() => { void applicationsQuery.refetch(); }}
+          value={countUpcomingInterviews(applications)}
+          detail={countUpcomingInterviews(applications) === 0 ? "No upcoming interviews with a confirmed date" : "Interview-stage applications with a future date"}
+          tone="quiet"
+        />
+      </div>
+    </section>
+  );
+}
+
 // ── AI Next Steps Card ────────────────────────────────────────────────────────
 function NextStepsCard() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -405,7 +554,8 @@ export default function DashboardPage() {
   const { data: profile } = useGetMyProfile();
   const { data: eligibilityHistory } = useListEligibilityHistory();
   const { data: documents } = useListMyDocuments();
-  const { data: matchedRoles } = useListMatchedRoles();
+  const matchedRolesQuery = useListMatchedRoles();
+  const { data: matchedRoles } = matchedRolesQuery;
   const { data: plan } = useGetRemediationPlan({
     query: {
       queryKey: getGetRemediationPlanQueryKey(),
@@ -415,7 +565,11 @@ export default function DashboardPage() {
         eligibilityHistory.decisions[0].outcome !== "eligible",
     },
   });
-  const { data: applicationsData } = useListMyApplications();
+  const applicationsQuery = useListMyApplications();
+  const { data: applicationsData } = applicationsQuery;
+  const reportQuery = useGetMyProgressReport({
+    query: { queryKey: getGetMyProgressReportQueryKey() },
+  });
   const { data: analyticsData, isLoading: analyticsLoading } = useGetMyAnalytics();
   const { data: forwardEligibility } = useGetForwardEligibility();
   const toggleBoostMutation = useToggleProfileBoost();
@@ -580,6 +734,12 @@ export default function DashboardPage() {
 
         {/* Identity verification CTA */}
         <VerificationCTABanner />
+
+        <DashboardOverview
+          rolesQuery={matchedRolesQuery}
+          applicationsQuery={applicationsQuery}
+          reportQuery={reportQuery}
+        />
 
         {/* ─── Island journey pathway ────────────────────────────────────── */}
         <motion.div

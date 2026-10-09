@@ -1,0 +1,107 @@
+import { describe, expect, it, vi } from "vitest";
+import { CANDIDATE_NAVIGATION, getUnreadBadgeText, isNavigationItemActive } from "./candidateNavigation";
+import { CAREER_JOURNEY_STAGES, deriveCareerJourney } from "./candidateJourney";
+
+describe("candidate navigation configuration", () => {
+  it("uses the required section order", () => {
+    expect(CANDIDATE_NAVIGATION.map((section) => section.label)).toEqual([
+      "My Profile", "My UK Opportunities", "UK Career Journey",
+      "Career Readiness", "Insights", "Support",
+    ]);
+  });
+
+  it("maps all requested destinations and actions", () => {
+    const all = CANDIDATE_NAVIGATION.flatMap((section) => section.items);
+    for (const [label, href] of [
+      ["CV and Supporting Documents", "/documents"],
+      ["Personal & Professional Details", "/profile"],
+      ["ID Verification", "/identity"],
+      ["Visa Sponsoring Employers", "/sponsor-licences"],
+      ["Matched Jobs", "/opportunities"],
+      ["Application Tracker", "/applications"],
+      ["Interviews", "/calendar"],
+      ["Messages", "/inbox"],
+      ["Eligibility Check", "/eligibility"],
+      ["Interview Preparation", "/interview-prep"],
+      ["Monthly Reports", "/my-report"],
+      ["Next Steps", "/"],
+      ["Help Center", "/help"],
+      ["Feedback", "/feedback"],
+      ["References", "/recommendations"],
+      ["Learning Hub", "/learning"],
+      ["Visa & Legal Guidance", "/regulatory-guidance"],
+    ]) {
+      expect(all.find((item) => item.label === label)).toMatchObject({ href, kind: "route" });
+    }
+    expect(all.find((item) => item.label === "CV Enhancement")).toMatchObject({
+      kind: "action", action: "enhance-cv",
+    });
+    expect(all.filter((item) => item.kind === "coming-soon").map((item) => item.label))
+      .toEqual(["UK Professional Exams", "Exam Preparation"]);
+  });
+
+  it("handles root and nested active routes", () => {
+    expect(isNavigationItemActive("/", "/")).toBe(true);
+    expect(isNavigationItemActive("/applications/24", "/applications")).toBe(true);
+    expect(isNavigationItemActive("/profile/edit", "/profile")).toBe(true);
+    expect(isNavigationItemActive("/applications", "/")).toBe(false);
+  });
+
+  it("preserves a readable live unread message badge", () => {
+    expect(CANDIDATE_NAVIGATION.flatMap((section) => section.items)
+      .find((item) => item.label === "Messages")).toMatchObject({ href: "/inbox", kind: "route" });
+    expect(getUnreadBadgeText(3)).toBe("3");
+    expect(getUnreadBadgeText(108)).toBe("99+");
+    expect(getUnreadBadgeText(0)).toBeNull();
+  });
+
+  it("invokes the action callback and keeps disabled items inaccessible as links", () => {
+    const onEnhance = vi.fn();
+    const enhancement = CANDIDATE_NAVIGATION.flatMap((section) => section.items)
+      .find((item) => item.kind === "action");
+    if (enhancement?.kind === "action") onEnhance();
+    expect(onEnhance).toHaveBeenCalledOnce();
+    expect(CANDIDATE_NAVIGATION.flatMap((section) => section.items)
+      .filter((item) => item.kind === "coming-soon").every((item) => !("href" in item))).toBe(true);
+  });
+});
+
+describe("candidate career journey evidence", () => {
+  const empty = { documents: [], matchedRoleCount: 0, applications: [] };
+  it("has nine ordered labels and current/upcoming defaults", () => {
+    expect(CAREER_JOURNEY_STAGES).toEqual([
+      "Upload", "Enhance", "Match", "Apply", "Interview", "Offer", "Visa", "Relocate",
+      "Start Your New Career in the UK",
+    ]);
+    expect(deriveCareerJourney(empty).map((step) => step.status))
+      .toEqual(["current", ...Array(8).fill("upcoming")]);
+  });
+  it("requires an original CV, not supporting documents or an enhanced CV, for Upload", () => {
+    expect(deriveCareerJourney({ ...empty, documents: [{ documentType: "passport" }] })[0].status).toBe("current");
+    expect(deriveCareerJourney({ ...empty, documents: [{ documentType: "cv", label: "AI Enhanced CV" }] })[0].status).toBe("current");
+  });
+  it("recognizes actual evidence and applies strict-prefix progression", () => {
+    const stages = deriveCareerJourney({
+      documents: [
+        { documentType: "cv", label: "Uploaded CV" },
+        { documentType: "cv", label: "AI Enhanced CV" },
+      ],
+      matchedRoleCount: 2,
+      applications: [{ status: "applied" }, { status: "interview", interviewDate: null }, { status: "offer" }],
+    });
+    expect(stages.map((step) => step.status)).toEqual([
+      "complete", "complete", "complete", "complete", "complete", "complete",
+      "current", "upcoming", "upcoming",
+    ]);
+  });
+  it("does not treat clicks, in-progress drafts, eligibility, or offers as visa/relocation evidence", () => {
+    const stages = deriveCareerJourney({
+      ...empty,
+      applications: [{ status: "link_clicked" }, { status: "in_progress" }, { status: "offer" }],
+    });
+    expect(stages.map((step) => step.status)).toEqual([
+      "current", "upcoming", "upcoming", "upcoming", "upcoming", "upcoming",
+      "upcoming", "upcoming", "upcoming",
+    ]);
+  });
+});

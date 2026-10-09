@@ -1,0 +1,155 @@
+Update the JobSage candidate sidebar navigation and make it highly responsive and accessible on mobile.
+
+Before editing:
+1. Inspect the existing implementation:
+   - artifacts/jobsage-web/src/components/layout/AppSidebar.tsx
+   - artifacts/jobsage-web/src/components/layout/AppLayout.tsx
+   - artifacts/jobsage-web/src/App.tsx
+2. Reuse the existing React, TypeScript, Tailwind, Wouter, Lucide icons, authentication, unread-message badge, user profile, and logout functionality.
+3. Work in the root artifacts/jobsage-web application. Do not edit the older nested jobsage/ duplicate.
+4. Do not alter employer, reviewer, admin, marketing, or super-admin navigation unless required to prevent a regression. This redesign is primarily for candidate users.
+
+Required candidate navigation
+
+1. My Profile
+   - CV and Supporting Documents → /documents
+   - Personal & Professional Details → /profile
+   - ID Verification → /identity
+   - CV Enhancement → open/reuse the existing CvEnhancementSheet or its existing workflow
+
+2. My UK Opportunities
+   - Visa Sponsoring Employers → /sponsor-licences
+   - Matched Jobs → /opportunities
+   - Application Tracker → /applications
+   - Interviews → /calendar
+   - Messages → /inbox
+     - Preserve the existing unread-message badge.
+
+3. UK Career Journey
+   Add a compact, visually attractive journey-progress component showing:
+   Upload → Enhance → Match → Apply → Interview → Offer → Visa → Relocate → Start Your New Career in the UK
+
+   Requirements:
+   - Show completed, current, and upcoming stages distinctly.
+   - Use real progress data already available in the application where possible.
+   - Do not invent successful stages or mark stages complete without evidence.
+   - If only percentage data is available, derive the highlighted stage conservatively and keep the logic in a named helper with tests.
+   - On desktop, this can be a compact vertical stepper or wrapped progress display.
+   - On mobile, use a compact horizontally scrollable stepper with a visible progress bar and readable labels.
+   - Include accessible text such as “Career journey: 3 of 9 stages complete.”
+   - Do not use the target emoji in the UI unless it fits the existing JobSage design system.
+
+4. Career Readiness
+   - Eligibility Check → /eligibility
+   - UK Professional Exams
+   - Exam Preparation
+   - Interview Preparation → /interview-prep
+
+5. Insights
+   - Monthly Reports → /my-report
+   - Next Steps → use the existing dashboard/progress-hub destination, currently /
+
+6. Support
+   - Help Center → /help
+   - Feedback → /feedback
+
+Handling destinations that do not yet exist
+
+UK Professional Exams and Exam Preparation may not currently have routes. Search the codebase for equivalent existing features before deciding.
+
+If no equivalent page or workflow exists:
+- Still display the navigation item.
+- Add a small, unobtrusive “Coming soon” badge.
+- Make it clearly non-active and accessible.
+- Do not link it to an unrelated page.
+- Do not create fake functionality, fake API data, or empty broken routes.
+
+Design requirements
+
+- Preserve the existing JobSage visual identity, theme variables, dark-mode compatibility, logo, profile block, and logout action.
+- Use Lucide icons consistently.
+- Section headings should be clearly separated but compact.
+- Maintain a clear active state using the current Wouter location.
+- Active-route matching must also work for nested paths, not only exact path matches.
+- Keep labels readable; do not unnecessarily abbreviate the requested wording.
+- Avoid overcrowding, excessive cards, gradients, or animation.
+- The sidebar content must scroll independently while the logo/header and user/logout area remain usable.
+- Preserve the existing analytics functionality only if it still fits naturally. Do not show a duplicate journey/readiness widget after introducing the new UK Career Journey component.
+- Keep all navigation configuration data-driven rather than duplicating JSX for every item.
+
+Mobile responsiveness
+
+The sidebar must work cleanly from 320px-wide phones upward.
+
+- Desktop at md and above:
+  - Keep a persistent left sidebar.
+  - Use a sensible width around 256–288px.
+  - Ensure long labels wrap cleanly without clipping.
+  - The main page must retain its remaining width and must not overflow horizontally.
+
+- Mobile below md:
+  - Open the navigation from the existing hamburger button as a left-side drawer.
+  - Drawer width: approximately 88vw, with a maximum width of 320px.
+  - Use 100dvh and account for device safe-area insets.
+  - Prevent background-page scrolling while open.
+  - Keep the drawer itself vertically scrollable.
+  - Provide a clearly visible close button with at least a 44×44px touch target.
+  - Navigation rows must have at least a 44px touch target.
+  - Close when a working navigation item is selected.
+  - Close when the backdrop is tapped.
+  - Close when Escape is pressed.
+  - Trap keyboard focus while open and return focus to the hamburger button when closed.
+  - Add correct aria-label, aria-expanded, aria-controls, dialog title, and navigation landmark semantics.
+  - Do not allow the drawer, backdrop, or close button to conflict with the impersonation banner.
+  - Avoid horizontal overflow at 320px, 375px, 390px, 768px, and desktop widths.
+
+Implementation guidance
+
+- Modify AppSidebar.tsx and AppLayout.tsx cleanly.
+- Prefer the existing accessible Radix Sheet implementation if it satisfies the requirements, instead of maintaining a custom inaccessible overlay.
+- Extend the navigation item type to support:
+  - normal route links
+  - click actions such as CV Enhancement
+  - disabled/coming-soon items
+  - unread badges
+- Preserve role filtering and do not expose candidate-only pages to unauthorized roles.
+- Ensure CV Enhancement opens its existing workflow and closes the mobile navigation first.
+- Avoid API/backend/database changes unless an existing endpoint must simply be consumed.
+- Do not remove working features merely to simplify the sidebar.
+
+Testing and verification
+
+Add or update focused tests covering:
+- Candidate sections appear in the exact requested order.
+- All existing destinations point to the correct routes.
+- Messages retain the unread badge.
+- Active and nested routes are highlighted.
+- CV Enhancement launches its existing workflow.
+- Coming-soon items do not cause broken navigation.
+- Mobile menu opens and closes from the hamburger, backdrop, Escape key, close button, and successful navigation.
+- Focus returns to the hamburger after the drawer closes.
+- Role-based navigation remains intact.
+- Journey-stage logic does not claim unsupported progress.
+
+Then run:
+- The jobsage-web TypeScript typecheck.
+- Focused sidebar/layout tests.
+- The jobsage-web test suite if practical.
+- The jobsage-web production build.
+
+Manually verify responsive layouts at:
+- 320×568
+- 375×667
+- 390×844
+- 768×1024
+- 1440×900
+
+When finished, provide:
+1. A concise summary of what changed.
+2. The files changed.
+3. The exact mapping of navigation labels to routes/actions.
+4. Tests/typecheck/build commands run and their results.
+5. Any items left as “Coming soon”.
+6. Screenshots of the desktop sidebar and the open mobile drawer.
+
+Do not rebuild the dashboard or implement the WhatsApp screenshot as a chat interface. It is content inspiration only; this task is the sidebar, its journey-progress display, and responsive behavior.
