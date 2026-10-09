@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 function sourceFiles(directory: string): string[] {
@@ -12,17 +12,34 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
+const STRONGER_MODEL_OVERRIDES: Record<string, string> = {
+  "lib/applyUrlBackfill.ts": "gpt-4o",
+  "lib/contactEnrichmentRunner.ts": "gpt-5.4-mini",
+  "lib/coverLetterGenerator.ts": "gpt-4o",
+  "lib/cvParser.ts": "gpt-4o",
+  "routes/ai.ts": "gpt-4o",
+  "routes/coverLetter.ts": "gpt-4o",
+  "routes/identity.ts": "gpt-4o",
+  "routes/smartApply.ts": "gpt-4o",
+  "routes/sponsorLicences.ts": "gpt-4o",
+};
+
 describe("JOBSAGE application AI model policy", () => {
-  it("uses gpt-4o-mini for every configured application model call", () => {
+  it("keeps stronger models on complex or accuracy-sensitive workflows", () => {
     const sourceRoot = fileURLToPath(new URL("../../", import.meta.url));
     const files = ["lib", "routes"].flatMap((directory) => sourceFiles(join(sourceRoot, directory)));
-    const calls = files.flatMap((file) =>
-      [...readFileSync(file, "utf8").matchAll(/\bmodel\s*:\s*["']([^"']+)["']/g)]
-        .map((match) => ({ file, model: match[1] })),
-    );
+    const calls = files.flatMap((file) => {
+      const relativePath = relative(sourceRoot, file).replaceAll("\\", "/");
+      return [...readFileSync(file, "utf8").matchAll(/\bmodel\s*:\s*["']([^"']+)["']/g)]
+        .map((match) => ({ relativePath, model: match[1] }));
+    });
     expect(calls.length).toBeGreaterThan(0);
+    const seenOverrides = new Set<string>();
     for (const call of calls) {
-      expect(call.model, `Model policy changed in ${call.file}`).toBe("gpt-4o-mini");
+      const expected = STRONGER_MODEL_OVERRIDES[call.relativePath] ?? "gpt-4o-mini";
+      expect(call.model, `Model policy changed in ${call.relativePath}`).toBe(expected);
+      if (STRONGER_MODEL_OVERRIDES[call.relativePath]) seenOverrides.add(call.relativePath);
     }
+    expect([...seenOverrides].sort()).toEqual(Object.keys(STRONGER_MODEL_OVERRIDES).sort());
   });
 });

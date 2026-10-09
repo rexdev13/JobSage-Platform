@@ -31,12 +31,12 @@ describe("CV extraction model compatibility", () => {
     });
   });
 
-  it("uses mini with image inputs and retains parsed profile fields", async () => {
+  it("uses gpt-4o with image inputs and retains parsed profile fields", async () => {
     const result = await extractCvFields(Buffer.from("synthetic-image"), "image/png");
     expect(result.profession).toBe("engineer");
     expect(result.experienceYears).toBe(5);
     expect(createCompletion).toHaveBeenCalledWith(expect.objectContaining({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       response_format: { type: "json_object" },
       messages: expect.arrayContaining([expect.objectContaining({
         role: "user",
@@ -45,7 +45,7 @@ describe("CV extraction model compatibility", () => {
     }));
   });
 
-  it("uses mini for text extracted from a PDF", async () => {
+  it("uses gpt-4o for text extracted from a PDF", async () => {
     const document = new PDFDocument();
     const parts: Buffer[] = [];
     const buffer = new Promise<Buffer>((resolve, reject) => {
@@ -57,7 +57,7 @@ describe("CV extraction model compatibility", () => {
     document.end();
     await extractCvFields(await buffer, "application/pdf");
     expect(createCompletion).toHaveBeenCalledWith(expect.objectContaining({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: expect.arrayContaining([expect.objectContaining({
         role: "user",
         content: expect.stringContaining("Profession: Engineer"),
@@ -71,7 +71,7 @@ describe("CV extraction model compatibility", () => {
       const buffer = Buffer.from("synthetic-unparseable-pdf");
       await extractCvFields(buffer, "application/pdf");
       expect(createCompletion).toHaveBeenCalledWith(expect.objectContaining({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: expect.arrayContaining([expect.objectContaining({
           role: "user",
           content: expect.arrayContaining([{

@@ -3,8 +3,8 @@ name: JOBSAGE AI model policy
 description: User-selected model standardization and verified integration capabilities.
 ---
 
-For JOBSAGE, use `gpt-4o-mini` wherever the required capability is supported. Keep specialist image-generation and audio models only for capabilities the general text/vision model cannot replace.
+For JOBSAGE, use a tiered model policy: keep `gpt-4o-mini` on routine workflows, and retain the previously used stronger models (`gpt-4o` and `gpt-5.4-mini`) where those models were already assigned to nuanced or accuracy-sensitive tasks. Do not assume technical support means quality parity.
 
-**Why:** The user explicitly chose “Use gpt-4o-mini wherever supported” on 2026-10-10. Do not independently upgrade individual features to stronger models.
+**Why:** The user initially asked to standardize on mini, then clarified on 2026-10-10 that they do not want reduced accuracy and chose stronger models for complex tasks. Preserve quality-sensitive routes rather than optimizing uniformity.
 
-**How to apply:** Preserve this choice when adding AI features. Check capability through the project's actual integration before declaring a model unsuitable. On 2026-10-10, live synthetic probes through this integration confirmed `gpt-4o-mini` image input, PDF file input, and Responses web search with a search-call result and URL citation. Public API assumptions alone would have incorrectly excluded this model from the existing grounded-search paths. Acceptance does not establish output accuracy for every task.
+**How to apply:** Keep mini on existing routine/model-light paths; preserve gpt-4o for complex candidate-facing writing, structured CV extraction, identity checks, Smart Apply, and consequential vacancy lookup, and gpt-5.4-mini for grounded contact lookup. Before downgrading any of these, compare reviewed representative outputs. Live synthetic probes confirmed mini can technically handle image input, PDF file input, and Responses web search; they did not establish answer-quality equivalence.

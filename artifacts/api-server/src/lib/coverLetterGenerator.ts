@@ -112,7 +112,7 @@ export function buildPromptMessages(input: CoverLetterInput): Array<{ role: "sys
 
 export async function generateCoverLetter(input: CoverLetterInput): Promise<CoverLetterResult> {
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     max_completion_tokens: 1000,
     messages: buildPromptMessages(input),
   });

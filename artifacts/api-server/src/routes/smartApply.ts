@@ -154,7 +154,7 @@ Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
   try {
     const request = () =>
       openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         max_completion_tokens: 3000,
         response_format: { type: "json_object" },
         messages: [
@@ -619,7 +619,7 @@ Guidelines:
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       max_completion_tokens: 500,
       stream: true,
       messages: [

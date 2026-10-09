@@ -86,7 +86,7 @@ Reply with ONLY a JSON object — no markdown, no explanation, just raw JSON:
 }`;
 
   const response = await openai.responses.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     tools: [{ type: "web_search_preview" as const }],
     input: prompt,
   });

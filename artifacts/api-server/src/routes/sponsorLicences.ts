@@ -510,7 +510,7 @@ Only include information you are confident about. Return null for any field you 
 
     try {
       const response = await openai.responses.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         tools: [{ type: "web_search_preview" }],
         input: prompt,
       });

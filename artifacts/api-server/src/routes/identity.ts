@@ -67,7 +67,7 @@ async function runAiVerification(recordId: number, passportKey: string, selfieKe
     const selfieB64 = selfieBuf.toString("base64");
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",

@@ -155,7 +155,7 @@ async function renderPdfFirstPageAsPng(pdfBuffer: Buffer): Promise<Buffer> {
 async function callVisionApi(base64: string, mimeType: string): Promise<CvExtractedFields> {
   const dataUrl = `data:${mimeType};base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -179,7 +179,7 @@ async function callVisionApiWithPdf(pdfBuffer: Buffer): Promise<CvExtractedField
   const base64 = pdfBuffer.toString("base64");
   const dataUrl = `data:application/pdf;base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -219,7 +219,7 @@ export async function extractCvFields(
     if (textContent) {
       const truncated = textContent.slice(0, 8000);
       const textResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         max_completion_tokens: 1200,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },

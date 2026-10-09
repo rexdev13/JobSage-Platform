@@ -285,7 +285,7 @@ export async function lookupOfficialWebsite(
     const timeout = setTimeout(() => controller.abort(), WEBSITE_LOOKUP_TIMEOUT_MS);
     let response: any;
     try { response = await (openai.responses as any).create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.4-mini",
         tools: [{ type: "web_search_preview" }],
         input: candidateUrl
           ? `Confirm whether ${candidateUrl} is the official employer website for ${organisationName}. Return that URL only with a web citation.`

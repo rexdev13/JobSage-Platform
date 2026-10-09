@@ -98,4 +98,4 @@
 - [Himalayas comparison scope](free-feed-himalayas-scope.md) — count UK-eligible and worldwide listings; retain older global samples as out-of-scope history.
 - [In-process production auth](production-request-auth.md) — send secrets through an HTTP client in memory, not command-line header arguments that appear in process listings.
 - [Candidate video library](candidate-video-library.md) — launch videos are staff-curated; candidates cannot upload or publish.
-- [AI model policy](ai-model-policy.md) — user selected gpt-4o-mini wherever supported; verify tools through the actual integration before excluding it.
+- [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on quality-sensitive workflows and benchmark before downgrading.

@@ -199,7 +199,7 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       max_completion_tokens: 1000,
       stream: true,
       messages,

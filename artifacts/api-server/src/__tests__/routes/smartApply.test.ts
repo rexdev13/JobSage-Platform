@@ -248,7 +248,7 @@ describe("Smart Apply extension endpoints", () => {
     expect(response.body).toEqual({ values: [] });
   });
 
-  it("uses gpt-4o-mini and retries it when structured-prefill temporarily fails", async () => {
+  it("uses gpt-4o and retries it when structured-prefill temporarily fails", async () => {
     queryResults.push([{
       phone: "+44 7700 900123",
       streetAddress: "10 Example Road",
@@ -293,8 +293,8 @@ describe("Smart Apply extension endpoints", () => {
       values: [{ id: "experience", value: "4" }],
     });
     expect(createCompletion).toHaveBeenCalledTimes(2);
-    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
-    expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o" });
+    expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o" });
     expect(JSON.stringify(createCompletion.mock.calls)).toContain("jane.doe.abc123@mail.jobsage.co.uk");
     expect(JSON.stringify(createCompletion.mock.calls)).not.toContain("jane@example.com");
   });
@@ -377,7 +377,7 @@ describe("Smart Apply extension endpoints", () => {
       });
 
     expect(response.status).toBe(200);
-    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o" });
     const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
     expect(prompt).toContain("Staff Nurse");
     expect(prompt).toContain("Example NHS Trust");
@@ -432,7 +432,7 @@ describe("Smart Apply extension endpoints", () => {
       .send({ roleId: 2_000_123, message: "Help me answer this question." });
 
     expect(response.status).toBe(200);
-    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini", stream: true });
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o", stream: true });
     const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
     expect(prompt).toContain("Sponsor NHS Trust");
     expect(prompt).toContain("https://careers.sponsor.example/nurse");
