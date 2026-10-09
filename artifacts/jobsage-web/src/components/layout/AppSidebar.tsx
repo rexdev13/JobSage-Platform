@@ -15,6 +15,7 @@ import {
   useListMyDocuments,
 } from "@workspace/api-client-react";
 import { cn } from "@/components/ui-enhanced";
+import { CareerJourneyCard } from "@/components/CareerJourneyCard";
 import { CANDIDATE_NAVIGATION, getUnreadBadgeText, isNavigationItemActive } from "@/lib/candidateNavigation";
 import { deriveCareerJourney } from "@/lib/candidateJourney";
 import { MARKETING_NAVIGATION } from "@/lib/roleAccess";
@@ -193,53 +194,24 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
     const { data: documents, isLoading: docsLoading, isError: docsError, refetch: refetchDocs } = documentsQuery;
     const { data: matched, isLoading: matchesLoading, isError: matchesError, refetch: refetchMatches } = matchedQuery;
     const { data: applications, isLoading: appsLoading, isError: appsError, refetch: refetchApps } = applicationsQuery;
-    if (docsLoading || matchesLoading || appsLoading) {
-      return <div className="mx-3 mb-2 h-24 animate-pulse rounded-xl bg-muted/60" aria-label="Loading career journey" />;
-    }
-    if (docsError || matchesError || appsError) {
-      return (
-        <div className="mx-3 mb-2 rounded-xl border border-border bg-background/70 p-3 text-xs">
-          <p className="font-medium text-foreground">Journey progress is unavailable</p>
-          <button className="mt-2 min-h-11 text-primary underline underline-offset-2" onClick={() => {
-            if (docsError) void refetchDocs();
-            if (matchesError) void refetchMatches();
-            if (appsError) void refetchApps();
-          }}>Retry</button>
-        </div>
-      );
-    }
     const stages = deriveCareerJourney({
       documents: documents?.documents ?? [],
       matchedRoleCount: matched?.roles?.length ?? 0,
       applications: applications?.applications ?? [],
     });
-    const done = stages.filter((stage) => stage.status === "complete").length;
     return (
-      <div className="mx-3 mb-2 rounded-xl border border-sidebar-border bg-background/65 p-3" data-testid="career-journey">
-        <p className="sr-only" role="status">Career journey: {done} of 9 stages complete.</p>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold text-foreground">{done} of 9 stages complete</span>
-          <Link href="/path" onClick={onNavigate} className="text-[10px] font-semibold text-primary hover:underline">Full journey</Link>
-        </div>
-        <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-          <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${(done / 9) * 100}%` }} />
-        </div>
-        <div className="mobile-scroll-x flex gap-2 pb-1 md:flex-col md:gap-1 md:overflow-visible">
-          {stages.map((stage, index) => (
-            <div key={stage.label} aria-label={`${stage.label}: ${stage.status}`}
-              className={cn("flex min-w-[112px] items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] md:min-w-0 md:text-[11px]",
-                stage.status === "complete" ? "bg-primary/10 text-primary" :
-                  stage.status === "current" ? "bg-sidebar-accent text-foreground font-semibold" : "text-muted-foreground")}>
-              <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px]",
-                stage.status === "complete" ? "border-primary bg-primary text-primary-foreground" :
-                  stage.status === "current" ? "border-primary text-primary" : "border-border")}>
-                {stage.status === "complete" ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
-              </span>
-              <span className="leading-tight">{stage.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <CareerJourneyCard
+        className="mx-3 mb-2"
+        stages={stages}
+        isLoading={docsLoading || matchesLoading || appsLoading}
+        isError={docsError || matchesError || appsError}
+        onRetry={() => {
+          if (docsError) void refetchDocs();
+          if (matchesError) void refetchMatches();
+          if (appsError) void refetchApps();
+        }}
+        onNavigate={onNavigate}
+      />
     );
   };
 

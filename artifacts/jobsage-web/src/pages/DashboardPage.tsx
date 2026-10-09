@@ -50,11 +50,10 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { AIChatSlideover } from "@/components/AIChatSlideover";
 import { cn } from "@/components/ui-enhanced";
-import { JourneyIslands } from "@/components/JourneyIslands";
-import { deriveIslandStates, activeStepNumber } from "@/lib/journeySteps";
+import { CareerJourneyCard } from "@/components/CareerJourneyCard";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 import { countPendingApplications, countUpcomingInterviews, getMonthlyReportOverview } from "@/lib/dashboardOverview";
-import { getCareerJourneyOverview } from "@/lib/candidateJourney";
+import { deriveCareerJourney, getCareerJourneyOverview } from "@/lib/candidateJourney";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -678,14 +677,11 @@ export default function DashboardPage() {
   const totalVacanciesFound = vacancyStatsData?.totalVacanciesFound ?? 0;
   const companiesWithVacancies = vacancyStatsData?.companiesWithVacancies ?? 0;
 
-  // ── Island journey state derived from real data ───────────────────────────
-  const islandStates = deriveIslandStates({
-    hasProfile: !!profile?.profession,
-    hasCv: docCount > 0,
-    hasEligibilityDecision: !!latestDecision,
-    hasApplications: totalApplied > 0,
+  const careerJourneyStages = deriveCareerJourney({
+    documents: documents?.documents ?? [],
+    matchedRoleCount: allRoles.length,
+    applications: applicationsData?.applications ?? [],
   });
-  const currentIslandStep = activeStepNumber(islandStates);
 
   function handleBoostToggle() {
     toggleBoostMutation.mutate(
@@ -809,29 +805,27 @@ export default function DashboardPage() {
           reportQuery={reportQuery}
         />
 
-        {/* ─── Island journey pathway ────────────────────────────────────── */}
+        {/* ─── Nine-stage UK career journey ──────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18, duration: 0.4 }}
           className="mb-6"
         >
-          <Card className="p-5 border-primary/10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <TrendingUp className="w-3 h-3" />
-                </span>
-                Your UK Career Journey
-              </h2>
-              <Link href="/path">
-                <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
-                  Detailed stages <ArrowRight className="w-3 h-3" />
-                </span>
-              </Link>
-            </div>
-            <JourneyIslands islands={islandStates} activeStep={currentIslandStep} />
-          </Card>
+          <CareerJourneyCard
+            title="UK Career Journey"
+            stages={careerJourneyStages}
+            isLoading={documentsQuery.isLoading || matchedRolesQuery.isLoading || applicationsQuery.isLoading}
+            isError={documentsQuery.isError || matchedRolesQuery.isError || applicationsQuery.isError}
+            onRetry={() => {
+              if (documentsQuery.isError) void documentsQuery.refetch();
+              if (matchedRolesQuery.isError) void matchedRolesQuery.refetch();
+              if (applicationsQuery.isError) void applicationsQuery.refetch();
+            }}
+            layout="vertical"
+            className="max-w-sm"
+            testId="dashboard-career-journey"
+          />
         </motion.div>
 
         {/* ─── ZONE 2: Recommended opportunities ───────────────────────── */}
