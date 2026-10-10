@@ -330,7 +330,7 @@ describe("runVacancyLivenessSweep", () => {
       expect(result?.dead).toBe(1);
     });
 
-    it("marks row dead when verdict is unsafe", async () => {
+    it("keeps row inconclusive when the destination is unsafe", async () => {
       setExecuteRows([makeSweepRow("job_listing", 7, "https://phishing.example.com/")]);
       checkDestinationDeadMock.mockResolvedValue({ verdict: "unsafe", reason: "phishing detected" });
 
@@ -338,8 +338,9 @@ describe("runVacancyLivenessSweep", () => {
       const result = await runVacancyLivenessSweep({ domainConcurrency: 1 });
 
       const [_table, setArg] = updateMock.mock.calls[0];
-      expect(setArg).toMatchObject({ liveness: "dead" });
-      expect(result?.dead).toBe(1);
+      expect(setArg.liveness).toBeUndefined();
+      expect(setArg.livenessReason).toMatch(/^inconclusive:/);
+      expect(result?.inconclusive).toBe(1);
     });
 
     it("marks row live and clears reason when link is healthy", async () => {
@@ -354,7 +355,7 @@ describe("runVacancyLivenessSweep", () => {
       expect(result?.live).toBe(1);
     });
 
-    it("stamps lastVerifiedAt only (inconclusive) when linkHealth throws", async () => {
+    it("stamps inconclusive evidence without changing liveness when linkHealth throws", async () => {
       setExecuteRows([makeSweepRow("role", 9, "https://slow.example.com/apply")]);
       checkDestinationDeadMock.mockRejectedValue(new Error("timeout"));
 
@@ -365,10 +366,11 @@ describe("runVacancyLivenessSweep", () => {
       const [_table, setArg] = updateMock.mock.calls[0];
       expect(setArg).toMatchObject({ lastVerifiedAt: expect.any(Date) });
       expect(setArg.liveness).toBeUndefined();
+      expect(setArg.livenessReason).toMatch(/^inconclusive:/);
       expect(result?.inconclusive).toBe(1);
     });
 
-    it("marks a malformed URL dead without calling linkHealth", async () => {
+    it("keeps a malformed URL inconclusive without calling linkHealth", async () => {
       setExecuteRows([makeSweepRow("role", 12, "not-a-url-at-all")]);
       // isBlockedVacancyUrl returns false (default)
 
@@ -377,7 +379,8 @@ describe("runVacancyLivenessSweep", () => {
 
       expect(checkDestinationDeadMock).not.toHaveBeenCalled();
       const [_table, setArg] = updateMock.mock.calls[0];
-      expect(setArg).toMatchObject({ liveness: "dead" });
+      expect(setArg).toMatchObject({ livenessReason: "inconclusive:malformed URL" });
+      expect(setArg.liveness).toBeUndefined();
     });
   });
 

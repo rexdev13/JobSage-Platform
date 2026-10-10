@@ -48,7 +48,7 @@ describe("company-site initial verification", () => {
     expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({ liveness: "live" }));
   });
 
-  it("marks redirects to blocked boards dead", async () => {
+  it("keeps redirects to blocked boards inconclusive rather than marking the vacancy dead", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: true,
       url: "https://www.indeed.com/viewjob?jk=123",
@@ -59,8 +59,11 @@ describe("company-site initial verification", () => {
 
     await expect(
       verifyCompanySiteStoredLink(2, "https://careers.example.org/jobs/registered-nurse-2"),
-    ).resolves.toBe("dead");
-    expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({ liveness: "dead" }));
+    ).resolves.toBe("inconclusive");
+    expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      livenessReason: expect.stringContaining("inconclusive:"),
+    }));
+    expect(setMock).not.toHaveBeenCalledWith(expect.objectContaining({ liveness: "dead" }));
   });
 
   it("marks a branded HTTP-200 /404 destination dead", async () => {
@@ -107,5 +110,70 @@ describe("company-site initial verification", () => {
     expect(setMock).toHaveBeenLastCalledWith(
       expect.not.objectContaining({ liveness: "live" }),
     );
+  });
+
+  it("does not mark a vacancy dead after a one-off 404 that recovers on retry", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: "http",
+        status: 404,
+        reason: "HTTP 404",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://careers.example.org/jobs/registered-nurse-6",
+        status: 200,
+        body: "<html>Registered Nurse</html>",
+        contentType: "text/html",
+      });
+
+    await expect(
+      verifyCompanySiteStoredLink(6, "https://careers.example.org/jobs/registered-nurse-6"),
+    ).resolves.toBe("live");
+    expect(fetchCompanySitePageMock).toHaveBeenCalledTimes(2);
+    expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({ liveness: "live" }));
+  });
+
+  it("requires two missing responses before marking a 404/410 vacancy dead", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: "http",
+        status: 404,
+        reason: "HTTP 404",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: "http",
+        status: 410,
+        reason: "HTTP 410",
+      });
+
+    await expect(
+      verifyCompanySiteStoredLink(7, "https://careers.example.org/jobs/registered-nurse-7"),
+    ).resolves.toBe("dead");
+    expect(fetchCompanySitePageMock).toHaveBeenCalledTimes(2);
+    expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      liveness: "dead",
+      livenessReason: expect.stringMatching(/^confirmed_dead:/),
+    }));
+  });
+
+  it("does not treat 5xx as a confirmed-dead result", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: false,
+      kind: "http",
+      status: 503,
+      reason: "HTTP 503",
+    });
+
+    await expect(
+      verifyCompanySiteStoredLink(8, "https://careers.example.org/jobs/registered-nurse-8"),
+    ).resolves.toBe("inconclusive");
+    expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      livenessReason: "inconclusive:HTTP 503",
+    }));
+    expect(setMock).not.toHaveBeenCalledWith(expect.objectContaining({ liveness: "dead" }));
   });
 });

@@ -4,7 +4,7 @@ import {
   sponsorLicenceVacanciesTable,
   vacancySourceObservationsTable,
 } from "@workspace/db";
-import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, exists, inArray, isNotNull, like, lt } from "drizzle-orm";
 
 export const SPONSOR_VACANCY_CLEANUP_GRACE_HOURS = 24;
 
@@ -21,21 +21,30 @@ export type SponsorVacancyCleanupResult = {
 export async function runSponsorVacancyCleanup(
   options: { graceHours?: number } = {},
 ): Promise<SponsorVacancyCleanupResult> {
-  const graceHours = Math.max(0, options.graceHours ?? SPONSOR_VACANCY_CLEANUP_GRACE_HOURS);
+  // A caller may lengthen the grace period but cannot bypass it with graceHours: 0.
+  const graceHours = Math.max(
+    SPONSOR_VACANCY_CLEANUP_GRACE_HOURS,
+    Math.ceil(options.graceHours ?? SPONSOR_VACANCY_CLEANUP_GRACE_HOURS),
+  );
   const cutoff = new Date(Date.now() - graceHours * 60 * 60 * 1000);
+  const ownedObservation = exists(
+    db
+      .select({ vacancyId: vacancySourceObservationsTable.vacancyId })
+      .from(vacancySourceObservationsTable)
+      .where(and(
+        eq(vacancySourceObservationsTable.vacancyId, sponsorLicenceVacanciesTable.id),
+        eq(vacancySourceObservationsTable.sourceType, sponsorLicenceVacanciesTable.sourceType),
+      )),
+  );
   const deleted = await db
     .delete(sponsorLicenceVacanciesTable)
     .where(and(
       eq(sponsorLicenceVacanciesTable.liveness, "dead"),
+      like(sponsorLicenceVacanciesTable.livenessReason, "confirmed_dead:%"),
       isNotNull(sponsorLicenceVacanciesTable.lastVerifiedAt),
       lt(sponsorLicenceVacanciesTable.lastVerifiedAt, cutoff),
       inArray(sponsorLicenceVacanciesTable.sourceType, ["job_board", "company_site"]),
-      inArray(
-        sponsorLicenceVacanciesTable.id,
-        db
-          .select({ vacancyId: vacancySourceObservationsTable.vacancyId })
-          .from(vacancySourceObservationsTable),
-      ),
+      ownedObservation,
     ))
     .returning({ id: sponsorLicenceVacanciesTable.id });
 

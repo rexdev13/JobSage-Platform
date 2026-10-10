@@ -121,14 +121,18 @@ router.get(
 
     try {
       const result = await checkDestinationDead(url, { timeoutMs: CLICK_CHECK_TIMEOUT_MS });
+      if (result.verdict === "inconclusive") {
+        res.json({ verdict: "inconclusive", reason: result.reason, cached: false });
+        return;
+      }
       const verdict: CacheEntry["verdict"] =
         result.verdict === "dead" || result.verdict === "unsafe" ? "dead" : "alive";
       const entry: CacheEntry = { verdict, reason: result.reason || null, at: Date.now() };
       linkCheckCache.set(url, entry);
       pruneCache();
-      if (verdict === "dead") {
+      if (result.verdict === "dead") {
         await markUrlDeadGlobally(url, entry.reason);
-      } else if (verdict === "alive") {
+      } else if (result.verdict === "alive") {
         if (!(await markUrlLiveGlobally(url))) {
           res.json({ verdict: "dead", reason: "vacancy is no longer available", cached: false });
           return;

@@ -1622,3 +1622,31 @@ mtime_ms = 1791631359300
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/2fcbcf3f-994d-41cf-9a8e-e02caf514afd/84aa7673-4f46-4465-b24e-2bd4ee8c4929"
 storage_version_token = "1791631462091807"
 content_type = "text/csv"
+
+[[outputs]]
+id = "4w_YAl2QVkrtUzh3m4ND7"
+uri = "file://generated-artifacts/jobsage-sponsor-audit-20261010/merged-final/guarded-vacancies-revalidated.csv"
+type = "table"
+title = "Reviewed vacancy URL revalidation (3,043 rows)"
+description = "Server-signed development revalidation output: 2,988 live, 51 inconclusive, 4 confirmed dead. This is evidence for the development review only; it was not imported into production."
+logical_id = "629f517e-f604-4417-ae70-bd0ec8956472"
+content_hash = "sha256:e86686d163c53ea7a1fe931a4f9c1d4c3318dc37b2c19e20767b87c18e94cb94"
+size = 2331864
+mtime_ms = 1791636223192
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/629f517e-f604-4417-ae70-bd0ec8956472/23782b26-8caf-41fa-bc9b-8dbeb30c090f"
+storage_version_token = "1791636386305917"
+content_type = "text/csv"
+
+[[outputs]]
+id = "FzB6Spo5_1Hxd9TNvK0iT"
+uri = "file://generated-artifacts/jobsage-sponsor-audit-20261010/revalidation/production-dead-unobserved-37-revalidated.csv"
+type = "table"
+title = "Production dead/unobserved cohort revalidation (37 rows)"
+description = "Read-only revalidation results. No production rows were changed; live responses are not proof that the original vacancy remains open."
+logical_id = "e4bdeff9-1de2-47c6-b3ce-fc8a8bf0e71c"
+content_hash = "sha256:5da1733651f601c0de7ab0d8a15879e811423c27b059580fe5f9fc5d2fe194c8"
+size = 25677
+mtime_ms = 1791633861168
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e4bdeff9-1de2-47c6-b3ce-fc8a8bf0e71c/96b2ef63-9c40-4ed1-a625-e211782aba59"
+storage_version_token = "1791636387171545"
+content_type = "text/csv"
