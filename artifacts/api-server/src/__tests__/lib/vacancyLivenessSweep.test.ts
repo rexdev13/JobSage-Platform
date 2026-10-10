@@ -185,6 +185,8 @@ describe("runVacancyLivenessSweep", () => {
     expect(sqlText).toContain("PARTITION BY CASE");
     expect(sqlText).toContain("WHEN source_type = 'job_board' THEN 'job_board'");
     expect(sqlText).toContain("WHEN source_type = 'company_site' THEN 'company_site'");
+    expect(sqlText).toContain("v.source_type IN ('job_board', 'company_site')");
+    expect(sqlText).toContain("source_observation.vacancy_id = v.id");
     expect(sqlText).toContain("source_rank ASC");
     expect(sqlText.match(/liveness <> 'dead'/g)).toHaveLength(3);
   });

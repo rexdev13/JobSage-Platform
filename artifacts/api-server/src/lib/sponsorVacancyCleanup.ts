@@ -1,6 +1,10 @@
 import cron from "node-cron";
-import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
-import { and, eq, isNotNull, lt } from "drizzle-orm";
+import {
+  db,
+  sponsorLicenceVacanciesTable,
+  vacancySourceObservationsTable,
+} from "@workspace/db";
+import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 
 export const SPONSOR_VACANCY_CLEANUP_GRACE_HOURS = 24;
 
@@ -10,10 +14,9 @@ export type SponsorVacancyCleanupResult = {
 };
 
 /**
- * Remove only vacancies that liveness has positively classified as dead.
- * Unverified and inconclusive rows are deliberately retained for retry or
- * later discovery. The grace period protects against a transient false
- * negative before the row is physically removed.
+ * Remove only source-observed vacancies that liveness has positively
+ * classified as dead. Rows without importer provenance are retained, even
+ * when their liveness fields meet the dead/grace-period conditions.
  */
 export async function runSponsorVacancyCleanup(
   options: { graceHours?: number } = {},
@@ -26,6 +29,13 @@ export async function runSponsorVacancyCleanup(
       eq(sponsorLicenceVacanciesTable.liveness, "dead"),
       isNotNull(sponsorLicenceVacanciesTable.lastVerifiedAt),
       lt(sponsorLicenceVacanciesTable.lastVerifiedAt, cutoff),
+      inArray(sponsorLicenceVacanciesTable.sourceType, ["job_board", "company_site"]),
+      inArray(
+        sponsorLicenceVacanciesTable.id,
+        db
+          .select({ vacancyId: vacancySourceObservationsTable.vacancyId })
+          .from(vacancySourceObservationsTable),
+      ),
     ))
     .returning({ id: sponsorLicenceVacanciesTable.id });
 

@@ -147,6 +147,12 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
         v.last_verified_at
       FROM sponsor_licence_vacancies v
       WHERE COALESCE(NULLIF(btrim(v.application_url), ''), v.url) IS NOT NULL
+        AND v.source_type IN ('job_board', 'company_site')
+        AND EXISTS (
+          SELECT 1
+          FROM vacancy_source_observations source_observation
+          WHERE source_observation.vacancy_id = v.id
+        )
         AND v.liveness <> 'dead'
         AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
@@ -450,6 +456,12 @@ export async function runVacancyLivenessSweep(
         SELECT COUNT(*) AS cnt FROM (
           SELECT 1 FROM sponsor_licence_vacancies v
           WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+            AND v.source_type IN ('job_board', 'company_site')
+            AND EXISTS (
+              SELECT 1
+              FROM vacancy_source_observations source_observation
+              WHERE source_observation.vacancy_id = v.id
+            )
             AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
           UNION ALL
           SELECT 1 FROM roles r
