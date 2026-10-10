@@ -23,6 +23,7 @@
 - [Smart Apply redirect tracking](smart-apply-redirect-tracking.md) — confirmation URLs differ from outbound URLs; retain the JOBSAGE-originated URL as the tracker identity.
 - [Smart Apply navigation correlation](smart-apply-navigation-correlation.md) — exact session-backed, per-tab URL collections keep trusted multi-tab activation safe and reliable.
 - [Smart Apply structured prefill](smart-apply-structured-prefill.md) — map only exact profile/CV facts; leave ambiguous history blank and keep sensitive controls candidate-owned.
+- [Smart Apply candidate review](smart-apply-candidate-review.md) — every generated or restored application draft needs explicit confirmation; CV extraction must be reviewed before saving.
 - [Automatic submission confirmation](automatic-submission-confirmation.md) — promote an existing click only; share its lock and retry a short-lived post-navigation 404.
 - [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.

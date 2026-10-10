@@ -49,6 +49,7 @@ export function MobileAssistedWorkspaceHost() {
   const [pin, setPin] = useState("");
   const [fallback, setFallback] = useState<string | null>(null);
   const [statement, setStatement] = useState("");
+  const [statementReviewed, setStatementReviewed] = useState(false);
   const [stmtError, setStmtError] = useState<string | null>(null);
   const [stmtNote, setStmtNote] = useState<string | null>(null);
   const [stmtPending, setStmtPending] = useState(false);
@@ -93,6 +94,7 @@ export function MobileAssistedWorkspaceHost() {
     setPin("");
     setFallback(null);
     setStatement("");
+    setStatementReviewed(false);
     setStmtError(null);
     setStmtNote(null);
   }, []);
@@ -330,6 +332,7 @@ export function MobileAssistedWorkspaceHost() {
     setStmtError(null);
     setStmtNote(null);
     setStatement("");
+    setStatementReviewed(false);
     setStmtPending(true);
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     let acc = "";
@@ -568,16 +571,32 @@ export function MobileAssistedWorkspaceHost() {
                           <p className="text-xs text-muted-foreground">{stmtNote ? `${stmtNote} ` : ""}AI drafted from your profile and CV: review for accuracy before you paste it.</p>
                           <textarea
                             value={statement}
-                            onChange={(e) => setStatement(e.target.value)}
+                            onChange={(e) => {
+                              setStatement(e.target.value);
+                              setStatementReviewed(false);
+                            }}
                             aria-label="Supporting statement"
                             className="field-support min-h-48 w-full resize-y"
                             data-testid="textarea-statement"
+                            readOnly={stmtPending}
                           />
+                          {!stmtPending && (
+                            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-xs text-foreground">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                                checked={statementReviewed}
+                                onChange={(e) => setStatementReviewed(e.target.checked)}
+                              />
+                              <span>I reviewed this statement and confirm every detail is accurate.</span>
+                            </label>
+                          )}
                           <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => void copy("Statement", statement)}
-                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                              disabled={!statementReviewed || stmtPending}
+                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                               data-testid="button-copy-statement"
                             >
                               <Copy className="h-4 w-4" /> Copy to Clipboard
