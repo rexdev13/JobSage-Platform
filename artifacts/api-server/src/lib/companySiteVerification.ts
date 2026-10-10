@@ -18,10 +18,26 @@ async function writeDead(id: number, reason: string): Promise<"dead"> {
     .set({
       liveness: "dead",
       lastVerifiedAt: new Date(),
-      livenessReason: reason.slice(0, 500),
+      livenessReason: `confirmed_dead:${reason}`.slice(0, 500),
     })
     .where(eq(sponsorLicenceVacanciesTable.id, id));
   return "dead";
+}
+
+async function writeInconclusive(id: number, reason: string): Promise<"inconclusive"> {
+  await db
+    .update(sponsorLicenceVacanciesTable)
+    .set({
+      lastVerifiedAt: new Date(),
+      livenessReason: `inconclusive:${reason}`.slice(0, 500),
+    })
+    .where(eq(sponsorLicenceVacanciesTable.id, id))
+    .catch(() => {});
+  return "inconclusive";
+}
+
+function waitForRetry(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 200));
 }
 
 export async function verifyCompanySiteStoredLink(
@@ -30,31 +46,36 @@ export async function verifyCompanySiteStoredLink(
   deadlineMs?: number,
 ): Promise<VerificationOutcome> {
   if (!url || !isValidVacancyUrlForSource(url, "company_site") || isBlockedVacancyUrl(url)) {
-    return url ? writeDead(id, "invalid or blocked company-site vacancy URL") : "skipped";
+    return url ? writeInconclusive(id, "invalid or blocked company-site vacancy URL") : "skipped";
   }
   const originHostname = new URL(url).hostname;
-  const result = await fetchCompanySitePage(
+  const requestDeadline = Math.min(
+    Date.now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
+    deadlineMs ?? Number.POSITIVE_INFINITY,
+  );
+  let result = await fetchCompanySitePage(
     url,
     originHostname,
-    Math.min(
-      Date.now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
-      deadlineMs ?? Number.POSITIVE_INFINITY,
-    ),
+    requestDeadline,
   );
   if (!result.ok) {
-    if (
-      result.kind === "unsafe" ||
-      result.status === 404 ||
-      result.status === 410
-    ) {
-      return writeDead(id, result.reason);
+    if (result.status === 404 || result.status === 410) {
+      if (Date.now() + 200 >= requestDeadline) {
+        return writeInconclusive(id, `HTTP ${result.status} could not be retried before deadline`);
+      }
+      const firstStatus = result.status;
+      await waitForRetry();
+      const retry = await fetchCompanySitePage(url, originHostname, requestDeadline);
+      if (!retry.ok && (retry.status === 404 || retry.status === 410)) {
+        return writeDead(id, `persistent HTTP ${firstStatus}/${retry.status}`);
+      }
+      if (!retry.ok) {
+        return writeInconclusive(id, `HTTP ${firstStatus} was not repeated: ${retry.reason}`);
+      }
+      result = retry;
+    } else {
+      return writeInconclusive(id, result.reason);
     }
-    await db
-      .update(sponsorLicenceVacanciesTable)
-      .set({ lastVerifiedAt: new Date(), livenessReason: result.reason.slice(0, 500) })
-      .where(eq(sponsorLicenceVacanciesTable.id, id))
-      .catch(() => {});
-    return "inconclusive";
   }
   const softNotFound = softNotFoundReason(result.url, result.body);
   if (softNotFound) {
@@ -64,7 +85,7 @@ export async function verifyCompanySiteStoredLink(
     isBlockedVacancyUrl(result.url) ||
     !isValidVacancyUrlForSource(result.url, "company_site")
   ) {
-    return writeDead(id, "redirected to a blocked or non-vacancy destination");
+    return writeInconclusive(id, "redirected to a blocked or non-vacancy destination");
   }
   const lowerBody = result.body.toLowerCase();
   const closesAt = extractVacancyClosingDate(result.body);
@@ -76,7 +97,7 @@ export async function verifyCompanySiteStoredLink(
     return writeDead(id, `expiration phrase: "${expirationPhrase}"`);
   }
   if (/\/(?:login|log-in|signin|sign-in|account)(?:\/|$)/i.test(new URL(result.url).pathname)) {
-    return writeDead(id, "login wall: redirected to sign-in page");
+    return writeInconclusive(id, "login wall: redirected to sign-in page");
   }
   await db
     .update(sponsorLicenceVacanciesTable)

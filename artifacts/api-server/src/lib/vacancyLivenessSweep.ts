@@ -19,9 +19,8 @@ import { verifyCompanySiteStoredLink } from "./companySiteVerification";
  * - employer-posted job listings (job_listings.apply_url)
  *
  * Re-checks stored apply URLs using the same dead-link detection as the
- * click-time checker (HTTP 404/410/5xx + expiration-phrase scan), marks
- * failures dead with a recorded reason, and stamps last_verified_at so the
- * click-time check can skip recently verified URLs.
+ * click-time checker. Only persistent missing responses and explicit closure
+ * evidence mark vacancies dead; transient failures remain inconclusive.
  *
  * Never-verified links are prioritised so newly ingested vacancies drain
  * out of the "unverified" backlog quickly.
@@ -147,6 +146,12 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
         v.last_verified_at
       FROM sponsor_licence_vacancies v
       WHERE COALESCE(NULLIF(btrim(v.application_url), ''), v.url) IS NOT NULL
+        AND v.source_type IN ('job_board', 'company_site')
+        AND EXISTS (
+          SELECT 1
+          FROM vacancy_source_observations source_observation
+          WHERE source_observation.vacancy_id = v.id
+        )
         AND v.liveness <> 'dead'
         AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
@@ -244,11 +249,26 @@ async function verifyOne(
       checkDestinationDead(row.url, { timeoutMs }),
       deadlineMs,
     );
-    if (result.verdict === "dead" || result.verdict === "unsafe") {
-      // "unsafe" = not a legitimate employer destination — treat as dead so
-      // candidates never see it.
+    if (result.verdict === "dead") {
       await withinDeadline(markResult(row, "dead", result.reason), deadlineMs);
       return "dead";
+    }
+    if (result.verdict === "unsafe" || result.verdict === "inconclusive") {
+      await withinDeadline(
+        db
+          .update(tableFor(row.source))
+          .set({
+            lastVerifiedAt: new Date(),
+            livenessReason: `inconclusive:${result.reason}`.slice(0, 500),
+          })
+          .where(
+            row.source === "sponsor_vacancy"
+              ? eq(sponsorLicenceVacanciesTable.url, row.url)
+              : eq(tableFor(row.source).id, row.id),
+          ),
+        deadlineMs,
+      );
+      return "inconclusive";
     }
     await withinDeadline(markResult(row, "live", null), deadlineMs);
     return "live";
@@ -261,7 +281,10 @@ async function verifyOne(
       await withinDeadline(
         db
           .update(table)
-          .set({ lastVerifiedAt: new Date() })
+          .set({
+            lastVerifiedAt: new Date(),
+            livenessReason: "inconclusive:timeout_or_network_failure",
+          })
           .where(
             row.source === "sponsor_vacancy"
               ? eq(sponsorLicenceVacanciesTable.url, row.url)
@@ -380,9 +403,17 @@ export async function runVacancyLivenessSweep(
       try {
         host = new URL(row.url).hostname.toLowerCase();
       } catch {
-        // Malformed stored URL — mark dead with a reason.
+        // Malformed stored URL is unusable, but is not proof that the vacancy
+        // itself is closed.
         await withinDeadline(
-          markResult(row, "dead", "malformed URL"),
+          db
+            .update(tableFor(row.source))
+            .set({ lastVerifiedAt: new Date(), livenessReason: "inconclusive:malformed URL" })
+            .where(
+              row.source === "sponsor_vacancy"
+                ? eq(sponsorLicenceVacanciesTable.url, row.url)
+                : eq(tableFor(row.source).id, row.id),
+            ),
           options.deadlineMs,
         ).catch(() => {});
         continue;
@@ -450,6 +481,12 @@ export async function runVacancyLivenessSweep(
         SELECT COUNT(*) AS cnt FROM (
           SELECT 1 FROM sponsor_licence_vacancies v
           WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+            AND v.source_type IN ('job_board', 'company_site')
+            AND EXISTS (
+              SELECT 1
+              FROM vacancy_source_observations source_observation
+              WHERE source_observation.vacancy_id = v.id
+            )
             AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
           UNION ALL
           SELECT 1 FROM roles r

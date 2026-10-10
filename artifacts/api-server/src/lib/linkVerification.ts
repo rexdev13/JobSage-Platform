@@ -10,10 +10,10 @@ import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDat
  *   instead of waiting for the periodic sweep), and
  * - the unified background sweep (vacancyLivenessSweep.ts).
  *
- * Verdicts are written to the record's liveness columns:
- * "live" on success, "dead" on 404/410/5xx/expiration-phrase/unsafe, and on
- * inconclusive errors (timeout, bot-block) only last_verified_at is stamped so
- * the record stays "unverified"/previous status without hot-looping.
+ * Verdicts are written to the record's liveness columns. Only repeated 404/410
+ * responses and explicit closure evidence can mark a vacancy dead. Transient
+ * errors and unsafe destinations are recorded as inconclusive, not as vacancy
+ * closure evidence.
  */
 
 export type LinkSource = "role" | "job_listing" | "sponsor_vacancy";
@@ -45,25 +45,39 @@ export async function verifyStoredLink(
   ) return "skipped";
   try {
     const result = await checkDestinationDead(url, { timeoutMs: INGEST_CHECK_TIMEOUT_MS });
-    if (result.verdict === "dead" || result.verdict === "unsafe") {
+    if (result.verdict === "dead") {
       await db
         .update(table)
         .set({ liveness: "dead", lastVerifiedAt: new Date(), livenessReason: result.reason.slice(0, 500) })
         .where(eq(table.id, id));
       return "dead";
     }
+    if (result.verdict === "inconclusive" || result.verdict === "unsafe") {
+      await db
+        .update(table)
+        .set({
+          lastVerifiedAt: new Date(),
+          livenessReason: `inconclusive:${result.reason}`.slice(0, 500),
+        })
+        .where(eq(table.id, id))
+        .catch(() => {});
+      return "inconclusive";
+    }
     const closesAt = extractVacancyClosingDate(result.body);
     const closed = hasExplicitClosedPhrase(result.body);
     if (closed || (closesAt && closesAt.getTime() < Date.now())) {
+      const reason = closed
+        ? "confirmed_dead:source page explicitly closed or no longer accepting applications"
+        : "confirmed_dead:expired closing date";
       await db.update(table).set({
         liveness: "dead",
         lastVerifiedAt: new Date(),
-        livenessReason: closed ? "source page explicitly closed or no longer accepting applications" : "expired closing date",
+        livenessReason: reason,
       }).where(eq(table.id, id));
       if (source === "sponsor_vacancy") {
         await db.update(sponsorLicenceVacanciesTable).set({
           ...(closesAt ? { closesAt } : {}),
-          closedReason: closed ? "source page explicitly closed or no longer accepting applications" : "expired closing date",
+          closedReason: reason,
         }).where(eq(sponsorLicenceVacanciesTable.id, id));
       }
       return "dead";
@@ -81,7 +95,10 @@ export async function verifyStoredLink(
     // sweeps don't hot-loop on the same unreachable URL, but keep status.
     await db
       .update(table)
-      .set({ lastVerifiedAt: new Date() })
+      .set({
+        lastVerifiedAt: new Date(),
+        livenessReason: "inconclusive:timeout_or_network_failure",
+      })
       .where(eq(table.id, id))
       .catch(() => {});
     return "inconclusive";

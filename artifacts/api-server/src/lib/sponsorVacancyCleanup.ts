@@ -1,6 +1,10 @@
 import cron from "node-cron";
-import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
-import { and, eq, isNotNull, lt } from "drizzle-orm";
+import {
+  db,
+  sponsorLicenceVacanciesTable,
+  vacancySourceObservationsTable,
+} from "@workspace/db";
+import { and, eq, exists, inArray, isNotNull, like, lt } from "drizzle-orm";
 
 export const SPONSOR_VACANCY_CLEANUP_GRACE_HOURS = 24;
 
@@ -10,22 +14,37 @@ export type SponsorVacancyCleanupResult = {
 };
 
 /**
- * Remove only vacancies that liveness has positively classified as dead.
- * Unverified and inconclusive rows are deliberately retained for retry or
- * later discovery. The grace period protects against a transient false
- * negative before the row is physically removed.
+ * Remove only source-observed vacancies that liveness has positively
+ * classified as dead. Rows without importer provenance are retained, even
+ * when their liveness fields meet the dead/grace-period conditions.
  */
 export async function runSponsorVacancyCleanup(
   options: { graceHours?: number } = {},
 ): Promise<SponsorVacancyCleanupResult> {
-  const graceHours = Math.max(0, options.graceHours ?? SPONSOR_VACANCY_CLEANUP_GRACE_HOURS);
+  // A caller may lengthen the grace period but cannot bypass it with graceHours: 0.
+  const graceHours = Math.max(
+    SPONSOR_VACANCY_CLEANUP_GRACE_HOURS,
+    Math.ceil(options.graceHours ?? SPONSOR_VACANCY_CLEANUP_GRACE_HOURS),
+  );
   const cutoff = new Date(Date.now() - graceHours * 60 * 60 * 1000);
+  const ownedObservation = exists(
+    db
+      .select({ vacancyId: vacancySourceObservationsTable.vacancyId })
+      .from(vacancySourceObservationsTable)
+      .where(and(
+        eq(vacancySourceObservationsTable.vacancyId, sponsorLicenceVacanciesTable.id),
+        eq(vacancySourceObservationsTable.sourceType, sponsorLicenceVacanciesTable.sourceType),
+      )),
+  );
   const deleted = await db
     .delete(sponsorLicenceVacanciesTable)
     .where(and(
       eq(sponsorLicenceVacanciesTable.liveness, "dead"),
+      like(sponsorLicenceVacanciesTable.livenessReason, "confirmed_dead:%"),
       isNotNull(sponsorLicenceVacanciesTable.lastVerifiedAt),
       lt(sponsorLicenceVacanciesTable.lastVerifiedAt, cutoff),
+      inArray(sponsorLicenceVacanciesTable.sourceType, ["job_board", "company_site"]),
+      ownedObservation,
     ))
     .returning({ id: sponsorLicenceVacanciesTable.id });
 
@@ -36,6 +55,13 @@ export async function runSponsorVacancyCleanup(
 }
 
 export function startSponsorVacancyCleanupScheduler(): void {
+  if (process.env.NODE_ENV === "production") {
+    console.info(
+      "[vacancy-cleanup] Production scheduler disabled; destructive cleanup requires an explicit reviewed run.",
+    );
+    return;
+  }
+
   cron.schedule(
     "30 3 * * *",
     () => {

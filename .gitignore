@@ -48,6 +48,9 @@ Thumbs.db
 .cache/
 .local/
 
+# Generated audit reports and test/build outputs
+/generated-artifacts/
+
 # Review-first sponsor contact discovery outputs
 /data/sponsor_contacts_*.csv
 /data/sponsor_contacts_*.json

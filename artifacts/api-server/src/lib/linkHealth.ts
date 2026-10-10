@@ -180,7 +180,47 @@ const BROWSER_USER_AGENT =
 
 const MAX_REDIRECT_HOPS = 5;
 
-export type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: string; body?: string };
+export type HealthVerdict = {
+  verdict: "alive" | "dead" | "unsafe" | "inconclusive";
+  reason: string;
+  body?: string;
+  finalUrl?: string;
+};
+
+const MISSING_RECHECK_DELAY_MS = 200;
+
+async function confirmPersistentMissing(
+  url: string,
+  firstStatus: 404 | 410,
+  signal: AbortSignal,
+): Promise<HealthVerdict> {
+  await new Promise((resolve) => setTimeout(resolve, MISSING_RECHECK_DELAY_MS));
+  const target = new URL(url);
+  if (!(await isPubliclyRoutableHost(target.hostname))) {
+    return { verdict: "unsafe", reason: `retry target is not publicly routable: ${target.hostname}` };
+  }
+
+  const retry = await fetch(url, {
+    signal,
+    redirect: "manual",
+    headers: {
+      "User-Agent": BROWSER_USER_AGENT,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-GB,en;q=0.9",
+    },
+  });
+  retry.body?.cancel().catch(() => {});
+  if (retry.status === 404 || retry.status === 410) {
+    return {
+      verdict: "dead",
+      reason: `confirmed_dead:persistent_http_${firstStatus}_${retry.status}`,
+    };
+  }
+  return {
+    verdict: "inconclusive",
+    reason: `inconclusive:http_${firstStatus}_not_repeated_retry_${retry.status}`,
+  };
+}
 
 const SOFT_NOT_FOUND_PATH_SEGMENTS = new Set([
   "404",
@@ -221,8 +261,8 @@ export function softNotFoundReason(url: string, body = ""): string | null {
 }
 
 /**
- * Fetch the destination and decide if it is dead (404/410/5xx, or an
- * expiration banner in the response body). Redirects are followed
+ * Fetch the destination and decide if it is dead (a repeated 404/410 or an
+ * explicit closure signal in the response body). Redirects are followed
  * manually with a per-hop SSRF check so a public host cannot bounce the
  * server-side fetch into a private/internal target ("unsafe" verdict).
  * Throws on timeout or network/bot-block failure — callers treat throws as
@@ -255,19 +295,27 @@ export async function checkDestinationDead(
       if (resp.status >= 300 && resp.status < 400) {
         const location = resp.headers.get("location");
         resp.body?.cancel().catch(() => {});
-        if (!location) return { verdict: "alive", reason: "" }; // 3xx without Location — inconclusive
+        if (!location) return { verdict: "inconclusive", reason: `HTTP ${resp.status} without Location header` };
         currentUrl = new URL(location, currentUrl).toString();
         continue;
       }
-      if (resp.status === 404 || resp.status === 410 || resp.status >= 500) {
+      if (resp.status === 404 || resp.status === 410) {
         resp.body?.cancel().catch(() => {});
-        return { verdict: "dead", reason: `HTTP ${resp.status}` };
+        return await confirmPersistentMissing(
+          currentUrl,
+          resp.status,
+          controller.signal,
+        );
+      }
+      if (resp.status === 429 || resp.status >= 500 || resp.status >= 400) {
+        resp.body?.cancel().catch(() => {});
+        return { verdict: "inconclusive", reason: `HTTP ${resp.status}` };
       }
 
       const softNotFoundPath = softNotFoundReason(currentUrl);
       if (softNotFoundPath) {
         resp.body?.cancel().catch(() => {});
-        return { verdict: "dead", reason: softNotFoundPath };
+        return { verdict: "dead", reason: `confirmed_dead:${softNotFoundPath}` };
       }
 
       // NHS Jobs requires a login but is the only channel for NHS Trust
@@ -278,7 +326,7 @@ export async function checkDestinationDead(
       // without needing to read the body.
       if (!nhsJobs && isLoginWallPath(new URL(currentUrl).pathname)) {
         resp.body?.cancel().catch(() => {});
-        return { verdict: "dead", reason: "login wall: redirected to sign-in page" };
+        return { verdict: "inconclusive", reason: "login wall: redirected to sign-in page" };
       }
 
       const contentType = resp.headers.get("content-type") ?? "";
@@ -301,24 +349,24 @@ export async function checkDestinationDead(
         const lower = text.toLowerCase();
         const softNotFoundPage = softNotFoundReason(currentUrl, text);
         if (softNotFoundPage) {
-          return { verdict: "dead", reason: softNotFoundPage };
+          return { verdict: "dead", reason: `confirmed_dead:${softNotFoundPage}` };
         }
         if (lower.includes("nhs-closed-job-inset")) {
-          return { verdict: "dead", reason: "closed board advert banner" };
+          return { verdict: "dead", reason: "confirmed_dead:closed board advert banner" };
         }
         const phrase = EXPIRATION_PHRASES.find((p) => lower.includes(p));
-        if (phrase) return { verdict: "dead", reason: `expiration phrase: "${phrase}"` };
+        if (phrase) return { verdict: "dead", reason: `confirmed_dead:expiration phrase: "${phrase}"` };
         // Content-based login-wall check (NHS Jobs exempt).
         if (!nhsJobs) {
           const loginPhrase = LOGIN_WALL_PHRASES.find((p) => lower.includes(p));
-          if (loginPhrase) return { verdict: "dead", reason: `login wall: "${loginPhrase}"` };
+          if (loginPhrase) return { verdict: "inconclusive", reason: `login wall: "${loginPhrase}"` };
         }
       } else {
         resp.body?.cancel().catch(() => {});
       }
-      return { verdict: "alive", reason: "", body: responseBody };
+      return { verdict: "alive", reason: "", body: responseBody, finalUrl: currentUrl };
     }
-    return { verdict: "dead", reason: "too many redirects" };
+    return { verdict: "inconclusive", reason: "too many redirects" };
   } finally {
     clearTimeout(timer);
   }
