@@ -1,0 +1,274 @@
+Proceed through the release boundary.
+
+I explicitly authorise a scoped GitHub push and production deployment of the vacancy cleanup protection, guarded public-board importer, supporting tests and required scheduler changes.
+
+I also authorise the guarded production import, candidate visibility updates and safe stale-status updates described below.
+
+Do not deploy all 31 Replit commits blindly.
+
+1. ESTABLISH THE RELEASE BASE
+
+Determine:
+
+- The exact commit currently deployed in production
+- The exact branch production deploys from
+- Which of the 31 Replit commits are already in production
+- The complete diff between production and the proposed release
+
+Create a scoped release branch from the current production commit if necessary.
+
+Include only:
+
+- Liveness/cleanup protection
+- Guarded public-board importer
+- Required profession/application-mode support
+- Import metrics
+- Relevant tests
+- Required scheduler integration
+
+Do not include unrelated Replit changes, Calendly changes, generated CSV files, credentials or audit output.
+
+2. RESOLVE THE FAILING ROLE TEST
+
+Investigate the failing roles.test.ts score assertion:
+
+- Expected: 88
+- Received: 50
+- The role was still returned
+
+Determine whether it is:
+
+- A regression caused by these changes
+- A stale assertion
+- A pre-existing production failure
+- A genuine scoring defect
+
+If the vacancy changes caused it, fix it before release.
+
+If it demonstrably predates this work and is unrelated, document the evidence and ensure the scoped release does not worsen it. Do not silently ignore it.
+
+Run all relevant:
+
+- Importer tests
+- Liveness tests
+- Candidate source-filter tests
+- Scheduler tests
+- Role/classification tests
+- API typecheck
+- API build
+
+3. REVIEW THE RELEASE
+
+Before pushing, report:
+
+- Release branch
+- Base production commit
+- Files included
+- Files excluded
+- Test results
+- Migration requirements
+- Configuration requirements
+- Rollback method
+
+Check for secrets and generated audit files.
+
+Commit and push only the scoped release.
+
+4. DEPLOY
+
+Deploy the scoped vacancy release through the repository’s existing production deployment process.
+
+Do not deploy unrelated Replit changes.
+
+After deployment verify:
+
+- API health
+- Database connectivity
+- Existing candidate vacancy API
+- Guarded importer availability
+- Scheduler availability
+- No new production errors
+
+If deployment health checks fail, roll back before importing.
+
+5. RUN A PRODUCTION DRY-RUN
+
+Run the importer against production in dry-run mode first.
+
+Use the freshly revalidated 3,043-row proof file.
+
+Do not reuse the development sponsor-match decision. Re-evaluate every row against the production sponsor register and production duplicate state.
+
+Report:
+
+- Eligible inserts
+- Existing records
+- Updates
+- Reactivations
+- Held records
+- Unmatched sponsors
+- Identity mismatches
+- Duplicate URLs
+- Unsupported/non-specific URLs
+- Confirmed dead
+- Inconclusive
+- Profession/category differences
+
+Verify that:
+
+- Input sequence is complete
+- Proof signatures are valid
+- The file has not changed since revalidation
+- All 2,988 live statuses are still within the accepted freshness window
+
+6. IMPORT TO PRODUCTION
+
+If the production dry-run passes its safety checks, execute the guarded import.
+
+Production writes are explicitly authorised.
+
+Import only records that pass the production checks:
+
+- Current live response
+- Specific vacancy URL
+- Safe sponsor identity
+- UK vacancy
+- Recognised profession
+- Passing title policy
+- Valid application mode
+- No canonical duplicate
+- Valid signed proof
+- Fresh observation
+
+Use bounded transactional batches and idempotent upserts.
+
+Report:
+
+- Attempted
+- Inserted
+- Updated
+- Unchanged
+- Reactivated
+- Held
+- Rejected
+- Failed
+- Duplicates prevented
+
+Do not import the 51 inconclusive or 4 confirmed-dead audit rows unless a fresh recheck changes their status to valid and live.
+
+7. HANDLE THE PRODUCTION DEAD COHORT
+
+For the 37 production records:
+
+- 31 confirmed dead
+- 4 URLs that resolve only to generic careers/error/landing pages
+- 2 inconclusive
+
+Treat a redirect to a generic careers page as not proving the original vacancy is live.
+
+For records owned by this vacancy importer:
+
+- Mark the 31 confirmed-dead records inactive/stale.
+- Mark the 4 non-specific landing-page records inactive only if the original vacancy is no longer identifiable and existing policy classifies that as dead.
+- Leave the 2 inconclusive records unchanged and schedule a retry.
+
+Do not modify manual vacancies or records owned by unrelated import systems.
+
+Do not hard-delete records.
+
+8. VERIFY CANDIDATE VISIBILITY
+
+After import, verify through:
+
+- Production database queries
+- Candidate-facing vacancy API
+- Candidate-facing pages
+
+Report exact candidate-visible counts by:
+
+- Profession
+- Sector
+- Source
+- Sponsor
+- job_board
+- company_website
+- send_cv
+
+Open representative application links without submitting applications.
+
+Confirm:
+
+- New vacancies are visible
+- Duplicate vacancies do not appear
+- Held records are hidden
+- Dead records are hidden
+- Inconclusive records were not prematurely removed
+- Sponsorship is not falsely claimed
+- Application modes are correct
+
+9. INVESTIGATE COMPANY-SITE FAILURES
+
+The 150 company-site rows produced zero guarded results.
+
+Report the exact failure totals for:
+
+- Identity mismatch
+- Website-confidence failure
+- Unclassified title
+- Title-policy failure
+- Non-specific URL
+- Dead URL
+- Expired vacancy
+- Non-UK location
+- Duplicate
+- Missing data
+
+Fix genuine deterministic defects, but do not weaken employer identity requirements.
+
+Run a fresh company-site batch after corrections and import any rows that then pass all guards.
+
+10. ACTIVATE AUTOMATION
+
+Verify the deployed scheduler genuinely invokes:
+
+- Public-board collection
+- Company-site collection
+- Revalidation
+- Guarded production import
+- Liveness checks
+- Safe stale handling
+
+Configure bounded schedules with:
+
+- Persistent cursors
+- Retries and backoff
+- Source-specific limits
+- Overlap protection
+- Partial-source protection
+- Idempotent imports
+- Metrics and failure logs
+
+Arbeitnow’s HTTP 429 must trigger backoff and retry, not cleanup.
+
+Himalayas must resume from its continuation cursor, not restart or be treated as a complete scan.
+
+11. FINAL REPORT
+
+Report:
+
+- Production release commit
+- Deployment status
+- Tests and builds
+- Production dry-run counts
+- Actual inserts and updates
+- Candidate-visible totals
+- Counts by profession and sector
+- Counts by application mode
+- Dead records safely hidden
+- Inconclusive records preserved
+- Company-site results
+- Scheduler status
+- Rollback readiness
+- Remaining blockers
+
+Continue through deployment, import and candidate-facing verification. Do not stop after the dry run unless a safety invariant fails or production health deteriorates.
