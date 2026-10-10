@@ -7,4 +7,6 @@ Remove the standalone Learning Hub page and candidate-facing link, but retain it
 
 **Why:** The user wants the learning feature to directly support exam outcomes for these three professions while remaining useful and non-coercive throughout the wider candidate flow.
 
-**How to apply:** Gate both candidate UI and learning-content access by normalized saved profession. Include optional support on the candidate dashboard and career journey, plus exam/registration guidance; make prompts dismissible and never require completion to continue. Preserve staff-only resource management.
+**How to apply:** Gate both candidate UI and learning-content access by normalized saved profession. Include optional support on the candidate dashboard and career journey, plus exam/registration guidance; make prompts dismissible and never require completion to continue. The card’s primary action should jump to its embedded exam videos/resources, not the separate registration pathway. Preserve staff-only resource management.
+
+**Why:** The user clarified that this card is for video learning and its action should lead to the video/resource section, not registration steps.

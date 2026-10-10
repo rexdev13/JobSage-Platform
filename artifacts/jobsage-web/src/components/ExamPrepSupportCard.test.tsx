@@ -31,10 +31,10 @@ vi.mock("@workspace/api-client-react", () => ({
 
 import { ExamPrepSupportCard } from "./ExamPrepSupportCard";
 
-function renderCard(onGuidancePage = false) {
+function renderCard() {
   return render(
     <Router>
-      <ExamPrepSupportCard onGuidancePage={onGuidancePage} />
+      <ExamPrepSupportCard />
     </Router>,
   );
 }
@@ -49,8 +49,10 @@ describe("ExamPrepSupportCard", () => {
     expect(screen.getByText("Prepare for your professional exams")).toBeTruthy();
     expect(screen.getByText("PLAB preparation")).toBeTruthy();
     expect(screen.getByText(/will not hold up your next steps/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /See exam and registration steps/ }).getAttribute("href"))
-      .toBe("/regulatory-guidance");
+    const resourcesLink = screen.getByTestId("link-exam-prep-resources");
+    expect(resourcesLink.getAttribute("href")).toBe("#exam-prep-resources");
+    expect(document.getElementById("exam-prep-resources")).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Exam preparation videos and resources" })).toBeTruthy();
   });
 
   it("opens official link resources directly and shows their applicability and review date", () => {
@@ -84,11 +86,12 @@ describe("ExamPrepSupportCard", () => {
     expect(screen.queryByText("PLAB preparation")).toBeNull();
   });
 
-  it("jumps to the registration pathway instead of linking back to itself", () => {
+  it("sends candidates to the exam-video and resource section", () => {
     profileState.profession = "Nurse";
-    renderCard(true);
+    renderCard();
 
-    const guidanceLink = screen.getByRole("link", { name: /Jump to exam and registration steps/ });
-    expect(guidanceLink.getAttribute("href")).toBe("#registration-pathway");
+    const resourcesLink = screen.getByTestId("link-exam-prep-resources");
+    expect(resourcesLink.getAttribute("href")).toBe("#exam-prep-resources");
+    expect(document.getElementById("exam-prep-resources")).not.toBeNull();
   });
 });

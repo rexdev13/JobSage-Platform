@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { getListLearningVideosQueryKey, useGetMyProfile, useListLearningVideos } from "@workspace/api-client-react";
 import type { LearningVideo } from "@workspace/api-client-react";
 import { ArrowRight, BookOpenCheck, Clock3, ExternalLink, FileText, Play, X } from "lucide-react";
@@ -18,13 +17,7 @@ function mediaSource(video: LearningVideo) {
   return `${base}${video.mediaUrl}`;
 }
 
-export function ExamPrepSupportCard({
-  compact = false,
-  onGuidancePage = false,
-}: {
-  compact?: boolean;
-  onGuidancePage?: boolean;
-}) {
+export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) {
   const { data: profile, isLoading: profileLoading } = useGetMyProfile();
   const profession = normalizeExamPrepProfession(profile?.profession);
   const videosQuery = useListLearningVideos({
@@ -77,34 +70,25 @@ export function ExamPrepSupportCard({
                 Explore reviewed resources to help you prepare for {examLabels[profession]}.
                 Learn at your own pace; this will not hold up your next steps.
               </p>
-              {onGuidancePage ? (
-                <a
-                  href="#registration-pathway"
-                  data-testid="link-exam-guidance"
-                  className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Jump to exam and registration steps <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </a>
-              ) : (
-                <Link
-                  href="/regulatory-guidance"
-                  data-testid="link-exam-guidance"
-                  className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  See exam and registration steps <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              )}
+              <a
+                href="#exam-prep-resources"
+                data-testid="link-exam-prep-resources"
+                className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Jump to exam videos and resources <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </a>
 
-              {videosQuery.isLoading ? (
-                <p className="mt-4 text-sm text-muted-foreground">Checking for reviewed learning resources…</p>
-              ) : videosQuery.isError ? (
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Learning resources are temporarily unavailable. You can still continue your journey and use the official guidance above.
-                </p>
-              ) : videos.length > 0 ? (
-                <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-foreground">Exam and registration resources</h3>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div id="exam-prep-resources" className="mt-4 scroll-mt-6">
+                {videosQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Checking for reviewed learning resources…</p>
+                ) : videosQuery.isError ? (
+                  <p className="text-sm text-muted-foreground">
+                    Learning resources are temporarily unavailable. You can still continue your journey and use the official guidance above.
+                  </p>
+                ) : videos.length > 0 ? (
+                  <>
+                    <h3 className="text-sm font-semibold text-foreground">Exam preparation videos and resources</h3>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {visibleVideos.map((video) => {
                         const isVideo = Boolean(video.videoEmbedUrl || video.mediaUrl);
                         const resourceDetails = `${video.applicability ?? "Professional exam guidance"} · Reviewed ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(video.reviewedAt))}`;
@@ -141,22 +125,23 @@ export function ExamPrepSupportCard({
                           </a>
                         );
                       })}
-                  </div>
-                  {videos.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAll((value) => !value)}
-                      className="mt-3 text-sm font-semibold text-primary hover:underline"
-                    >
-                      {showAll ? "Show fewer resources" : `Show all ${videos.length} resources`}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-muted-foreground">
-                  More reviewed resources will be added here. Your exam and registration guidance is available whenever you need it.
-                </p>
-              )}
+                    </div>
+                    {videos.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAll((value) => !value)}
+                        className="mt-3 text-sm font-semibold text-primary hover:underline"
+                      >
+                        {showAll ? "Show fewer resources" : `Show all ${videos.length} resources`}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    More reviewed resources will be added here. Your exam and registration guidance is available whenever you need it.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </Card>
