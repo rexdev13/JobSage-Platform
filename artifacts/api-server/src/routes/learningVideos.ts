@@ -65,10 +65,6 @@ async function getCandidateExamPrepProfession(userId: string): Promise<ExamPrepP
   return normalizeExamPrepProfession(profile?.profession);
 }
 
-function isoTimestamp(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
 function dateOnly(value: Date | string): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
 }
@@ -88,12 +84,12 @@ function toVideoResponse(row: typeof learningVideosTable.$inferSelect) {
     sourceUrl: row.sourceUrl,
     transcript: row.transcript,
     reviewedBy: row.reviewedBy,
-    reviewedAt: row.reviewedAt,
-    reviewDueAt: row.reviewDueAt,
+    reviewedAt: new Date(`${dateOnly(row.reviewedAt)}T00:00:00.000Z`),
+    reviewDueAt: new Date(`${dateOnly(row.reviewDueAt)}T00:00:00.000Z`),
     status: row.status,
     sortOrder: row.sortOrder,
-    createdAt: isoTimestamp(row.createdAt),
-    updatedAt: isoTimestamp(row.updatedAt),
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
   };
 }
 
@@ -194,6 +190,16 @@ export function validApplicability(category: string, applicability: string | nul
   return !SENSITIVE_CATEGORIES.has(category) || Boolean(applicability?.trim());
 }
 
+function normalizeLearningVideoRequestDates(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const input = body as Record<string, unknown>;
+  return {
+    ...input,
+    ...(typeof input.reviewedAt === "string" ? { reviewedAt: new Date(input.reviewedAt) } : {}),
+    ...(typeof input.reviewDueAt === "string" ? { reviewDueAt: new Date(input.reviewDueAt) } : {}),
+  };
+}
+
 router.get(
   "/learning-videos",
   requireRole("candidate"),
@@ -268,7 +274,7 @@ router.post(
   "/admin/learning-videos",
   requireRole("admin", "super_admin"),
   async (req: Request, res: Response) => {
-    const parsed = CreateLearningVideoBody.safeParse(req.body);
+    const parsed = CreateLearningVideoBody.safeParse(normalizeLearningVideoRequestDates(req.body));
     if (!parsed.success) {
       res.status(400).json({ error: "Learning video details are invalid." });
       return;
@@ -337,7 +343,7 @@ router.patch(
   requireRole("admin", "super_admin"),
   async (req: Request, res: Response) => {
     const params = UpdateLearningVideoParams.safeParse(req.params);
-    const parsed = UpdateLearningVideoBody.safeParse(req.body);
+    const parsed = UpdateLearningVideoBody.safeParse(normalizeLearningVideoRequestDates(req.body));
     if (!params.success || !parsed.success) {
       res.status(400).json({ error: "Learning video details are invalid." });
       return;
