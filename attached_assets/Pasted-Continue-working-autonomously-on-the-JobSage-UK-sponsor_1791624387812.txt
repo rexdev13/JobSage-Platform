@@ -1,0 +1,1106 @@
+Continue working autonomously on the JobSage UK sponsor vacancy system in the current Replit repository.
+
+Do not only explain what should be done. Run the commands, inspect the code, diagnose failures, implement necessary fixes locally, rerun verification, collect live vacancies, write eligible vacancies to the production database, and verify that candidates can actually see them.
+
+Keep providing progress updates, but continue automatically unless an operation would destroy existing work, expose credentials, affect unrelated production data, send an application/CV/email, push code, or deploy code.
+
+======================================================================
+PRIMARY OBJECTIVE
+======================================================================
+
+Make the JobSage vacancy system reliably:
+
+1. Read the current official Home Office sponsor register.
+2. Select organisations licensed for the Skilled Worker route.
+3. Find and verify official sponsor websites and careers pages.
+4. Collect real, current UK vacancies with role-specific application links.
+5. Find public recruitment emails only where an official page explicitly instructs candidates to email or submit a CV.
+6. Classify vacancies using JobSage’s supported professions.
+7. Map each vacancy to the correct application mode:
+   - job_board
+   - company_website
+   - send_cv
+8. Prevent duplicates.
+9. Check vacancy freshness and remove/hide expired vacancies safely.
+10. Write every guarded/import-eligible vacancy to the JobSage production database.
+11. Make imported eligible vacancies visible to candidates.
+12. Store blocked records in the existing review/staging system when available.
+13. Run repeatedly through scheduled jobs with bounded workloads, retries, resumable progress and concurrency protection.
+14. Produce exact reports by profession, sector, source and application mode.
+
+The desired result is thousands of accurate candidate-visible vacancies wherever genuine hiring volume supports it. Do not manufacture numbers or weaken safety checks just to produce a large count.
+
+======================================================================
+EXPLICIT AUTHORISATION
+======================================================================
+
+The user explicitly authorises:
+
+- Reading the production database configuration.
+- Connecting to the JobSage production database.
+- Inserting guarded/import-eligible vacancies.
+- Updating previously imported source-managed vacancies.
+- Reactivating source-managed vacancies that are confirmed live again.
+- Hiding or marking stale source-managed vacancies when they are confirmed expired.
+- Making eligible imported vacancies candidate-visible using the existing application rules.
+- Writing verified Send CV routes to the existing production model.
+- Writing rejected records to an existing production review/staging system.
+
+The user does NOT authorise:
+
+- Sending CVs.
+- Sending recruitment emails.
+- Submitting job applications.
+- Changing unrelated user, profile, payment or application data.
+- Deleting manually created vacancies.
+- Deleting unrelated vacancies belonging to another import system.
+- Printing database credentials or Replit secrets.
+- Pushing code to GitHub.
+- Deploying code or restarting production services.
+- Destructive Git operations.
+- Weakening sponsor-matching, profession, freshness or duplicate safeguards.
+
+Use transactions, bounded batches and existing application write paths wherever possible.
+
+======================================================================
+CURRENT GIT CONTEXT
+======================================================================
+
+The required JobSage pipeline commit is:
+
+5f865c685f292a27ee543caa652689e08b6cd3a0
+
+The Replit checkout previously reported:
+
+Current HEAD:
+86d543c6a894521620838897b9369d36d43e72e1
+
+Branch:
+master
+
+Status:
+31 commits ahead of origin/master
+
+Preserve all existing Replit commits and local edits.
+
+Never run:
+
+- git reset --hard
+- destructive rebases
+- force pushes
+- commands that discard existing changes
+- mass deletion of generated data without first checking its purpose
+
+======================================================================
+STAGE 1 — VERIFY THE GIT STATE
+======================================================================
+
+Run:
+
+git fetch origin
+git remote -v
+git rev-parse HEAD
+git rev-parse origin/master
+git status --porcelain=v1
+git merge-base --is-ancestor 5f865c685f292a27ee543caa652689e08b6cd3a0 HEAD
+echo "PIPELINE_COMMIT_PRESENT=$?"
+git log --oneline --decorate --graph -40
+
+Interpret the ancestry result correctly:
+
+- Exit code 0 means commit 5f865c6 is contained in the current Replit history.
+- Exit code 1 means the commit is missing.
+
+If the commit is missing, safely merge or cherry-pick it while preserving the existing Replit commits.
+
+Before resolving conflicts:
+
+- Inspect both sides.
+- Keep newer compatible Replit functionality.
+- Preserve the sponsor-matching and vacancy-quality safeguards from 5f865c6.
+- Do not resolve conflicts by blindly accepting all changes from one side.
+- Do not push the result.
+
+Report:
+
+- Current HEAD
+- origin/master HEAD
+- Whether 5f865c6 is in the ancestry
+- Whether the working tree was initially clean
+- Any reconciliation performed
+
+======================================================================
+STAGE 2 — READ THE REPOSITORY INSTRUCTIONS AND ARCHITECTURE
+======================================================================
+
+Before changing or running the vacancy system, read:
+
+- README files relevant to the workspace
+- Any AGENTS.md or repository instruction files
+- sp-full/OPERATIONS.md
+- sp-full/LIVE-VALIDATION-2026-10-08.md
+- sp-full/run.js
+- sp-full/lib/
+- artifacts/api-server/package.json
+- artifacts/api-server/src/tools/liveVacancyCoverageAudit.ts
+- artifacts/api-server/src/tools/mergeLiveVacancyAudit.ts
+- artifacts/api-server/src/lib/vacancyJobRunner.ts
+- artifacts/api-server/src/lib/sponsorVacancyRoles.ts
+- artifacts/api-server/src/lib/vacancyTitlePolicy.ts
+- artifacts/api-server/src/lib/opportunityProfession.ts
+- artifacts/api-server/src/lib/employerRecipient.ts
+- artifacts/api-server/src/lib/freeBoardSources.ts
+- artifacts/api-server/src/lib/additionalBoardProfessionBackfill.ts
+- artifacts/api-server/src/lib/reedProfessionBackfill.ts
+- Relevant vacancy database schema/models
+- Relevant candidate-facing vacancy routes
+- Relevant internal scheduler/cron routes
+
+Confirm the responsibilities of:
+
+- sp-full standalone sponsor discovery
+- API public-source collectors
+- Vacancy persistence
+- Candidate visibility
+- Vacancy liveness
+- Profession classification
+- Application-mode mapping
+- Send CV verification
+- Scheduled jobs
+
+Do not assume that writing a CSV makes a vacancy visible to candidates.
+
+======================================================================
+STAGE 3 — REPAIR THE DEPENDENCY STATE
+======================================================================
+
+The previous frozen installation failed because:
+
+artifacts/jobsage-web/package.json
+
+did not match:
+
+pnpm-lock.yaml
+
+Inspect the difference:
+
+git diff 5f865c685f292a27ee543caa652689e08b6cd3a0..HEAD -- \
+  artifacts/jobsage-web/package.json \
+  pnpm-lock.yaml \
+  pnpm-workspace.yaml
+
+Determine whether later Replit commits intentionally modified package.json.
+
+Preserve intentional dependency changes.
+
+Regenerate the lockfile safely:
+
+pnpm install --no-frozen-lockfile
+
+Then prove that the dependency graph is reproducible:
+
+pnpm install --frozen-lockfile
+npm ci --prefix sp-full
+
+Inspect:
+
+git diff -- pnpm-lock.yaml
+git status --short
+
+Report exactly why the lockfile changed. Do not commit or push it.
+
+======================================================================
+STAGE 4 — VERIFY TESTS, TYPECHECKS AND BUILDS
+======================================================================
+
+Run:
+
+pnpm run typecheck:libs
+pnpm --filter @workspace/api-server run typecheck
+pnpm --filter @workspace/jobsage-web run typecheck
+npm test --prefix sp-full
+
+Run the focused API suites:
+
+pnpm --filter @workspace/api-server exec vitest run \
+  src/__tests__/lib/nhsJobsClient.test.ts \
+  src/__tests__/lib/opportunityProfession.test.ts \
+  src/__tests__/lib/sponsorVacancyRoles.test.ts \
+  src/__tests__/lib/vacancyJobRunner.test.ts \
+  src/__tests__/lib/vacancyTitlePolicy.test.ts \
+  src/__tests__/routes/speculativeApplications.test.ts
+
+Run any other focused tests covering:
+
+- Profession catalogue canonicalisation
+- Employer identity matching
+- URL deduplication
+- Vacancy freshness
+- Application-mode mapping
+- Send CV verification
+- Candidate visibility
+- Scheduler locking
+- Retry behaviour
+- Upsert/idempotency behaviour
+
+Build:
+
+- Shared libraries
+- API server
+- JobSage web application
+
+Use non-production build settings where required. A build must exit successfully before being called successful.
+
+Do not begin production imports if tests affecting persistence, sponsor matching, duplicate prevention, liveness or candidate visibility fail.
+
+Fix genuine problems locally and rerun the relevant checks.
+
+Report exact:
+
+- Commands run
+- Passing test counts
+- Failing test counts
+- Typecheck results
+- Build results
+- Remaining warnings
+- Whether any failure is code, environment, dependency or external-provider related
+
+======================================================================
+STAGE 5 — IDENTIFY AND VERIFY THE PRODUCTION WRITE PATH
+======================================================================
+
+Inspect the existing application and determine:
+
+- Production vacancy table/model
+- Vacancy source table/model
+- Profession/category fields
+- Application-mode fields
+- Candidate visibility fields and rules
+- Sponsor identity fields
+- Sponsorship-status fields
+- Freshness and closing-date fields
+- Canonical duplicate key
+- Existing upsert functions
+- Existing vacancy ingestion service
+- Existing internal vacancy-job endpoint
+- Existing staging/review tables
+- Existing scheduler jobs
+- Existing source ownership markers
+- Existing stale-record behaviour
+
+Prefer the existing application ingestion/upsert service.
+
+Do not invent raw SQL if a supported repository write path exists.
+
+Confirm that the configured database is the intended production database without revealing:
+
+- Passwords
+- Tokens
+- Full database URLs
+- Secret environment values
+
+Report only a safe masked identifier such as database host suffix, database name and environment label.
+
+If multiple databases exist and the production target cannot be identified safely, stop before writing and report the exact ambiguity.
+
+Before importing, collect a read-only production baseline:
+
+- Total vacancy records
+- Candidate-visible vacancies
+- Hidden vacancies
+- Active vacancies
+- Stale/expired vacancies
+- Counts by profession
+- Counts by sector
+- Counts by application mode
+- Counts by source
+- Existing verified Send CV routes
+- Duplicate canonical URLs
+- Most recent successful vacancy job
+- Current scheduler state
+
+Do not modify unrelated production data.
+
+======================================================================
+STAGE 6 — VERIFY NETWORK ACCESS
+======================================================================
+
+Run the pipeline’s network doctor or equivalent checks.
+
+Check access to:
+
+- GOV.UK/Home Office register
+- NHS Jobs
+- NHS Scotland
+- Teaching Vacancies
+- jobs.ac.uk
+- CharityJob
+- Reed
+- Arbeitnow
+- Jobicy
+- Himalayas
+- Greenhouse
+- Ashby
+- Lever
+- Workday
+- SmartRecruiters
+- Workable
+- BambooHR
+- Other supported ATS providers
+
+For every failure, record:
+
+- Host
+- Operation
+- HTTP status or DNS error
+- Timeout
+- Rate-limit response
+- Retry result
+
+A provider-specific 404 or 406 can still prove network reachability, but it does not prove that a vacancy feed works.
+
+======================================================================
+STAGE 7 — DOWNLOAD THE CURRENT HOME OFFICE REGISTER
+======================================================================
+
+Run the official register workflow:
+
+cd sp-full
+node run.js register
+cd ..
+
+Use the default Skilled Worker route filter.
+
+Do not broaden to all worker routes unless performing a separately labelled audit.
+
+Confirm:
+
+- Official download URL
+- Download timestamp
+- Total source rows
+- Skilled Worker rows
+- Unique sponsor name-and-town organisations
+- Duplicate sponsor identities removed
+- Exact industry-evidence matches
+- Counts by sector
+- Unclassified organisations
+- Parsing failures
+- Network failures
+
+The Home Office register proves that an organisation holds a licence. It does not prove that every vacancy offers sponsorship.
+
+Keep vacancy-level:
+
+sponsorship_status=unknown
+
+unless the vacancy advert itself explicitly confirms sponsorship.
+
+======================================================================
+STAGE 8 — RUN LIVE PUBLIC JOB-BOARD COLLECTION
+======================================================================
+
+Create a new dated audit directory. Do not mix old local results into the new audit.
+
+Run each source independently so failures are resumable and measurable.
+
+Run:
+
+1. NHS Jobs
+   - Up to 300 pages
+   - Continue until the source is exhausted or the bounded limit is reached
+
+2. Teaching Vacancies
+   - Up to 100 pages
+
+3. NHS Scotland
+   - Up to 100 pages
+
+4. jobs.ac.uk
+   - Up to 100 pages
+
+5. CharityJob
+   - Up to 100 pages
+
+6. Global free feeds
+   - Arbeitnow
+   - Jobicy
+   - Himalayas
+   - Up to 100 pages per source where supported
+
+7. Reed
+   - All configured profession targets
+   - Bounded per-category result limits
+   - Bounded overall workload
+   - All requested sectors/professions
+
+8. All other configured public/free sources
+   - Use bounded workloads and existing safety rules
+
+Use:
+
+- Retries
+- Request timeouts
+- Deadlines
+- Source-specific pagination
+- Resumable outputs
+- Canonical URL deduplication
+- Current UK-location filtering
+- Sponsor-name resolution
+- Profession classification
+
+Do not silently skip a source after an error.
+
+For every source report:
+
+- Start and finish time
+- Runtime
+- Pages fetched
+- Raw records fetched
+- UK vacancies retained
+- Sponsor matches
+- Exact employer matches
+- Unique normalised matches
+- Ambiguous matches
+- Unmatched employers
+- Classified vacancies
+- Unclassified vacancies
+- Duplicate URLs
+- Expired vacancies
+- Request failures
+- Retry count
+- Whether the source was exhausted
+- Whether a page/deadline limit stopped the run
+- Output path
+
+======================================================================
+STAGE 9 — RUN COMPANY-WEBSITE AND FIRST-PARTY ATS DISCOVERY
+======================================================================
+
+Use:
+
+- exports/sponsor-websites-production.csv
+- artifacts/non-healthcare-company-websites-all-sectors.csv
+- Current register-derived company data
+- Saved reviewed careers-page evidence
+- Saved ATS evidence
+- Existing sponsor name-and-town checks
+
+Run bounded and resumable scans across:
+
+- Healthcare
+- Social Care
+- Education
+- Engineering
+- Finance
+- Technology
+- Hospitality
+- Construction
+- Manufacturing
+- Retail
+- Public/Charity
+- Logistics/Transport
+- Other supported sectors
+
+Prioritise:
+
+- Verified sponsor websites
+- Known high-volume employers
+- Saved careers URLs
+- Supported ATS tenants
+- Employers with recent hiring activity
+
+Check:
+
+- Website availability
+- Employer name evidence
+- Town/location evidence where required
+- Careers-page discovery
+- ATS detection
+- Vacancy-feed response
+- UK location
+- Vacancy liveness
+- Role-specific application URL
+- Employer identity
+- Profession classification
+
+Do not import jobs obtained only from unverified name-based ATS guessing.
+
+Employer-specific hosted ATS platforms such as Greenhouse, Ashby, Workday, Workable, Lever and SmartRecruiters should map to:
+
+company_website
+
+when the ATS tenant belongs to that employer.
+
+For every sector report:
+
+- Sponsors attempted
+- Websites resolved
+- Websites verified
+- Careers pages discovered
+- ATS feeds found
+- Vacancies collected
+- Guarded/import-eligible vacancies
+- Identity-review vacancies
+- Unclassified vacancies
+- Dead application links
+- Runtime
+- Errors
+
+======================================================================
+STAGE 10 — VERIFY SEND CV ROUTES
+======================================================================
+
+Run the recruitment-email evidence lane.
+
+A Send CV route is verified only when:
+
+1. The page is currently reachable.
+2. It is an official employer website or verified official recruitment page.
+3. The employer identity matches the licensed sponsor safely.
+4. The page explicitly instructs applicants to email, send, submit, attach or forward a CV.
+5. The recruitment email appears on that evidence page or is clearly connected to that instruction.
+6. The evidence URL and checked timestamp are retained.
+
+Do not approve an address merely because it contains:
+
+- recruitment@
+- careers@
+- jobs@
+- hr@
+- info@
+- contact@
+
+Generic or role-labelled addresses without an explicit CV-submission instruction remain blocked.
+
+Report:
+
+- Public emails discovered
+- Recruitment-labelled emails
+- Explicit CV instructions found
+- Identity-verified routes
+- Verified Send CV routes
+- Blocked routes
+- Blocking reason
+- Evidence URL
+- Checked timestamp
+
+Do not send any email or CV.
+
+======================================================================
+STAGE 11 — CLASSIFY AND APPLY QUALITY GATES
+======================================================================
+
+Use the shared JobSage profession catalogue and existing deterministic classification rules.
+
+Keep these concepts separate:
+
+- Sector
+- Candidate profession
+- Regulator grouping such as GMC, NMC or HCPC
+- Vacancy-level sponsorship evidence
+
+Import eligibility requires:
+
+1. Current vacancy
+2. Genuine UK vacancy
+3. Safe sponsor/employer identity match
+4. Valid HTTPS role-specific application URL, or separately verified Send CV route
+5. Recognised profession/category
+6. Passing title-policy check
+7. Non-duplicate canonical vacancy
+8. Suitable application mode
+9. Fresh source observation
+10. Required fields for the existing production model
+
+Do not reject skilled roles simply because they are in hospitality or construction. Preserve recognised roles such as:
+
+- Chefs
+- Hospitality managers
+- Electricians
+- Plumbers
+- Carpenters
+- Bricklayers
+- Construction supervisors
+- Other supported skilled occupations
+
+Keep elementary manual-labour roles blocked where required by the existing policy.
+
+For every record retain:
+
+- Classification category
+- Classification confidence
+- Classification reason
+- Sponsor-match status
+- Identity eligibility
+- Title-policy eligibility
+- Guarded-import eligibility
+- Freshness status
+- Sponsorship status
+- Candidate-visibility status
+- Blocking reason where applicable
+
+======================================================================
+STAGE 12 — DEDUPLICATE AND MERGE THE FRESH RUN
+======================================================================
+
+The old merge tool may contain hard-coded dated input directories.
+
+Do not merge old generated files into the fresh run.
+
+If necessary, improve the local merge workflow so it accepts explicit current input files or directories.
+
+Do not remove existing safeguards.
+
+Canonicalise application URLs by:
+
+- Requiring HTTPS
+- Removing fragments
+- Removing tracking parameters
+- Normalising trailing slashes
+- Preserving meaningful vacancy identifiers
+
+Use source external IDs where available.
+
+Produce:
+
+1. Complete current vacancy CSV
+2. Guarded/import-eligible vacancy CSV
+3. Review-blocked vacancy CSV
+4. Verified Send CV route CSV
+5. Metrics JSON
+6. Human-readable summary
+
+Calculate:
+
+- Input rows
+- Unique vacancies
+- Duplicates removed
+- Identity-eligible vacancies
+- Guarded/import-eligible vacancies
+- Unclassified vacancies
+- Identity-review vacancies
+- Title-policy exclusions
+- Expired vacancies
+- Dead links
+- Counts by profession
+- Counts by sector
+- Counts by source
+- Counts by application mode
+- Verified Send CV routes
+
+======================================================================
+STAGE 13 — WRITE ELIGIBLE VACANCIES TO PRODUCTION
+======================================================================
+
+Production vacancy writes are explicitly authorised.
+
+Import every guarded/import-eligible vacancy through the existing supported persistence path.
+
+Use:
+
+- Transactions or safe bounded batches
+- Upserts
+- Existing validation
+- Existing source ownership
+- Existing visibility logic
+- Existing liveness logic
+- Existing application-mode rules
+- Existing audit/metrics logging
+
+For each vacancy persist the available supported fields:
+
+- Sponsor organisation
+- Employer display name
+- Sponsor identity status
+- Title
+- Profession/category
+- Sector
+- UK location
+- Salary where present
+- Description or summary where supported
+- Application URL
+- Application mode
+- Source
+- Source external ID
+- Observation timestamp
+- Publication timestamp
+- Closing date
+- Freshness status
+- Sponsorship status
+- Sponsorship evidence where explicitly present
+- Contact email only when supported and verified
+- Contact evidence URL
+- Candidate visibility state
+
+Application-mode mapping:
+
+- Multi-employer source → job_board
+- Verified employer website or employer ATS → company_website
+- Verified explicit email-CV instruction → send_cv
+
+Do not turn a generic contact email into a Send CV vacancy.
+
+Do not import:
+
+- Expired vacancies
+- Dead links
+- Non-UK vacancies
+- Ambiguous employer matches
+- Unresolved group/division/brand matches
+- Unclassified roles
+- Duplicate vacancies
+- Title-policy failures
+- Research-only name-probed ATS results
+
+======================================================================
+STAGE 14 — HANDLE BLOCKED RECORDS
+======================================================================
+
+Anything collected but not eligible must not disappear silently.
+
+If the production application already has a review/staging model:
+
+- Write blocked records to it.
+- Preserve the source data.
+- Store the exact blocking reason.
+- Keep them hidden from candidates.
+- Make repeated runs idempotent.
+
+If no review/staging model exists:
+
+- Do not create an unsafe ad hoc production schema.
+- Retain blocked rows in local review CSV/JSON files.
+- Report the missing production review capability.
+- Continue importing eligible records.
+
+Blocked reasons must distinguish:
+
+- Employer identity review
+- Ambiguous sponsor match
+- Brand/legal-entity review
+- Group-entity review
+- Division-scope review
+- Unclassified profession
+- Title-policy exclusion
+- Non-UK location
+- Expired vacancy
+- Dead application link
+- Duplicate
+- Missing required field
+- Unverified Send CV evidence
+
+======================================================================
+STAGE 15 — IDEMPOTENCY, DUPLICATES AND FRESHNESS
+======================================================================
+
+Prove that the production import is safe to run repeatedly.
+
+After the first import, run an appropriate smaller repeated import and verify:
+
+- Existing vacancies are updated or unchanged.
+- Duplicate records are not inserted.
+- Canonical URLs resolve to one vacancy.
+- Source external IDs remain stable.
+- Changed closing dates are updated.
+- Confirmed-live stale vacancies can be reactivated.
+- Expired source-managed vacancies are hidden safely.
+- Manually created vacancies remain untouched.
+- Records from unrelated import systems remain untouched.
+
+Do not hard-delete vacancies unless the existing application explicitly requires it and the record is clearly owned by this importer. Prefer inactive/stale status.
+
+Before changing visibility for stale records:
+
+- Confirm source ownership.
+- Confirm the source scan was sufficiently complete.
+- Do not hide an entire source because one bounded run failed.
+
+======================================================================
+STAGE 16 — VERIFY CANDIDATE VISIBILITY
+======================================================================
+
+A database insert is not enough.
+
+After import:
+
+- Query the production database.
+- Call the candidate-facing vacancy API.
+- Check the relevant candidate-facing pages if possible.
+- Confirm imported vacancies appear under the correct professions.
+- Confirm application modes are correct.
+- Confirm application URLs are role-specific.
+- Confirm hidden/review records are not visible.
+- Confirm expired vacancies are not visible.
+- Confirm duplicate vacancies are not displayed twice.
+- Confirm verified Send CV routes use the correct route.
+- Confirm sponsorship is not falsely advertised.
+
+Test representative candidate-visible vacancies across:
+
+- Healthcare
+- Social Care
+- Education
+- Engineering
+- Finance
+- Technology
+- Hospitality
+- Construction
+- Manufacturing
+- Retail
+
+Test every application mode:
+
+- job_board
+- company_website
+- send_cv
+
+For each mode, verify the end-user action routes to the correct destination without actually submitting an application or sending a CV.
+
+======================================================================
+STAGE 17 — AUTOMATION AND SCHEDULING
+======================================================================
+
+Inspect the existing scheduled-job design.
+
+Verify or configure the existing production-safe job definitions for:
+
+- Home Office register refresh
+- Public board collection
+- Company-site/ATS collection
+- Send CV evidence refresh
+- Vacancy merge/classification
+- Production upsert
+- Liveness checks
+- Stale-record handling
+- Metrics and failure reporting
+
+Requirements:
+
+- Bounded workloads
+- Per-source deadlines
+- Retries with limits
+- Resumable progress
+- Persistent cursors
+- Duplicate prevention
+- Filesystem or database concurrency protection
+- No overlapping imports
+- Source-specific failure isolation
+- Freshness windows
+- Idempotent writes
+- Safe stale-record behaviour
+- Runtime metrics
+- Alertable failures
+
+Do not claim scheduling is active merely because configuration files exist.
+
+Confirm whether an actual scheduler invokes the jobs.
+
+Do not deploy or restart production without permission. If activation requires deployment, report:
+
+- Exact command or deployment action required
+- Why it is required
+- Which code/configuration would be deployed
+- Whether the current production run was manual
+- What will happen without deployment
+
+======================================================================
+STAGE 18 — MEASURE THE PRODUCTION RESULT
+======================================================================
+
+Record the production state after import:
+
+- Total production vacancy records
+- Active vacancies
+- Candidate-visible vacancies
+- Hidden/review vacancies
+- Vacancies inserted
+- Vacancies updated
+- Vacancies unchanged
+- Vacancies reactivated
+- Vacancies marked stale
+- Vacancies rejected
+- Duplicate insertions prevented
+- Verified Send CV routes inserted
+- Counts by application mode
+- Counts by source
+- Counts by sector
+- Counts by profession
+- Counts by sponsor
+- Counts with advert-confirmed sponsorship
+- Counts with sponsorship unknown
+- Oldest and newest freshness timestamps
+
+Report both collected and candidate-visible counts. Never present collected raw links as candidate-visible production vacancies.
+
+======================================================================
+HISTORICAL COMPARISON BASELINE
+======================================================================
+
+The previous local no-write audit reported approximately:
+
+- 10,645 unique current-source vacancy links
+- 10,065 identity-eligible
+- 7,700 guarded/import-eligible
+- 1,976 blocked as unclassified
+- 580 blocked for identity review
+- 389 blocked by title policy
+- 4 verified Send CV routes
+- 0 candidate-visible because production import was not authorised then
+
+The old application-mode data was dominated by job boards, with substantially fewer verified company-website vacancies.
+
+These are historical comparison figures only.
+
+Do not force the new run to match them.
+
+Live vacancies change. Explain material differences using:
+
+- Changed source inventory
+- Expired jobs
+- New jobs
+- Source outages
+- Pagination differences
+- Sponsor matching changes
+- Classification changes
+- Website/ATS coverage
+- Duplicate removal
+- Freshness rules
+
+======================================================================
+REQUIRED FINAL REPORT
+======================================================================
+
+Provide a complete evidence-based report containing:
+
+GIT AND INSTALLATION
+
+- Current HEAD
+- origin/master
+- Whether 5f865c6 is in history
+- Existing Replit commits preserved
+- Dependency installation result
+- Lockfile changes
+- Working-tree changes
+
+VERIFICATION
+
+- Tests run
+- Passed tests
+- Failed tests
+- Typecheck results
+- API build result
+- Web build result
+- Remaining warnings
+
+PRODUCTION
+
+- Masked production database identity
+- Pre-import counts
+- Post-import counts
+- Inserted
+- Updated
+- Unchanged
+- Reactivated
+- Hidden as stale
+- Sent to review
+- Rejected
+- Candidate-visible
+
+REGISTER
+
+- Register download timestamp
+- Total rows
+- Skilled Worker organisations
+- Unique name-and-town identities
+- Industry-evidence coverage
+
+COLLECTION
+
+- Sponsors scanned
+- Websites resolved
+- Verified websites
+- Careers pages
+- ATS feeds
+- Raw vacancies
+- Unique vacancies
+- Duplicates removed
+- UK vacancies
+- Current vacancies
+- Dead/expired vacancies
+
+APPLICATION MODES
+
+- job_board collected and candidate-visible
+- company_website collected and candidate-visible
+- send_cv collected and candidate-visible
+
+QUALITY GATES
+
+- Identity-eligible
+- Guarded/import-eligible
+- Identity-review
+- Unclassified
+- Title-policy exclusions
+- Ambiguous matches
+- Sponsorship unknown
+- Advert-confirmed sponsorship
+
+COVERAGE
+
+For every supported profession and sector:
+
+- Collected count
+- Guarded count
+- Production count
+- Candidate-visible count
+- Application-mode breakdown
+- Source breakdown
+
+RELIABILITY
+
+- Runtime by source
+- Runtime by sector
+- Retry counts
+- Provider failures
+- Rate limits
+- Scheduler status
+- Resume behaviour
+- Duplicate-prevention proof
+- Repeat-import proof
+
+OUTPUTS
+
+- Local audit output paths
+- Production job/run identifiers
+- Review output paths
+- Metrics JSON path
+- Any locally modified files
+
+======================================================================
+DEFINITION OF COMPLETE
+======================================================================
+
+The work is complete only when:
+
+1. The required pipeline code is present.
+2. Dependency installation is reproducible.
+3. Relevant tests, typechecks and builds pass.
+4. The current Home Office register is processed.
+5. Live public sources are scanned.
+6. Verified company websites and ATS feeds are scanned.
+7. Send CV routes are checked safely.
+8. Fresh outputs are deduplicated and classified.
+9. Every guarded/import-eligible vacancy is written to production.
+10. Imported vacancies are verified through the candidate-facing system.
+11. Blocked records are retained for review.
+12. A repeated import proves duplicate prevention.
+13. Existing automation is verified, or the exact deployment requirement is reported.
+14. The final report contains real counts and evidence.
+
+Do not stop after a small sample when functioning sources can safely continue.
+
+Do not claim thousands per profession unless production queries prove it.
+
+Do not weaken the quality gates to inflate the numbers.
+
+The goal is the largest accurate, current and repeatable production vacancy inventory that the available verified sources genuinely support.

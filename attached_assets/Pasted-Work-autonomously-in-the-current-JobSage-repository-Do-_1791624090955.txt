@@ -1,0 +1,264 @@
+Work autonomously in the current JobSage repository. Do not merely explain commands—run them, inspect failures, fix safe local issues, and continue until verification and the database-free live vacancy reproduction are complete.
+
+IMPORTANT SAFETY RULES
+
+- Do not reset, delete, overwrite, or discard the existing 31 Replit commits.
+- Do not use git reset --hard, force-push, rebase destructively, or delete local work.
+- Do not modify production or development databases.
+- Do not import vacancies into the application database.
+- Do not send CVs, emails, or job applications.
+- Do not deploy or push anything to GitHub.
+- Keep generated scan outputs local and uncommitted.
+- Do not treat a sponsor licence as proof that an individual vacancy offers sponsorship.
+- Generic company email addresses must not become verified Send CV routes.
+- Report real measured results only. Do not invent, extrapolate, or estimate vacancy counts.
+
+TARGET PIPELINE COMMIT
+
+The required JobSage pipeline commit is:
+
+5f865c685f292a27ee543caa652689e08b6cd3a0
+
+The current Replit HEAD was:
+
+86d543c6a894521620838897b9369d36d43e72e1
+
+The branch previously showed 31 commits ahead of origin/master. Preserve those commits.
+
+STAGE 1 — VERIFY THE GIT STATE
+
+Run:
+
+git fetch origin
+git remote -v
+git rev-parse HEAD
+git rev-parse origin/master
+git status --porcelain=v1
+git merge-base --is-ancestor 5f865c685f292a27ee543caa652689e08b6cd3a0 HEAD
+git log --oneline --decorate --graph -40
+
+Interpret the merge-base result correctly:
+
+- Exit code 0 means the pipeline commit is already contained in the Replit history.
+- Exit code 1 means it is missing.
+
+If it is missing, safely merge or cherry-pick the required commit without discarding the existing 31 commits. Resolve conflicts against the current Replit implementation. Do not force anything.
+
+STAGE 2 — FIX THE DEPENDENCY/LOCKFILE MISMATCH
+
+A frozen installation failed because artifacts/jobsage-web/package.json and pnpm-lock.yaml do not match.
+
+Inspect:
+
+git diff 5f865c685f292a27ee543caa652689e08b6cd3a0..HEAD -- \
+  artifacts/jobsage-web/package.json \
+  pnpm-lock.yaml \
+  pnpm-workspace.yaml
+
+Determine whether the later Replit commits intentionally changed package.json. Preserve intentional changes.
+
+Regenerate the lockfile safely with:
+
+pnpm install --no-frozen-lockfile
+
+Then verify:
+
+pnpm install --frozen-lockfile
+npm ci --prefix sp-full
+
+Inspect and report exactly what changed in pnpm-lock.yaml. Do not commit or push it.
+
+STAGE 3 — VERIFY THE IMPLEMENTATION
+
+Run:
+
+pnpm run typecheck:libs
+pnpm --filter @workspace/api-server run typecheck
+pnpm --filter @workspace/jobsage-web run typecheck
+npm test --prefix sp-full
+
+Run these focused API tests:
+
+pnpm --filter @workspace/api-server exec vitest run \
+  src/__tests__/lib/nhsJobsClient.test.ts \
+  src/__tests__/lib/opportunityProfession.test.ts \
+  src/__tests__/lib/sponsorVacancyRoles.test.ts \
+  src/__tests__/lib/vacancyJobRunner.test.ts \
+  src/__tests__/lib/vacancyTitlePolicy.test.ts \
+  src/__tests__/routes/speculativeApplications.test.ts
+
+Also build the API and web application. Use the environment values required by the repository for a non-production build. Do not connect to a real database.
+
+Report each command as PASS or FAIL, including test counts. Fix genuine code/configuration failures and rerun them. Do not claim success while a process is still running.
+
+STAGE 4 — VERIFY NETWORK AND DOWNLOAD THE CURRENT REGISTER
+
+Read these files before running the pipeline:
+
+- sp-full/OPERATIONS.md
+- sp-full/LIVE-VALIDATION-2026-10-08.md
+- sp-full/run.js
+- artifacts/api-server/src/tools/liveVacancyCoverageAudit.ts
+- artifacts/api-server/src/tools/mergeLiveVacancyAudit.ts
+
+Run the pipeline network doctor and record each reachable/unreachable provider.
+
+Then run the current official Home Office register download:
+
+cd sp-full
+node run.js register
+cd ..
+
+Confirm and report:
+
+- Register download URL
+- Download timestamp
+- Total register rows
+- Unique Skilled Worker sponsor name-and-town organisations
+- How many received exact industry evidence
+- Counts by sector
+- Any parsing or network failures
+
+STAGE 5 — RECREATE THE LIVE PUBLIC-SOURCE RESULTS
+
+Use isolated output directories with a current date. Do not mix old committed CSV files into the new audit.
+
+Run public sources separately so failures are resumable and measurable:
+
+- NHS Jobs, up to 300 pages
+- Teaching Vacancies, up to 100 pages
+- NHS Scotland, up to 100 pages
+- jobs.ac.uk, up to 100 pages
+- CharityJob, up to 100 pages
+- Arbeitnow, Jobicy and Himalayas, up to 100 pages each
+- Reed across all configured profession targets with bounded workloads
+- Additional configured public boards
+
+Use generous but bounded deadlines suitable for Replit. Preserve retries and source limits.
+
+For every source, record:
+
+- Runtime
+- Pages fetched
+- Raw records fetched
+- Sponsor-matched vacancies
+- Ambiguous employer matches
+- Unmatched employers
+- Request failures
+- Whether the source was fully exhausted or stopped at a limit
+- Output directory
+
+Do not silently skip a source. If a provider fails, retry reasonably, inspect the exact HTTP/DNS/rate-limit error, and continue other sources.
+
+STAGE 6 — COMPANY WEBSITES AND FIRST-PARTY ATS
+
+Run bounded, resumable company-site scans using:
+
+- exports/sponsor-websites-production.csv
+- artifacts/non-healthcare-company-websites-all-sectors.csv
+- Current sp-full company/register data
+- Saved verified careers and ATS evidence
+
+Test representatives across:
+
+- Healthcare and Social Care
+- Education
+- Engineering
+- Finance
+- Technology
+- Hospitality
+- Construction
+- Manufacturing
+- Retail
+
+Prioritise verified high-volume sponsors and careers pages. Preserve employer name-and-town identity checks.
+
+Report:
+
+- Sponsors scanned
+- Websites resolved
+- Websites identity-confirmed
+- Careers pages found
+- Supported ATS feeds found
+- Current UK vacancies
+- Role-specific application links
+- Failed/unreachable sites
+- Identity-review cases
+- Runtime per sector
+
+Do not enable name-only unverified ATS jobs for candidate use.
+
+STAGE 7 — SEND CV ROUTES
+
+Run the recruitment-email evidence lane.
+
+A route is verified only if:
+
+1. It is on a currently fetched official employer page.
+2. The sponsor/site identity passes the guarded identity checks.
+3. The page explicitly tells applicants to email, send, submit, attach or forward a CV.
+4. The evidence URL and checked timestamp are retained.
+
+Do not approve generic info@, contact@ or recruitment-labelled mailboxes without an explicit CV submission instruction.
+
+Report verified routes separately from unverified public emails.
+
+STAGE 8 — MERGE AND CLASSIFY
+
+The existing merge tool may reference old dated output directories. Do not mix those old outputs into this run.
+
+Modify the local merge workflow if necessary so it accepts the new run’s explicit input files or directories. Keep all existing identity, title-policy, profession-classification, deduplication and freshness safeguards.
+
+Produce locally:
+
+- All unique current vacancies CSV
+- Guarded/import-eligible vacancies CSV
+- Verified Send CV routes CSV
+- Machine-readable metrics JSON
+- Human-readable summary
+
+Canonicalise URLs and remove duplicates.
+
+STAGE 9 — FINAL REPORT
+
+Compare the fresh results with the historical local baseline:
+
+- 10,645 unique vacancy links
+- 7,700 guarded/import-eligible
+- 1,976 unclassified
+- 580 identity-review
+- 389 title-policy exclusions
+- 4 verified Send CV routes
+- 0 candidate-visible because no database import occurred
+
+The fresh counts may differ because vacancies are live. Explain every material difference using measured source results.
+
+Report:
+
+- Current commit and whether 5f865c6 is in its ancestry
+- Dependency and lockfile status
+- Test/typecheck/build results
+- Register counts
+- Total collected vacancies
+- Unique vacancies
+- Duplicates removed
+- Identity-eligible vacancies
+- Guarded/import-eligible vacancies
+- Unclassified vacancies
+- Identity-review vacancies
+- Title-policy exclusions
+- Candidate-visible count
+- Unknown versus advert-confirmed sponsorship status
+- Job-board totals
+- Company-website/ATS totals
+- Verified Send CV routes
+- Counts by profession
+- Counts by sector
+- Counts by source
+- Runtime by source and sector
+- Exact unresolved failures
+- Exact local output paths
+
+Do not stop after a small sample if the live sources are working. Continue the bounded full-depth runs. If Replit time limits interrupt a run, preserve its output and resume it instead of restarting from zero.
+
+Keep me updated after each stage, but continue automatically unless an action would destroy work, push code, deploy, contact candidates, or modify a database.
