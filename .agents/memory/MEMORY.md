@@ -23,6 +23,7 @@
 - [Smart Apply redirect tracking](smart-apply-redirect-tracking.md) — confirmation URLs differ from outbound URLs; retain the JOBSAGE-originated URL as the tracker identity.
 - [Smart Apply navigation correlation](smart-apply-navigation-correlation.md) — exact session-backed, per-tab URL collections keep trusted multi-tab activation safe and reliable.
 - [Smart Apply structured prefill](smart-apply-structured-prefill.md) — map only exact profile/CV facts; leave ambiguous history blank and keep sensitive controls candidate-owned.
+- [Smart Apply candidate review](smart-apply-candidate-review.md) — every generated or restored application draft needs explicit confirmation; CV extraction must be reviewed before saving.
 - [Automatic submission confirmation](automatic-submission-confirmation.md) — promote an existing click only; share its lock and retry a short-lived post-navigation 404.
 - [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
@@ -35,6 +36,7 @@
 - [Send CV approved sender](send-cv-approved-sender.md) — outbound Send CV mail uses a verified platform sender; candidate aliases remain Reply-To only.
 - [Opportunity score consistency](opportunity-score-consistency.md) — every Opportunities section must share one score basis; pending pipeline scores use the same neutral value.
 - [Monthly Readiness quota](monthly-readiness-quota.md) — three free new vacancy analyses reset on the first of each UTC month; cached results remain available.
+- [Professional exam-prep flow](professional-exam-prep-flow.md) — keep exam learning for doctors, nurses, and dentists, embedded in the journey and always optional.
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
 - [Sponsor website promotion evidence](sponsor-website-promotion-evidence.md) — brand-token overlap can over-score generic or partial matches; promotion also needs independent identity and same-site evidence.
@@ -85,6 +87,7 @@
 - [Durable CodeExecution file budget](durable-codeexecution-file-budget.md) — large read/modify/write callback batches can exceed the sandbox’s shared 3 MB per-block budget.
 - [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
 - [Production sponsor import identity](production-sponsor-import-identity.md) — environment-local IDs are never portable; resolve reviewed vacancy imports by name in the target DB and skip existing rows.
+- [Production change authorization](production-change-authorization.md) — production writes are scoped to reviewed vacancy data; release and unrelated mutations need explicit permission.
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
 - [Secret scope verification](secret-scope-verification.md) — confirm published-app scope; production environment changes require republishing before they take effect.
 - [Git authentication and merge-safe pushes](git-auth-vs-connectors.md) — CLI auth is separate from connectors; inspect and preserve merge commits when Git-pane sync triggers a rebase.
@@ -98,3 +101,6 @@
 - [Himalayas comparison scope](free-feed-himalayas-scope.md) — count UK-eligible and worldwide listings; retain older global samples as out-of-scope history.
 - [In-process production auth](production-request-auth.md) — send secrets through an HTTP client in memory, not command-line header arguments that appear in process listings.
 - [Candidate video library](candidate-video-library.md) — launch videos are staff-curated; candidates cannot upload or publish.
+- [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on candidate-facing, nuanced, and accuracy-sensitive workflows.
+- [Local Playwright route base](playwright-local-route-base.md) — direct browser tests use the local Vite route base, not automatically the preview proxy's artifact prefix.
+- [Sponsor vacancy audit inputs](sponsor-vacancy-audit-inputs.md) — merge only explicitly selected current inputs; preserve partial-source status and never treat historical outputs as fresh.
