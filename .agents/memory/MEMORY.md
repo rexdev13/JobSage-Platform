@@ -101,3 +101,4 @@
 - [In-process production auth](production-request-auth.md) — send secrets through an HTTP client in memory, not command-line header arguments that appear in process listings.
 - [Candidate video library](candidate-video-library.md) — launch videos are staff-curated; candidates cannot upload or publish.
 - [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on candidate-facing, nuanced, and accuracy-sensitive workflows.
+- [Local Playwright route base](playwright-local-route-base.md) — direct browser tests use the local Vite route base, not automatically the preview proxy's artifact prefix.
