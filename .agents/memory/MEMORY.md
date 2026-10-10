@@ -36,6 +36,7 @@
 - [Send CV approved sender](send-cv-approved-sender.md) — outbound Send CV mail uses a verified platform sender; candidate aliases remain Reply-To only.
 - [Opportunity score consistency](opportunity-score-consistency.md) — every Opportunities section must share one score basis; pending pipeline scores use the same neutral value.
 - [Monthly Readiness quota](monthly-readiness-quota.md) — three free new vacancy analyses reset on the first of each UTC month; cached results remain available.
+- [Professional exam-prep flow](professional-exam-prep-flow.md) — keep exam learning for doctors, nurses, and dentists, embedded in the journey and always optional.
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
 - [Sponsor website promotion evidence](sponsor-website-promotion-evidence.md) — brand-token overlap can over-score generic or partial matches; promotion also needs independent identity and same-site evidence.
