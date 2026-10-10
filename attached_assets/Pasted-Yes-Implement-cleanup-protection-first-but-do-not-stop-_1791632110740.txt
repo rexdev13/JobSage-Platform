@@ -1,0 +1,204 @@
+Yes. Implement cleanup protection first, but do not stop there. After it passes tests, continue directly with the reviewed public-board import path, production import and candidate-visibility verification.
+
+Production vacancy writes remain explicitly authorised. Do not deploy or push without permission, and do not touch unrelated production data.
+
+1. FIX CLEANUP/LIVENESS SAFETY
+
+The cleanup system must distinguish:
+
+- confirmed_live
+- confirmed_dead
+- inconclusive
+- not_observed_due_to_partial_scan
+- not_checked
+
+Do not hide, expire or delete a vacancy merely because:
+
+- It was not observed for 24 hours.
+- A source returned HTTP 429.
+- A scan ended at a page/deadline limit.
+- A website temporarily failed.
+- DNS or network access failed.
+- A source scan was incomplete.
+- A liveness request was inconclusive.
+
+A vacancy may be hidden as stale only when supported by reliable evidence, such as:
+
+- The role URL returns a persistent 404 or 410 across bounded retries.
+- The advert explicitly says it is closed or expired.
+- Its closing date has passed and the source confirms it is no longer active.
+- A complete authoritative source scan confirms the source-owned vacancy disappeared, following the repository’s existing grace rules.
+
+Never allow a partial or failed source run to mass-hide vacancies.
+
+Protect manual vacancies and records belonging to unrelated import systems.
+
+Add focused tests for:
+
+- HTTP 429
+- Request timeout
+- DNS failure
+- Temporary 5xx
+- Incomplete pagination
+- Continuation cursor remaining
+- Complete source scan
+- Persistent 404/410
+- Passed closing date
+- Reappearance/reactivation
+- Manual vacancy protection
+- Importer ownership protection
+
+Run the relevant tests, typechecks and API build.
+
+Inspect the 36 production records previously called dead or unobserved. Classify each as confirmed dead, inconclusive, incomplete-source absence or not checked. Do not hide inconclusive records.
+
+2. BUILD THE PUBLIC-BOARD IMPORT PATH
+
+The audit produced 3,043 guarded public-board rows, but the supported importer only accepts company-site proof files.
+
+Create or extend a supported importer for guarded public-board vacancies.
+
+Reuse the existing production vacancy persistence/upsert service. Do not create an unrelated raw SQL importer.
+
+The importer must require:
+
+- guarded_import_eligible=true
+- identity_import_eligible=true
+- title_policy_eligible=true
+- Recognised profession/category
+- Current UK vacancy
+- Valid HTTPS role-specific application URL
+- Supported source
+- application_mode=job_board
+- Fresh observation
+- Non-duplicate canonical URL
+- Safe sponsor/employer match
+
+Preserve:
+
+- Source name
+- External source ID
+- Sponsor organisation
+- Employer name
+- Profession/category
+- Classification evidence
+- Location
+- Salary where available
+- Application URL
+- Observation timestamp
+- Closing date
+- Sponsorship status
+- Identity status
+- Freshness status
+
+Do not convert sponsor membership into vacancy-level sponsorship confirmation. Keep sponsorship_status=unknown unless the advert explicitly confirms it.
+
+Use bounded transactional batches and idempotent upserts.
+
+Support:
+
+- Insert
+- Update
+- Unchanged
+- Reactivation
+- Duplicate prevention
+- Per-row rejection with a reason
+- Retry after partial failure
+- Import-run metrics
+- Source ownership
+
+Add tests proving that running the same file twice creates no duplicate vacancies.
+
+3. INVESTIGATE THE 150 COMPANY-SITE ROWS
+
+Report why all 150 failed.
+
+Provide counts by exact reason:
+
+- Identity review
+- Unclassified profession
+- Title-policy failure
+- Dead link
+- Non-UK location
+- Expired vacancy
+- Missing required field
+- Unsupported application mode
+- Website-confidence failure
+- Duplicate
+
+Do not simply discard all 150. Correct deterministic classification or evidence-processing defects where the source evidence genuinely supports the vacancy. Do not weaken identity safeguards.
+
+4. RECHECK THE 3,043 GUARDED ROWS
+
+Before importing:
+
+- Recheck every application URL in bounded concurrent batches.
+- Remove confirmed dead or expired jobs.
+- Preserve temporary/inconclusive failures for retry, but do not make them visible until successfully checked.
+- Canonicalise URLs again.
+- Remove duplicates.
+- Confirm profession classification.
+- Confirm employer/sponsor identity.
+- Confirm UK location.
+- Record the final eligible count.
+
+Treat Arbeitnow and Himalayas as partial sources:
+
+- Do not use their incomplete scans for cleanup.
+- Retain individually verified vacancies.
+- Retry Arbeitnow later with rate limiting and backoff.
+- Resume Himalayas from its saved cursor instead of restarting.
+
+5. IMPORT TO PRODUCTION
+
+After the cleanup tests and importer tests pass, import every freshly revalidated eligible row into production.
+
+Production writes are authorised.
+
+Before importing, record production counts.
+
+Then report:
+
+- Attempted
+- Inserted
+- Updated
+- Unchanged
+- Reactivated
+- Rejected
+- Deferred after inconclusive liveness
+- Duplicates prevented
+- Batch failures
+- Final production totals
+
+Do not import the 5,927 blocked rows into the candidate-visible vacancy table. Retain them in review output with exact blocking reasons.
+
+6. VERIFY CANDIDATE VISIBILITY
+
+After import, verify through both:
+
+- Production database queries
+- Candidate-facing vacancy API/application
+
+Report:
+
+- Candidate-visible vacancies created
+- Counts by profession
+- Counts by sector
+- Counts by source
+- job_board count
+- company_website count
+- send_cv count
+- Representative working application links
+- Hidden/review records incorrectly exposed, if any
+
+A successful insert alone is not completion. Confirm candidates can retrieve the vacancies.
+
+7. AUTOMATION
+
+Connect the public-board importer to the existing scheduled vacancy workflow locally and test it.
+
+Do not claim production scheduling is active unless the deployed scheduler actually invokes it.
+
+If deployment is required, report the exact deployment change and stop before deployment because deployment has not yet been authorised.
+
+Continue automatically through cleanup protection, importer implementation, revalidation, production import and candidate-facing verification. Do not stop after only implementing cleanup protection.
