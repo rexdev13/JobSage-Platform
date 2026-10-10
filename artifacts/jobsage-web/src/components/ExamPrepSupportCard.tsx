@@ -18,7 +18,13 @@ function mediaSource(video: LearningVideo) {
   return `${base}${video.mediaUrl}`;
 }
 
-export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) {
+export function ExamPrepSupportCard({
+  compact = false,
+  onGuidancePage = false,
+}: {
+  compact?: boolean;
+  onGuidancePage?: boolean;
+}) {
   const { data: profile, isLoading: profileLoading } = useGetMyProfile();
   const profession = normalizeExamPrepProfession(profile?.profession);
   const videosQuery = useListLearningVideos({
@@ -71,12 +77,23 @@ export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) 
                 Explore reviewed resources to help you prepare for {examLabels[profession]}.
                 Learn at your own pace; this will not hold up your next steps.
               </p>
-              <Link
-                href="/regulatory-guidance"
-                className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                See exam and registration steps <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
+              {onGuidancePage ? (
+                <a
+                  href="#registration-pathway"
+                  data-testid="link-exam-guidance"
+                  className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Jump to exam and registration steps <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              ) : (
+                <Link
+                  href="/regulatory-guidance"
+                  data-testid="link-exam-guidance"
+                  className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  See exam and registration steps <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              )}
 
               {videosQuery.isLoading ? (
                 <p className="mt-4 text-sm text-muted-foreground">Checking for reviewed learning resources…</p>

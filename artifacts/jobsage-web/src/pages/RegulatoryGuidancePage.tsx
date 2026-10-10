@@ -725,7 +725,7 @@ export default function RegulatoryGuidancePage() {
             </span>
           </div>
 
-          <ExamPrepSupportCard compact />
+          <ExamPrepSupportCard compact onGuidancePage />
 
           {/* Coming soon banner for unmapped professions */}
           {showComingSoonBanner && (
@@ -794,7 +794,7 @@ export default function RegulatoryGuidancePage() {
 
             {/* Steps */}
             <Card className="p-6">
-              <h3 className="text-base font-semibold text-foreground mb-6">Registration Pathway</h3>
+              <h3 id="registration-pathway" className="scroll-mt-6 text-base font-semibold text-foreground mb-6">Registration Pathway</h3>
               <div>
                 {pathway.steps.map((step, i) => (
                   <StepCard key={i} step={step} index={i} />
