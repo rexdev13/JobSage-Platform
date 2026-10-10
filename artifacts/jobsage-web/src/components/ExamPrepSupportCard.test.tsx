@@ -23,6 +23,7 @@ const { profileState, videoState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  getListLearningVideosQueryKey: () => ["/api/learning-videos"],
   useGetMyProfile: () => ({ data: { profession: profileState.profession }, isLoading: false }),
   useListLearningVideos: () => ({ data: videoState.data, isLoading: false, isError: false }),
 }));

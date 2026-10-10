@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useGetMyProfile, useListLearningVideos } from "@workspace/api-client-react";
+import { getListLearningVideosQueryKey, useGetMyProfile, useListLearningVideos } from "@workspace/api-client-react";
 import type { LearningVideo } from "@workspace/api-client-react";
 import { ArrowRight, BookOpenCheck, Clock3, Play, X } from "lucide-react";
 import { Card } from "@/components/ui-enhanced";
@@ -21,7 +21,9 @@ function mediaSource(video: LearningVideo) {
 export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) {
   const { data: profile, isLoading: profileLoading } = useGetMyProfile();
   const profession = normalizeExamPrepProfession(profile?.profession);
-  const videosQuery = useListLearningVideos({ query: { enabled: Boolean(profession) } });
+  const videosQuery = useListLearningVideos({
+    query: { queryKey: getListLearningVideosQueryKey(), enabled: Boolean(profession) },
+  });
   const [hidden, setHidden] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [activeVideo, setActiveVideo] = useState<LearningVideo | null>(null);

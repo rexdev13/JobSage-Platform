@@ -39,15 +39,14 @@ describe("rendered candidate navigation", () => {
     expect(screen.getByText("Career journey: 1 of 9 stages complete.")).toBeInTheDocument();
   });
 
-  it("launches enhancement and never makes coming-soon items links", () => {
+  it("launches enhancement without a standalone exam-preparation or learning destination", () => {
     const onEnhance = vi.fn();
     render(<AppSidebar onEnhance={onEnhance} />);
     fireEvent.click(screen.getByRole("button", { name: "CV Enhancement" }));
     expect(onEnhance).toHaveBeenCalledOnce();
-    for (const label of ["UK Professional Exams", "Exam Preparation"]) {
-      expect(screen.getByLabelText(`${label}, Coming soon`)).toHaveAttribute("aria-disabled", "true");
-      expect(screen.queryByRole("link", { name: new RegExp(label) })).not.toBeInTheDocument();
-    }
+    expect(screen.queryByRole("link", { name: /learning hub/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /professional exams/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /exam preparation/i })).not.toBeInTheDocument();
   });
 });
 
