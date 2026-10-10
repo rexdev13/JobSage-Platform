@@ -60,16 +60,15 @@ describe("QuickHelpMenu", () => {
     expect(screen.getByTestId("input-feedback-email")).toBeTruthy();
   });
 
-  it("keeps the readiness shortcut for candidate accounts inside the same menu", () => {
+  it("does not show the readiness quota shortcut in the help menu", () => {
     authState.isAuthenticated = true;
     authState.user = { role: "candidate" };
-    const onOpenReadiness = vi.fn();
-    renderMenu({ onOpenReadiness });
+    renderMenu();
 
     fireEvent.click(screen.getByTestId("button-floating-help"));
-    fireEvent.click(screen.getByTestId("button-quick-readiness"));
 
-    expect(onOpenReadiness).toHaveBeenCalledOnce();
-    expect(screen.queryByTestId("menu-quick-help")).toBeNull();
+    expect(screen.getByRole("menu")).toBeTruthy();
+    expect(screen.queryByTestId("button-quick-readiness")).toBeNull();
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
   });
 });

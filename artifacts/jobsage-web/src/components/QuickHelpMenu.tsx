@@ -1,31 +1,23 @@
 import { useState } from "react";
-import { HelpCircle, MessageCircle, Sparkles, X } from "lucide-react";
+import { HelpCircle, MessageCircle, X } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/auth-web";
 import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 interface QuickHelpMenuProps {
   guestOnly?: boolean;
-  onOpenReadiness?: () => void;
 }
 
-export function QuickHelpMenu({ guestOnly = false, onOpenReadiness }: QuickHelpMenuProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+export function QuickHelpMenu({ guestOnly = false }: QuickHelpMenuProps) {
+  const { isAuthenticated, isLoading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   if (isLoading || (guestOnly && isAuthenticated)) return null;
 
-  const canOpenReadiness = Boolean(onOpenReadiness && user?.role === "candidate");
-
   function shareFeedback() {
     setMenuOpen(false);
     setFeedbackOpen(true);
-  }
-
-  function openReadiness() {
-    setMenuOpen(false);
-    onOpenReadiness?.();
   }
 
   return (
@@ -58,18 +50,6 @@ export function QuickHelpMenu({ guestOnly = false, onOpenReadiness }: QuickHelpM
               <MessageCircle className="h-4 w-4 text-primary" />
               Share Feedback
             </button>
-            {canOpenReadiness && (
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="button-quick-readiness"
-                onClick={openReadiness}
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Sparkles className="h-4 w-4 text-primary" />
-                Readiness quota
-              </button>
-            )}
           </div>
         )}
         <button

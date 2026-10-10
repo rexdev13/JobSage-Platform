@@ -11,7 +11,6 @@ vi.mock("./AppSidebar", () => ({
     </nav>
   ),
 }));
-vi.mock("@/components/ReadinessQuotaModal", () => ({ ReadinessQuotaModal: () => null }));
 vi.mock("@/components/QuickHelpMenu", () => ({ QuickHelpMenu: () => null }));
 vi.mock("@/components/CvEnhancementSheet", () => ({
   CvEnhancementSheet: ({ open }: { open: boolean }) =>

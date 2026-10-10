@@ -2,7 +2,6 @@ import * as React from "react";
 import { AppSidebar } from "./AppSidebar";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
-import { ReadinessQuotaModal } from "@/components/ReadinessQuotaModal";
 import { QuickHelpMenu } from "@/components/QuickHelpMenu";
 import { CvEnhancementSheet } from "@/components/CvEnhancementSheet";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -24,7 +23,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [enhanceOpen, setEnhanceOpen] = React.useState(false);
   const [impersonation, setImpersonation] = React.useState<ImpersonationState | null>(null);
-  const [quotaOpen, setQuotaOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
     if (!window.matchMedia) return;
@@ -147,8 +145,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      <ReadinessQuotaModal open={quotaOpen} onClose={() => setQuotaOpen(false)} />
-      <QuickHelpMenu onOpenReadiness={() => setQuotaOpen(true)} />
+      <QuickHelpMenu />
       <CvEnhancementSheet open={enhanceOpen} onOpenChange={setEnhanceOpen} />
     </div>
   );
