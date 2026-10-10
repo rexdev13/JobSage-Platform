@@ -16,8 +16,9 @@ const { profileState, videoState } = vi.hoisted(() => ({
         durationSeconds: 120,
         videoEmbedUrl: "https://www.youtube-nocookie.com/embed/example",
         mediaUrl: null,
-        sourceUrl: null,
-      }],
+        sourceUrl: "https://www.gmc-uk.org/",
+        reviewedAt: "2026-10-10T00:00:00.000Z",
+      }] as any[],
     },
   },
 }));
@@ -48,6 +49,29 @@ describe("ExamPrepSupportCard", () => {
     expect(screen.getByText("Prepare for your professional exams")).toBeTruthy();
     expect(screen.getByText("PLAB preparation")).toBeTruthy();
     expect(screen.getByText(/will not hold up your next steps/)).toBeTruthy();
+  });
+
+  it("opens official link resources directly and shows their applicability and review date", () => {
+    profileState.profession = "Nurse";
+    videoState.data.videos = [{
+      id: -1003,
+      title: "NMC CBT preparation",
+      description: "Official CBT guidance.",
+      category: "professional_registration",
+      applicability: "Nurses · NMC Test of Competence · CBT",
+      durationSeconds: null,
+      videoEmbedUrl: null,
+      mediaUrl: null,
+      sourceUrl: "https://www.nmc.org.uk/registration/joining-the-register/toc/toc-nursing-and-midwifery/cbt/",
+      reviewedAt: "2026-10-10T00:00:00.000Z",
+    }];
+
+    renderCard();
+
+    const resourceLink = screen.getByRole("link", { name: /NMC CBT preparation/ });
+    expect(resourceLink.getAttribute("href")).toContain("nmc.org.uk");
+    expect(resourceLink.getAttribute("target")).toBe("_blank");
+    expect(screen.getByText(/Nurses · NMC Test of Competence · CBT · Reviewed 10 Oct 2026/)).toBeTruthy();
   });
 
   it("does not expose the learning function to unsupported professions", () => {

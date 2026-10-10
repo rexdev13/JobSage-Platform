@@ -84,3 +84,4 @@ export * from "./generated/types/uploadUrlResponse";
 export * from "./generated/types/professionListResponse";
 export * from "./generated/types/upsertProfileRequest";
 export * from "./generated/types/upsertProfileRequestRegistrationStatus";
+export * from "./officialExamPrepResources";

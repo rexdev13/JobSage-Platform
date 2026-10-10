@@ -3,6 +3,7 @@ import {
   learningVideoMatchesProfession,
   normalizeExternalVideoUrl,
   normalizeExamPrepProfession,
+  officialExamPrepResourcesForProfession,
   parseByteRange,
   validApplicability,
   validReviewWindow,
@@ -64,6 +65,27 @@ describe("professional exam-prep access", () => {
     expect(learningVideoMatchesProfession("Nurses preparing for CBT and OSCE", "nurse")).toBe(true);
     expect(learningVideoMatchesProfession("Dentists preparing for ORE", "nurse")).toBe(false);
     expect(learningVideoMatchesProfession(null, "doctor")).toBe(false);
+  });
+
+  it.each([
+    ["doctor", ["PLAB 1", "PLAB 2"]],
+    ["nurse", ["CBT", "OSCE"]],
+    ["dentist", ["ORE overview", "ORE Part 1", "ORE Part 2"]],
+  ] as const)("provides current official resources for %s", (profession, stages) => {
+    const resources = officialExamPrepResourcesForProfession(profession, new Date("2026-10-10T00:00:00.000Z"));
+    expect(resources.map((resource) => resource.stage)).toEqual(stages);
+
+    for (const resource of resources) {
+      expect(resource.status).toBe("published");
+      expect(resource.category).toBe("professional_registration");
+      expect(resource.applicability?.toLowerCase()).toContain(profession);
+      expect(resource.sourceUrl).toMatch(/^https:\/\/(www\.)?(gmc-uk\.org|nmc\.org\.uk|gdc-uk\.org)\//);
+      expect(resource.reviewedAt.toISOString().slice(0, 10)).toBe("2026-10-10");
+      expect(resource.reviewDueAt.getTime()).toBeGreaterThan(resource.reviewedAt.getTime());
+      expect(resource.reviewedBy).toBeTruthy();
+    }
+
+    expect(officialExamPrepResourcesForProfession(profession, new Date("2027-04-11T00:00:00.000Z"))).toEqual([]);
   });
 });
 

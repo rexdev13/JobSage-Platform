@@ -9,6 +9,7 @@ import {
   UpdateLearningVideoBody,
   UpdateLearningVideoParams,
   UpdateLearningVideoResponse,
+  OFFICIAL_EXAM_PREP_RESOURCES,
 } from "@workspace/api-zod";
 import { db, learningVideosTable, profilesTable } from "@workspace/db";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
@@ -45,6 +46,14 @@ export function learningVideoMatchesProfession(
   if (!text) return false;
   if (/\b(all professions|all healthcare professionals|all medical professionals)\b/.test(text)) return true;
   return EXAM_PREP_PROFESSION_TERMS[profession].some((term) => new RegExp(`\\b${term}\\b`, "i").test(text));
+}
+
+export function officialExamPrepResourcesForProfession(profession: ExamPrepProfession, asOfDate = new Date()) {
+  const today = asOfDate.toISOString().slice(0, 10);
+  return OFFICIAL_EXAM_PREP_RESOURCES.filter((resource) =>
+    resource.profession === profession &&
+    resource.reviewDueAt.toISOString().slice(0, 10) >= today,
+  );
 }
 
 async function getCandidateExamPrepProfession(userId: string): Promise<ExamPrepProfession | null> {
@@ -205,7 +214,12 @@ router.get(
       row.category === "professional_registration" &&
       learningVideoMatchesProfession(row.applicability, profession),
     );
-    res.json(ListLearningVideosResponse.parse({ videos: videos.map(toVideoResponse) }));
+    res.json(ListLearningVideosResponse.parse({
+      videos: [
+        ...officialExamPrepResourcesForProfession(profession, new Date(`${today}T00:00:00.000Z`)),
+        ...videos.map(toVideoResponse),
+      ],
+    }));
   },
 );
 

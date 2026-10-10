@@ -605,6 +605,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/api-zod':
+        specifier: workspace:*
+        version: link:../../lib/api-zod
       '@workspace/auth-web':
         specifier: workspace:*
         version: link:../../lib/auth-web

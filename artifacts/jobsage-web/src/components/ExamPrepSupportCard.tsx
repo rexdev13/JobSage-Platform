@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { getListLearningVideosQueryKey, useGetMyProfile, useListLearningVideos } from "@workspace/api-client-react";
 import type { LearningVideo } from "@workspace/api-client-react";
-import { ArrowRight, BookOpenCheck, Clock3, Play, X } from "lucide-react";
+import { ArrowRight, BookOpenCheck, Clock3, ExternalLink, FileText, Play, X } from "lucide-react";
 import { Card } from "@/components/ui-enhanced";
 import { isExamPrepVideoForProfession, normalizeExamPrepProfession } from "@/lib/examPrepAccess";
 
@@ -88,25 +88,42 @@ export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) 
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold text-foreground">Exam and registration resources</h3>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {visibleVideos.map((video) => (
-                      <button
-                        type="button"
-                        key={video.id}
-                        onClick={() => setActiveVideo(video)}
-                        className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-background/90 p-3 text-left transition hover:border-primary/30 hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                          <Play className="ml-0.5 h-4 w-4 fill-current" aria-hidden="true" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-foreground">{video.title}</span>
-                          <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock3 className="h-3 w-3" aria-hidden="true" />
-                            {video.durationSeconds ? `${Math.ceil(video.durationSeconds / 60)} min` : "Watch when ready"}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
+                      {visibleVideos.map((video) => {
+                        const isVideo = Boolean(video.videoEmbedUrl || video.mediaUrl);
+                        const resourceDetails = `${video.applicability ?? "Professional exam guidance"} · Reviewed ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(video.reviewedAt))}`;
+                        const content = (
+                          <>
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                              {isVideo ? <Play className="ml-0.5 h-4 w-4 fill-current" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-foreground">{video.title}</span>
+                              <span className="mt-1 block truncate text-xs text-muted-foreground">{resourceDetails}</span>
+                            </span>
+                            {isVideo ? null : <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                          </>
+                        );
+                        return isVideo ? (
+                          <button
+                            type="button"
+                            key={video.id}
+                            onClick={() => setActiveVideo(video)}
+                            className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-background/90 p-3 text-left transition hover:border-primary/30 hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {content}
+                          </button>
+                        ) : (
+                          <a
+                            key={video.id}
+                            href={video.sourceUrl ?? undefined}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-background/90 p-3 text-left transition hover:border-primary/30 hover:bg-primary/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {content}
+                          </a>
+                        );
+                      })}
                   </div>
                   {videos.length > 2 && (
                     <button
@@ -168,6 +185,10 @@ export function ExamPrepSupportCard({ compact = false }: { compact?: boolean }) 
             <div className="space-y-3 p-4 sm:p-6">
               <p className="text-sm leading-6 text-muted-foreground">{activeVideo.description}</p>
               {activeVideo.applicability && <p className="text-xs text-muted-foreground">For: {activeVideo.applicability}</p>}
+              {activeVideo.applicability && <p className="text-xs text-muted-foreground">For: {activeVideo.applicability}</p>}
+              <p className="text-xs text-muted-foreground">
+                Reviewed {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date(activeVideo.reviewedAt))}
+              </p>
               {activeVideo.sourceUrl && (
                 <a href={activeVideo.sourceUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-primary hover:underline">
                   View resource source

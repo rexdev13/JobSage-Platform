@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { OFFICIAL_EXAM_PREP_RESOURCES } from "@workspace/api-zod";
 import {
   getListAdminLearningVideosQueryKey,
   getListLearningVideosQueryKey,
@@ -9,7 +10,7 @@ import {
   useUpdateLearningVideo,
 } from "@workspace/api-client-react";
 import type { LearningVideo, LearningVideoInput, LearningVideoUploadRequest } from "@workspace/api-client-react";
-import { Archive, ArrowDownUp, Check, ChevronDown, CircleAlert, Clock3, FileVideo2, LoaderCircle, Pencil, Plus, Search, Send, ShieldCheck, UploadCloud, Video, X } from "lucide-react";
+import { Archive, ArrowDownUp, Check, ChevronDown, CircleAlert, Clock3, ExternalLink, FileVideo2, LoaderCircle, Pencil, Plus, Search, Send, ShieldCheck, UploadCloud, Video, X } from "lucide-react";
 
 const MAX_VIDEO_BYTES = 262_144_000;
 const categories: { value: LearningVideoInput["category"]; label: string }[] = [
@@ -258,7 +259,31 @@ export default function AdminLearningVideosPage() {
           </div>)}
         </section>
 
-        <section className="mt-8 overflow-hidden rounded-2xl border border-[#e0e1d9] bg-[#fffefa]">
+          <section className="mt-8 overflow-hidden rounded-2xl border border-[#cddbd0] bg-[#f1f6f0]">
+            <div className="border-b border-[#dce7dc] px-5 py-5 sm:px-6">
+              <h2 className="font-display text-xl font-semibold tracking-[-0.02em]">Official exam guidance</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-[#66766c]">
+                JOBSAGE-reviewed links to regulator-published guidance. Candidates open the source for the latest exam details; recheck these links by the review due date.
+              </p>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-5">
+              {OFFICIAL_EXAM_PREP_RESOURCES.map((resource) => (
+                <article key={resource.id} className="flex flex-col rounded-xl border border-[#dce5da] bg-[#fffefa] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#54725e]">{resource.applicability}</p>
+                  <h3 className="mt-2 font-display text-base font-semibold leading-5">{resource.title}</h3>
+                  <p className="mt-2 flex-1 text-xs leading-5 text-[#6f7d73]">{resource.description}</p>
+                  <p className="mt-3 text-[11px] leading-4 text-[#7b8980]">
+                    {resource.sourceLabel} · Reviewed {formatDate(resource.reviewedAt.toISOString())} · Due {formatDate(resource.reviewDueAt.toISOString())}
+                  </p>
+                  <a href={resource.sourceUrl ?? undefined} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#38664a] hover:underline">
+                    Open official source <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-8 overflow-hidden rounded-2xl border border-[#e0e1d9] bg-[#fffefa]">
           <div className="flex flex-col gap-4 border-b border-[#e9e9e2] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div><h2 className="font-display text-xl font-semibold tracking-[-0.02em]">All videos</h2><p className="mt-1 text-xs text-[#79857d]">{videos.length} {videos.length === 1 ? "library item" : "library items"}</p></div>
             <div className="flex flex-col gap-2 sm:flex-row">
