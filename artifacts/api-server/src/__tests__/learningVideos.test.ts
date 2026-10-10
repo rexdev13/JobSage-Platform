@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  learningVideoMatchesProfession,
   normalizeExternalVideoUrl,
+  normalizeExamPrepProfession,
   parseByteRange,
   validApplicability,
   validReviewWindow,
@@ -42,6 +44,26 @@ describe("learning video review rules", () => {
     expect(validReviewWindow("2025-01-01", "2025-02-01", "draft")).toBe(true);
     expect(validReviewWindow("2025-02-01", "2025-01-01", "draft")).toBe(false);
     expect(validReviewWindow("2025-01-01", "2025-02-01", "published")).toBe(false);
+  });
+});
+
+describe("professional exam-prep access", () => {
+  it.each([
+    ["Doctor", "doctor"],
+    ["Registered Nurse", "nurse"],
+    ["Dentist", "dentist"],
+  ] as const)("normalizes eligible profession %s", (value, expected) => {
+    expect(normalizeExamPrepProfession(value)).toBe(expected);
+  });
+
+  it.each(["Midwife", "Pharmacist", "", null])("rejects unsupported profession %s", (value) => {
+    expect(normalizeExamPrepProfession(value)).toBeNull();
+  });
+
+  it("matches only professional registration resources for the saved profession", () => {
+    expect(learningVideoMatchesProfession("Nurses preparing for CBT and OSCE", "nurse")).toBe(true);
+    expect(learningVideoMatchesProfession("Dentists preparing for ORE", "nurse")).toBe(false);
+    expect(learningVideoMatchesProfession(null, "doctor")).toBe(false);
   });
 });
 

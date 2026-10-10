@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition } from "@/components/ui-enhanced";
 import { motion } from "framer-motion";
 import { useGetMyProfile } from "@workspace/api-client-react";
+import { ExamPrepSupportCard } from "@/components/ExamPrepSupportCard";
 import {
   Stethoscope,
   HeartPulse,
@@ -723,6 +724,8 @@ export default function RegulatoryGuidancePage() {
               directly with the relevant regulatory body before taking action.
             </span>
           </div>
+
+          <ExamPrepSupportCard compact />
 
           {/* Coming soon banner for unmapped professions */}
           {showComingSoonBanner && (

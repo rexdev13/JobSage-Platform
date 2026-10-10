@@ -28,7 +28,6 @@ describe("candidate navigation configuration", () => {
       ["Help Center", "/help"],
       ["Feedback", "/feedback"],
       ["References", "/recommendations"],
-      ["Learning Hub", "/learning"],
       ["Visa & Legal Guidance", "/regulatory-guidance"],
     ]) {
       expect(all.find((item) => item.label === label)).toMatchObject({ href, kind: "route" });
@@ -36,8 +35,7 @@ describe("candidate navigation configuration", () => {
     expect(all.find((item) => item.label === "CV Enhancement")).toMatchObject({
       kind: "action", action: "enhance-cv",
     });
-    expect(all.filter((item) => item.kind === "coming-soon").map((item) => item.label))
-      .toEqual(["UK Professional Exams", "Exam Preparation"]);
+    expect(all.filter((item) => item.kind === "coming-soon")).toEqual([]);
   });
 
   it("handles root and nested active routes", () => {

@@ -10,7 +10,7 @@ import {
   UpdateLearningVideoParams,
   UpdateLearningVideoResponse,
 } from "@workspace/api-zod";
-import { db, learningVideosTable } from "@workspace/db";
+import { db, learningVideosTable, profilesTable } from "@workspace/db";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { requireRole } from "../middlewares/requireRole";
 
@@ -20,6 +20,41 @@ const MAX_VIDEO_UPLOAD_BYTES = 250 * 1024 * 1024;
 const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const UPLOAD_KEY_PATTERN = /^\/objects\/uploads\/[0-9a-f-]{36}$/i;
 const SENSITIVE_CATEGORIES = new Set(["sponsorship", "medical", "professional_registration", "relocation"]);
+type ExamPrepProfession = "doctor" | "nurse" | "dentist";
+
+const EXAM_PREP_PROFESSION_TERMS: Record<ExamPrepProfession, string[]> = {
+  doctor: ["doctor", "medical", "gmc", "plab"],
+  nurse: ["nurse", "nursing", "nmc", "cbt", "osce"],
+  dentist: ["dentist", "dental", "gdc", "ore"],
+};
+
+export function normalizeExamPrepProfession(profession: string | null | undefined): ExamPrepProfession | null {
+  const normalized = profession?.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  if (!normalized) return null;
+  if (["doctor", "medical doctor", "physician"].includes(normalized)) return "doctor";
+  if (["nurse", "registered nurse", "nursing"].includes(normalized)) return "nurse";
+  if (["dentist", "dental surgeon", "dentistry"].includes(normalized)) return "dentist";
+  return null;
+}
+
+export function learningVideoMatchesProfession(
+  applicability: string | null | undefined,
+  profession: ExamPrepProfession,
+): boolean {
+  const text = applicability?.toLowerCase().trim();
+  if (!text) return false;
+  if (/\b(all professions|all healthcare professionals|all medical professionals)\b/.test(text)) return true;
+  return EXAM_PREP_PROFESSION_TERMS[profession].some((term) => new RegExp(`\\b${term}\\b`, "i").test(text));
+}
+
+async function getCandidateExamPrepProfession(userId: string): Promise<ExamPrepProfession | null> {
+  const [profile] = await db
+    .select({ profession: profilesTable.profession })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId))
+    .limit(1);
+  return normalizeExamPrepProfession(profile?.profession);
+}
 
 function isoTimestamp(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -152,8 +187,13 @@ export function validApplicability(category: string, applicability: string | nul
 
 router.get(
   "/learning-videos",
-  requireRole("candidate", "reviewer", "admin", "super_admin"),
-  async (_req: Request, res: Response) => {
+  requireRole("candidate"),
+  async (req: Request, res: Response) => {
+    const profession = await getCandidateExamPrepProfession(req.user!.id);
+    if (!profession) {
+      res.status(403).json({ error: "Exam-preparation resources are available to doctors, nurses, and dentists." });
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
     const rows = await db
       .select()
@@ -161,7 +201,11 @@ router.get(
       .where(and(eq(learningVideosTable.status, "published"), gte(learningVideosTable.reviewDueAt, today)))
       .orderBy(asc(learningVideosTable.sortOrder), asc(learningVideosTable.id));
 
-    res.json(ListLearningVideosResponse.parse({ videos: rows.map(toVideoResponse) }));
+    const videos = rows.filter((row) =>
+      row.category === "professional_registration" &&
+      learningVideoMatchesProfession(row.applicability, profession),
+    );
+    res.json(ListLearningVideosResponse.parse({ videos: videos.map(toVideoResponse) }));
   },
 );
 
@@ -387,7 +431,7 @@ export function parseByteRange(rangeHeader: string, size: number): { start: numb
 
 router.get(
   "/learning-videos/:id/media",
-  requireRole("candidate", "reviewer", "admin", "super_admin"),
+  requireRole("candidate", "admin", "super_admin"),
   async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) {
@@ -403,7 +447,20 @@ router.get(
     const today = new Date().toISOString().slice(0, 10);
     const role = (req.user as { role?: string | null } | undefined)?.role;
     const isStaff = role === "admin" || role === "super_admin";
-    if (!video?.storageKey || (!isStaff && (video.status !== "published" || video.reviewDueAt < today))) {
+    const profession = isStaff ? null : await getCandidateExamPrepProfession(req.user!.id);
+    if (!isStaff && !profession) {
+      res.status(404).json({ error: "Video media not found." });
+      return;
+    }
+    if (
+      !video?.storageKey ||
+      (!isStaff && (
+        video.status !== "published" ||
+        video.reviewDueAt < today ||
+        video.category !== "professional_registration" ||
+        !learningVideoMatchesProfession(video.applicability, profession!)
+      ))
+    ) {
       res.status(404).json({ error: "Video media not found." });
       return;
     }

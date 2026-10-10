@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ExamPrepSupportCard } from "@/components/ExamPrepSupportCard";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
   useGetJourneyStatus, getGetJourneyStatusQueryKey,
@@ -572,6 +573,8 @@ export default function PathPage() {
             </Card>
           ))}
         </div>
+
+        <ExamPrepSupportCard />
 
         {/* Loading / error */}
         {isLoading && (

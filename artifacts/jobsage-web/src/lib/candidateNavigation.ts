@@ -37,10 +37,7 @@ export const CANDIDATE_NAVIGATION: CandidateNavSection[] = [
     label: "Career Readiness",
     items: [
       { label: "Eligibility Check", href: "/eligibility", kind: "route" },
-      { label: "UK Professional Exams", kind: "coming-soon" },
-      { label: "Exam Preparation", kind: "coming-soon" },
       { label: "Interview Preparation", href: "/interview-prep", kind: "route" },
-      { label: "Learning Hub", href: "/learning", kind: "route" },
       { label: "Visa & Legal Guidance", href: "/regulatory-guidance", kind: "route" },
     ],
   },

@@ -16,7 +16,7 @@ const categories: { value: LearningVideoInput["category"]; label: string }[] = [
   { value: "application", label: "Applications" },
   { value: "sponsorship", label: "Sponsorship" },
   { value: "medical", label: "Clinical practice" },
-  { value: "professional_registration", label: "Professional registration" },
+  { value: "professional_registration", label: "Exams & professional registration" },
   { value: "relocation", label: "Moving to the UK" },
   { value: "jobsage", label: "JOBSAGE guides" },
 ];
@@ -321,7 +321,7 @@ export default function AdminLearningVideosPage() {
                   <label><Label required>Topic</Label><select required value={form.category} onChange={(event) => setValue("category", event.target.value as FormValues["category"])} className={fieldClass()}>{categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
                   <label><Label required>Language</Label><input required minLength={2} maxLength={24} value={form.language} onChange={(event) => setValue("language", event.target.value)} placeholder="English" className={fieldClass()} /></label>
                   <label className="sm:col-span-2"><Label required>Description</Label><textarea required maxLength={3000} rows={3} value={form.description} onChange={(event) => setValue("description", event.target.value)} placeholder="What will a candidate understand or be able to do after watching?" className={`${fieldClass()} resize-y`} /></label>
-                  <label className="sm:col-span-2"><Label required={requiresApplicability(form.category)}>Who is this for?</Label><textarea required={requiresApplicability(form.category)} maxLength={1000} rows={2} value={form.applicability} onChange={(event) => setValue("applicability", event.target.value)} placeholder="Profession, stage of journey, or eligibility context" className={`${fieldClass()} resize-y`} /></label>
+                  <label className="sm:col-span-2"><Label required={requiresApplicability(form.category)}>Who is this for?</Label><textarea required={requiresApplicability(form.category)} maxLength={1000} rows={2} value={form.applicability} onChange={(event) => setValue("applicability", event.target.value)} placeholder="Profession and exam/stage (e.g. doctors — PLAB; nurses — CBT/OSCE; dentists — ORE)" className={`${fieldClass()} resize-y`} /></label>
                 </div>
               </section>
 
