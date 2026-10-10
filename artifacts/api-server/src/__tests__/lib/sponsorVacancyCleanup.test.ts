@@ -119,4 +119,19 @@ describe("sponsor vacancy cleanup", () => {
       { timezone: "Europe/London" },
     );
   });
+
+  it("does not register the destructive cleanup scheduler in production", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    try {
+      const { startSponsorVacancyCleanupScheduler } = await import("../../lib/sponsorVacancyCleanup");
+      startSponsorVacancyCleanupScheduler();
+
+      expect(scheduleMock).not.toHaveBeenCalled();
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
 });

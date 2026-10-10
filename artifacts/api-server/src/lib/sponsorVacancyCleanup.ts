@@ -55,6 +55,13 @@ export async function runSponsorVacancyCleanup(
 }
 
 export function startSponsorVacancyCleanupScheduler(): void {
+  if (process.env.NODE_ENV === "production") {
+    console.info(
+      "[vacancy-cleanup] Production scheduler disabled; destructive cleanup requires an explicit reviewed run.",
+    );
+    return;
+  }
+
   cron.schedule(
     "30 3 * * *",
     () => {
