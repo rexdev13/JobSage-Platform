@@ -39,6 +39,14 @@ export interface CandidateProfile {
   languages?: string[] | null;
   /** Free-text notes the candidate wants employers to see */
   additionalNotes?: string | null;
+  /** Candidate-authored motivation to use in matching Smart Apply questions */
+  applicationMotivation?: string | null;
+  /** Candidate-authored professional strengths to use in matching Smart Apply questions */
+  applicationStrengths?: string | null;
+  /** Candidate-confirmed notice period */
+  noticePeriod?: string | null;
+  /** Candidate-confirmed start availability */
+  startAvailability?: string | null;
   /** Candidate contact phone number for application-form prefill */
   phone?: string | null;
   /** Candidate street address for application-form prefill */

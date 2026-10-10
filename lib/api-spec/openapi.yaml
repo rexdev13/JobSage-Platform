@@ -5222,6 +5222,22 @@ components:
           type: string
           nullable: true
           description: Free-text notes the candidate wants employers to see
+        applicationMotivation:
+          type: string
+          nullable: true
+          description: Candidate-authored motivation to use in matching Smart Apply questions
+        applicationStrengths:
+          type: string
+          nullable: true
+          description: Candidate-authored professional strengths to use in matching Smart Apply questions
+        noticePeriod:
+          type: string
+          nullable: true
+          description: Candidate-confirmed notice period
+        startAvailability:
+          type: string
+          nullable: true
+          description: Candidate-confirmed start availability
         phone:
           type: string
           nullable: true
@@ -5336,6 +5352,22 @@ components:
         additionalNotes:
           type: string
           nullable: true
+        applicationMotivation:
+          type: string
+          nullable: true
+          maxLength: 3000
+        applicationStrengths:
+          type: string
+          nullable: true
+          maxLength: 3000
+        noticePeriod:
+          type: string
+          nullable: true
+          maxLength: 300
+        startAvailability:
+          type: string
+          nullable: true
+          maxLength: 500
         phone:
           type: string
           nullable: true

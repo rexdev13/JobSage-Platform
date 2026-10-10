@@ -145,6 +145,29 @@ describe("GET /profiles/me", () => {
     expect(resp.body.missingFields).toEqual(["Preferred start date", "Profile photo", "Additional notes"]);
     expect(resp.body.completionPct).toBe(77);
   });
+
+  it("returns the candidate's saved application details for review and editing", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{
+      ...profileRow,
+      applicationMotivation: "I value safe, compassionate care.",
+      applicationStrengths: "Clear communication.",
+      noticePeriod: "Four weeks",
+      startAvailability: "Available from 1 September",
+    }]);
+
+    const resp = await request(buildApp())
+      .get("/profiles/me")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(resp.status).toBe(200);
+    expect(resp.body).toMatchObject({
+      applicationMotivation: "I value safe, compassionate care.",
+      applicationStrengths: "Clear communication.",
+      noticePeriod: "Four weeks",
+      startAvailability: "Available from 1 September",
+    });
+  });
 });
 
 // ─── PUT /profiles/me ───────────────────────────────────────────────
@@ -217,6 +240,82 @@ describe("PUT /profiles/me", () => {
     const updateSet = conflictUpdates.at(-1)?.set ?? {};
     expect(updateSet).not.toHaveProperty("dbsClearanceLevel");
     expect(updateSet).not.toHaveProperty("safeguardingTrainingLevel");
+  });
+
+  it("saves candidate-authored Smart Apply details and preserves them when omitted by a partial save", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{ ...profileRow, applicationMotivation: null, applicationStrengths: null, noticePeriod: null, startAvailability: null }]);
+    profileResults.push([{ ...profileRow }]);
+
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        ...validBody,
+        applicationMotivation: "  I value safe, compassionate care.  ",
+        applicationStrengths: "Clear communication.",
+        noticePeriod: "Four weeks",
+        startAvailability: "Available from 1 September",
+      });
+
+    expect(resp.status).toBe(200);
+    expect(conflictUpdates.at(-1)?.set).toMatchObject({
+      applicationMotivation: "I value safe, compassionate care.",
+      applicationStrengths: "Clear communication.",
+      noticePeriod: "Four weeks",
+      startAvailability: "Available from 1 September",
+    });
+
+    profileResults.push([consentRow]);
+    profileResults.push([{
+      ...profileRow,
+      applicationMotivation: "I value safe, compassionate care.",
+      applicationStrengths: "Clear communication.",
+      noticePeriod: "Four weeks",
+      startAvailability: "Available from 1 September",
+    }]);
+    profileResults.push([{ ...profileRow }]);
+    const partialSave = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send(validBody);
+
+    expect(partialSave.status).toBe(200);
+    expect(conflictUpdates.at(-1)?.set).not.toHaveProperty("applicationMotivation");
+    expect(conflictUpdates.at(-1)?.set).not.toHaveProperty("applicationStrengths");
+    expect(conflictUpdates.at(-1)?.set).not.toHaveProperty("noticePeriod");
+    expect(conflictUpdates.at(-1)?.set).not.toHaveProperty("startAvailability");
+  });
+
+  it("clears saved Smart Apply details when the candidate explicitly clears the fields", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{
+      ...profileRow,
+      applicationMotivation: "I value safe, compassionate care.",
+      applicationStrengths: "Clear communication.",
+      noticePeriod: "Four weeks",
+      startAvailability: "Available from 1 September",
+    }]);
+    profileResults.push([{ ...profileRow }]);
+
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        ...validBody,
+        applicationMotivation: null,
+        applicationStrengths: null,
+        noticePeriod: null,
+        startAvailability: null,
+      });
+
+    expect(resp.status).toBe(200);
+    expect(conflictUpdates.at(-1)?.set).toMatchObject({
+      applicationMotivation: null,
+      applicationStrengths: null,
+      noticePeriod: null,
+      startAvailability: null,
+    });
   });
 
   it("marks existing factual CV drafts for review when a Maker fact changes", async () => {

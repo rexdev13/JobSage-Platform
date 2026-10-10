@@ -266,6 +266,26 @@ export const GetMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  applicationMotivation: zod
+    .string()
+    .nullish()
+    .describe(
+      "Candidate-authored motivation to use in matching Smart Apply questions",
+    ),
+  applicationStrengths: zod
+    .string()
+    .nullish()
+    .describe(
+      "Candidate-authored professional strengths to use in matching Smart Apply questions",
+    ),
+  noticePeriod: zod
+    .string()
+    .nullish()
+    .describe("Candidate-confirmed notice period"),
+  startAvailability: zod
+    .string()
+    .nullish()
+    .describe("Candidate-confirmed start availability"),
   phone: zod
     .string()
     .nullish()
@@ -310,6 +330,13 @@ export const GetMyProfileResponse = zod.object({
  * @summary Create or update the current user's profile
  */
 export const upsertMyProfileBodyAlertFrequencyDefault = `weekly`;
+export const upsertMyProfileBodyApplicationMotivationMax = 3000;
+
+export const upsertMyProfileBodyApplicationStrengthsMax = 3000;
+
+export const upsertMyProfileBodyNoticePeriodMax = 300;
+
+export const upsertMyProfileBodyStartAvailabilityMax = 500;
 
 export const UpsertMyProfileBody = zod.object({
   profession: zod
@@ -344,6 +371,19 @@ export const UpsertMyProfileBody = zod.object({
   profilePhotoKey: zod.string().nullish(),
   languages: zod.array(zod.string()).nullish(),
   additionalNotes: zod.string().nullish(),
+  applicationMotivation: zod
+    .string()
+    .max(upsertMyProfileBodyApplicationMotivationMax)
+    .nullish(),
+  applicationStrengths: zod
+    .string()
+    .max(upsertMyProfileBodyApplicationStrengthsMax)
+    .nullish(),
+  noticePeriod: zod.string().max(upsertMyProfileBodyNoticePeriodMax).nullish(),
+  startAvailability: zod
+    .string()
+    .max(upsertMyProfileBodyStartAvailabilityMax)
+    .nullish(),
   phone: zod.string().nullish(),
   streetAddress: zod.string().nullish(),
   city: zod.string().nullish(),
@@ -401,6 +441,26 @@ export const UpsertMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  applicationMotivation: zod
+    .string()
+    .nullish()
+    .describe(
+      "Candidate-authored motivation to use in matching Smart Apply questions",
+    ),
+  applicationStrengths: zod
+    .string()
+    .nullish()
+    .describe(
+      "Candidate-authored professional strengths to use in matching Smart Apply questions",
+    ),
+  noticePeriod: zod
+    .string()
+    .nullish()
+    .describe("Candidate-confirmed notice period"),
+  startAvailability: zod
+    .string()
+    .nullish()
+    .describe("Candidate-confirmed start availability"),
   phone: zod
     .string()
     .nullish()
@@ -727,6 +787,13 @@ export const RunRegressionTestParams = zod.object({
 });
 
 export const runRegressionTestBodyCasesItemProfileAlertFrequencyDefault = `weekly`;
+export const runRegressionTestBodyCasesItemProfileApplicationMotivationMax = 3000;
+
+export const runRegressionTestBodyCasesItemProfileApplicationStrengthsMax = 3000;
+
+export const runRegressionTestBodyCasesItemProfileNoticePeriodMax = 300;
+
+export const runRegressionTestBodyCasesItemProfileStartAvailabilityMax = 500;
 
 export const RunRegressionTestBody = zod.object({
   cases: zod.array(
@@ -769,6 +836,22 @@ export const RunRegressionTestBody = zod.object({
         profilePhotoKey: zod.string().nullish(),
         languages: zod.array(zod.string()).nullish(),
         additionalNotes: zod.string().nullish(),
+        applicationMotivation: zod
+          .string()
+          .max(runRegressionTestBodyCasesItemProfileApplicationMotivationMax)
+          .nullish(),
+        applicationStrengths: zod
+          .string()
+          .max(runRegressionTestBodyCasesItemProfileApplicationStrengthsMax)
+          .nullish(),
+        noticePeriod: zod
+          .string()
+          .max(runRegressionTestBodyCasesItemProfileNoticePeriodMax)
+          .nullish(),
+        startAvailability: zod
+          .string()
+          .max(runRegressionTestBodyCasesItemProfileStartAvailabilityMax)
+          .nullish(),
         phone: zod.string().nullish(),
         streetAddress: zod.string().nullish(),
         city: zod.string().nullish(),
@@ -2472,6 +2555,26 @@ export const GetReviewCaseResponse = zod.object({
         .string()
         .nullish()
         .describe("Free-text notes the candidate wants employers to see"),
+      applicationMotivation: zod
+        .string()
+        .nullish()
+        .describe(
+          "Candidate-authored motivation to use in matching Smart Apply questions",
+        ),
+      applicationStrengths: zod
+        .string()
+        .nullish()
+        .describe(
+          "Candidate-authored professional strengths to use in matching Smart Apply questions",
+        ),
+      noticePeriod: zod
+        .string()
+        .nullish()
+        .describe("Candidate-confirmed notice period"),
+      startAvailability: zod
+        .string()
+        .nullish()
+        .describe("Candidate-confirmed start availability"),
       phone: zod
         .string()
         .nullish()
@@ -4823,8 +4926,19 @@ export const CreateLearningVideoBody = zod.object({
     "relocation",
     "jobsage",
   ]),
-  videoUrl: zod.string().url().nullish(),
-  storageKey: zod.string().nullish(),
+  videoUrl: zod
+    .string()
+    .url()
+    .nullish()
+    .describe(
+      "For creation, provide this or storageKey, not both. Updates may omit both to preserve the current source.",
+    ),
+  storageKey: zod
+    .string()
+    .nullish()
+    .describe(
+      "Staff-owned private upload path returned by the upload-url endpoint. For creation, provide this or videoUrl, not both. Updates may omit both to preserve the current source.",
+    ),
   durationSeconds: zod
     .number()
     .min(1)
@@ -4910,8 +5024,19 @@ export const UpdateLearningVideoBody = zod.object({
     "relocation",
     "jobsage",
   ]),
-  videoUrl: zod.string().url().nullish(),
-  storageKey: zod.string().nullish(),
+  videoUrl: zod
+    .string()
+    .url()
+    .nullish()
+    .describe(
+      "For creation, provide this or storageKey, not both. Updates may omit both to preserve the current source.",
+    ),
+  storageKey: zod
+    .string()
+    .nullish()
+    .describe(
+      "Staff-owned private upload path returned by the upload-url endpoint. For creation, provide this or videoUrl, not both. Updates may omit both to preserve the current source.",
+    ),
   durationSeconds: zod
     .number()
     .min(1)

@@ -58,7 +58,7 @@ const SYSTEM_PROMPT = `You are a specialist UK healthcare career coach helping a
 Your task is to pre-fill job application questions using the candidate profile provided.
 For each question, write a concise, professional answer (2–5 sentences).
 Use only facts explicitly supplied in the candidate profile, CV extract, and role context. Never invent duties, qualifications, registrations, dates, achievements, employers, or personal circumstances. If the evidence is insufficient, set confidence to "none" and return an empty answer.
-Motivation, personal strengths, availability, and notice period are not structured candidate-profile facts. Do not infer them from a CV or job description; return an empty answer unless the candidate explicitly supplied the exact detail.
+Do not guess motivation, personal strengths, availability, or notice period. The server fills those matching questions only from candidate-authored profile fields.
 Never answer criminal-record, conviction, disclosure, declaration, consent, agreement, or payroll questions. Those always need the candidate's own confirmation.
 
 Return ONLY valid JSON matching exactly:
@@ -90,6 +90,10 @@ export async function prefillApplicationAnswers(
     preferredRegion?: string | null;
     languages?: string[] | null;
     additionalNotes?: string | null;
+    applicationMotivation?: string | null;
+    applicationStrengths?: string | null;
+    noticePeriod?: string | null;
+    startAvailability?: string | null;
     cvText?: string | null;
   },
   roleContext: {
@@ -165,14 +169,21 @@ ${roleContext.externalUrl ? `Vacancy URL: ${roleContext.externalUrl}` : ""}
     }
   }
 
-  // These questions ask for candidate-owned details that the profile schema
-  // does not store. Keep them blank rather than accepting plausible-sounding
-  // guesses from the model. The candidate can write their own answer.
-  const questionsWithoutStructuredEvidence = new Set([
-    "motivation",
-    "strengths",
-    "availability",
-  ]);
+  // These answers are copied from explicit candidate-authored profile facts,
+  // never generated or inferred by the model. Keep each answer blank when the
+  // corresponding fact was not supplied.
+  const candidateAnswers: Record<string, string> = {
+    motivation: profile.applicationMotivation?.trim() ?? "",
+    strengths: profile.applicationStrengths?.trim() ?? "",
+    availability: [
+      profile.startAvailability?.trim()
+        ? `Start availability: ${profile.startAvailability.trim()}`
+        : "",
+      profile.noticePeriod?.trim()
+        ? `Notice period: ${profile.noticePeriod.trim()}`
+        : "",
+    ].filter(Boolean).join("\n"),
+  };
 
   const prefills: PrefillResult[] = STANDARD_QUESTIONS.map((question) => {
     const modelPrefill = prefillsByQuestionId.get(question.id);
@@ -181,11 +192,13 @@ ${roleContext.externalUrl ? `Vacancy URL: ${roleContext.externalUrl}` : ""}
       typeof modelPrefill?.aiAnswer === "string"
         ? modelPrefill.aiAnswer.trim()
         : "";
+    const hasCandidateAnswer = Object.hasOwn(candidateAnswers, question.id);
     const aiAnswer =
-      modelConfidence === "none" ||
-      questionsWithoutStructuredEvidence.has(question.id)
-        ? ""
-        : modelAnswer;
+      hasCandidateAnswer
+        ? candidateAnswers[question.id]
+        : modelConfidence === "none"
+          ? ""
+          : modelAnswer;
 
     return {
       questionId: question.id,

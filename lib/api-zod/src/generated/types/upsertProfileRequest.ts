@@ -31,6 +31,14 @@ export interface UpsertProfileRequest {
   profilePhotoKey?: string | null;
   languages?: string[] | null;
   additionalNotes?: string | null;
+  /** @maxLength 3000 */
+  applicationMotivation?: string | null;
+  /** @maxLength 3000 */
+  applicationStrengths?: string | null;
+  /** @maxLength 300 */
+  noticePeriod?: string | null;
+  /** @maxLength 500 */
+  startAvailability?: string | null;
   phone?: string | null;
   streetAddress?: string | null;
   city?: string | null;

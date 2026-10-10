@@ -356,6 +356,14 @@ export interface CandidateProfile {
   languages?: string[] | null;
   /** Free-text notes the candidate wants employers to see */
   additionalNotes?: string | null;
+  /** Candidate-authored motivation to use in matching Smart Apply questions */
+  applicationMotivation?: string | null;
+  /** Candidate-authored professional strengths to use in matching Smart Apply questions */
+  applicationStrengths?: string | null;
+  /** Candidate-confirmed notice period */
+  noticePeriod?: string | null;
+  /** Candidate-confirmed start availability */
+  startAvailability?: string | null;
   /** Candidate contact phone number for application-form prefill */
   phone?: string | null;
   /** Candidate street address for application-form prefill */
@@ -424,6 +432,14 @@ export interface UpsertProfileRequest {
   profilePhotoKey?: string | null;
   languages?: string[] | null;
   additionalNotes?: string | null;
+  /** @maxLength 3000 */
+  applicationMotivation?: string | null;
+  /** @maxLength 3000 */
+  applicationStrengths?: string | null;
+  /** @maxLength 300 */
+  noticePeriod?: string | null;
+  /** @maxLength 500 */
+  startAvailability?: string | null;
   phone?: string | null;
   streetAddress?: string | null;
   city?: string | null;
@@ -3152,9 +3168,15 @@ export interface LearningVideoInput {
   /** @maxLength 3000 */
   description: string;
   category: LearningVideoInputCategory;
-  /** @nullable */
+  /**
+   * For creation, provide this or storageKey, not both. Updates may omit both to preserve the current source.
+   * @nullable
+   */
   videoUrl?: string | null;
-  /** @nullable */
+  /**
+   * Staff-owned private upload path returned by the upload-url endpoint. For creation, provide this or videoUrl, not both. Updates may omit both to preserve the current source.
+   * @nullable
+   */
   storageKey?: string | null;
   /**
    * @minimum 1

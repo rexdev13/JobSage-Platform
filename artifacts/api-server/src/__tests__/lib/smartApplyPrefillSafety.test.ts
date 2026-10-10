@@ -47,7 +47,7 @@ describe("Smart Apply prefill safety", () => {
     vi.clearAllMocks();
   });
 
-  it("blanks questions without structured evidence and forces review on every generated answer", async () => {
+  it("leaves candidate-owned questions blank without saved details and forces review on all answers", async () => {
     createCompletion.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({ prefills: modelPrefills() }) } }],
     });
@@ -63,6 +63,49 @@ describe("Smart Apply prefill safety", () => {
     expect(result.every((item) => item.needsReview)).toBe(true);
     expect(result.filter((item) => item.aiAnswer).every((item) => item.confidence === "medium")).toBe(true);
     expect(createCompletion).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-4o" }));
+  });
+
+  it("uses only the saved candidate facts for motivation, strengths, and availability", async () => {
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ prefills: modelPrefills() }) } }],
+    });
+
+    const result = await prefillApplicationAnswers({
+      ...profile,
+      applicationMotivation: "I want to support safe, compassionate care.",
+      applicationStrengths: "Calm under pressure; clear communicator.",
+      startAvailability: "Available from 1 September.",
+      noticePeriod: "Four weeks.",
+    }, role);
+    const byId = Object.fromEntries(result.map((item) => [item.questionId, item]));
+
+    expect(byId.motivation.aiAnswer).toBe("I want to support safe, compassionate care.");
+    expect(byId.strengths.aiAnswer).toBe("Calm under pressure; clear communicator.");
+    expect(byId.availability.aiAnswer).toBe("Start availability: Available from 1 September.\nNotice period: Four weeks.");
+    expect(byId.motivation.needsReview).toBe(true);
+    expect(byId.strengths.needsReview).toBe(true);
+    expect(byId.availability.needsReview).toBe(true);
+  });
+
+  it("keeps each unsupplied matching fact blank even when the model guesses", async () => {
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ prefills: modelPrefills() }) } }],
+    });
+
+    const result = await prefillApplicationAnswers({
+      ...profile,
+      applicationMotivation: "I want to work in a supportive team.",
+      applicationStrengths: null,
+      noticePeriod: null,
+      startAvailability: null,
+    }, role);
+    const byId = Object.fromEntries(result.map((item) => [item.questionId, item]));
+
+    expect(byId.motivation.aiAnswer).toBe("I want to work in a supportive team.");
+    expect(byId.strengths.aiAnswer).toBe("");
+    expect(byId.availability.aiAnswer).toBe("");
+    expect(byId.strengths.confidence).toBe("none");
+    expect(byId.availability.confidence).toBe("none");
   });
 
   it("leaves no-evidence answers blank even if the model supplies text or omits review flags", async () => {

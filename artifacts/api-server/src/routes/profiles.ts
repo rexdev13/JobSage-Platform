@@ -176,6 +176,10 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     // drizzle types don't fully narrow text[].array() columns in .values()/.set(); cast needed
     languages: (d.languages ?? null) as unknown as string[] | null,
     additionalNotes: d.additionalNotes ?? null,
+    applicationMotivation: d.applicationMotivation?.trim() || null,
+    applicationStrengths: d.applicationStrengths?.trim() || null,
+    noticePeriod: d.noticePeriod?.trim() || null,
+    startAvailability: d.startAvailability?.trim() || null,
     phone: d.phone ?? null,
     streetAddress: d.streetAddress ?? null,
     city: d.city ?? null,
@@ -212,6 +216,10 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   if (d.city !== undefined) updateValues.city = d.city;
   if (d.postcode !== undefined) updateValues.postcode = d.postcode;
   if (d.country !== undefined) updateValues.country = d.country;
+  if (d.applicationMotivation !== undefined) updateValues.applicationMotivation = d.applicationMotivation?.trim() || null;
+  if (d.applicationStrengths !== undefined) updateValues.applicationStrengths = d.applicationStrengths?.trim() || null;
+  if (d.noticePeriod !== undefined) updateValues.noticePeriod = d.noticePeriod?.trim() || null;
+  if (d.startAvailability !== undefined) updateValues.startAvailability = d.startAvailability?.trim() || null;
 
   const [profile] = await db
     .insert(profilesTable)

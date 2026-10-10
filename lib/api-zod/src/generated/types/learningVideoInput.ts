@@ -17,9 +17,15 @@ export interface LearningVideoInput {
   /** @maxLength 3000 */
   description: string;
   category: LearningVideoInputCategory;
-  /** @nullable */
+  /**
+   * For creation, provide this or storageKey, not both. Updates may omit both to preserve the current source.
+   * @nullable
+   */
   videoUrl?: string | null;
-  /** @nullable */
+  /**
+   * Staff-owned private upload path returned by the upload-url endpoint. For creation, provide this or videoUrl, not both. Updates may omit both to preserve the current source.
+   * @nullable
+   */
   storageKey?: string | null;
   /**
    * @minimum 1

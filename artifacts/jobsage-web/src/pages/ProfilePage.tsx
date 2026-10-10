@@ -110,6 +110,10 @@ type ProfileFormData = {
   preferredStartDate: string;
   languages: string;
   additionalNotes: string;
+  applicationMotivation: string;
+  applicationStrengths: string;
+  noticePeriod: string;
+  startAvailability: string;
   phone: string;
   streetAddress: string;
   city: string;
@@ -231,6 +235,10 @@ export default function ProfilePage() {
     preferredStartDate: "",
     languages: "",
     additionalNotes: "",
+    applicationMotivation: "",
+    applicationStrengths: "",
+    noticePeriod: "",
+    startAvailability: "",
     phone: "",
     streetAddress: "",
     city: "",
@@ -283,6 +291,10 @@ export default function ProfilePage() {
         preferredStartDate: (p.preferredStartDate as string) ?? "",
         languages: languagesStr,
         additionalNotes: (p.additionalNotes as string) ?? "",
+        applicationMotivation: (p.applicationMotivation as string) ?? "",
+        applicationStrengths: (p.applicationStrengths as string) ?? "",
+        noticePeriod: (p.noticePeriod as string) ?? "",
+        startAvailability: (p.startAvailability as string) ?? "",
         phone: (p.phone as string) ?? "",
         streetAddress: (p.streetAddress as string) ?? "",
         city: (p.city as string) ?? "",
@@ -326,6 +338,10 @@ export default function ProfilePage() {
         ? fd.languages.split(",").map((l) => l.trim()).filter(Boolean)
         : undefined,
       additionalNotes: fd.additionalNotes || undefined,
+      applicationMotivation: fd.applicationMotivation.trim() || null,
+      applicationStrengths: fd.applicationStrengths.trim() || null,
+      noticePeriod: fd.noticePeriod.trim() || null,
+      startAvailability: fd.startAvailability.trim() || null,
       phone: fd.phone.trim() || undefined,
       streetAddress: fd.streetAddress.trim() || undefined,
       city: fd.city.trim() || undefined,
@@ -1062,6 +1078,64 @@ export default function ProfilePage() {
                 <FieldHint>
                   Optional free-text space for any extra context — certifications, research interests, relocation flexibility, etc.
                 </FieldHint>
+              </div>
+            </div>
+          </Card>
+
+          {/* Candidate-authored Smart Apply details */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-2 border-b pb-4">Application Details</h3>
+            <p className="text-xs text-muted-foreground mb-5">
+              Add details you want used for matching Smart Apply questions. JOBSAGE uses only what you enter here; unanswered details stay blank, and you review every draft before sending.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <Label>Why are you applying for roles like this?</Label>
+                <textarea
+                  name="applicationMotivation"
+                  value={formData.applicationMotivation}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  maxLength={3000}
+                  rows={3}
+                  placeholder="Write your own motivation for this type of role…"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Your professional strengths</Label>
+                <textarea
+                  name="applicationStrengths"
+                  value={formData.applicationStrengths}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  maxLength={3000}
+                  rows={3}
+                  placeholder="Describe the strengths you want to highlight…"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+                />
+              </div>
+              <div>
+                <Label>Notice period</Label>
+                <Input
+                  name="noticePeriod"
+                  value={formData.noticePeriod}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  maxLength={300}
+                  placeholder="e.g. Four weeks"
+                />
+              </div>
+              <div>
+                <Label>Confirmed start availability</Label>
+                <Input
+                  name="startAvailability"
+                  value={formData.startAvailability}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  maxLength={500}
+                  placeholder="e.g. Available from 1 September"
+                />
               </div>
             </div>
           </Card>

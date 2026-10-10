@@ -398,6 +398,10 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
         preferredRegion: Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : (profile.preferredRegion ?? null),
         languages: profile.languages,
         additionalNotes: profile.additionalNotes,
+        applicationMotivation: profile.applicationMotivation,
+        applicationStrengths: profile.applicationStrengths,
+        noticePeriod: profile.noticePeriod,
+        startAvailability: profile.startAvailability,
         cvText,
       },
       roleContext
