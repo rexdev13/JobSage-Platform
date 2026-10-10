@@ -43,6 +43,10 @@ import { isExtensionInstalled, ExtensionRequiredModal } from "./SmartApplyExtens
 import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
 import { openTrackedOutbound } from "@/lib/trackedOutbound";
 import { compileSmartApplyOutreach, SEND_CV_QUESTION_IDS } from "@/lib/smartApplyOutreach";
+import {
+  findFirstMissingRequiredAnswerId,
+  findFirstUnreviewedAnswerId,
+} from "@/lib/smartApplyReview";
 
 function useCoverLetterStream() {
   const [text, setText] = useState("");
@@ -137,13 +141,6 @@ function clearDraft(roleId: number) {
   }
 }
 
-const CONFIDENCE_CONFIG = {
-  high: { color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200", label: "High confidence" },
-  medium: { color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Medium confidence — review suggested" },
-  low: { color: "text-rose-500", bg: "bg-rose-50 border-rose-200", label: "Low confidence — please edit" },
-  none: { color: "text-muted-foreground", bg: "bg-muted/50 border-border", label: "Could not answer — please complete" },
-};
-
 interface NextMatchRole {
   id: number;
   title: string;
@@ -204,6 +201,7 @@ function ExtensionSmartApplyModal({
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
+  const [coverLetterReviewed, setCoverLetterReviewed] = useState(false);
   const [triggerQuestion, setTriggerQuestion] = useState<{ id: string; question: string } | null>(null);
 
   if (coverLetter.streaming && coverLetter.text !== clEditable) {
@@ -212,6 +210,8 @@ function ExtensionSmartApplyModal({
   const [prefillData, setPrefillData] = useState<SmartApplyPrefillResponse | null>(null);
   const [prefillError, setPrefillError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [reviewRequiredAnswerIds, setReviewRequiredAnswerIds] = useState<Set<string>>(new Set());
+  const [reviewedAnswerIds, setReviewedAnswerIds] = useState<Set<string>>(new Set());
   const [currentQuestion, setCurrentQuestion] = useState(0);
 
   const prefillMutation = useSmartApplyPrefill();
@@ -278,6 +278,16 @@ function ExtensionSmartApplyModal({
               : localDraft && Object.keys(localDraft).length > 0
               ? localDraft
               : null;
+          const aiDraftIds = data.prefills
+            .filter((prefill) => prefill.aiAnswer.trim().length > 0)
+            .map((prefill) => prefill.questionId);
+          const restoredDraftIds = Object.entries(bestDraft ?? {})
+            .filter(([, answer]) => typeof answer === "string" && answer.trim().length > 0)
+            .map(([questionId]) => questionId);
+          setReviewRequiredAnswerIds(new Set([...aiDraftIds, ...restoredDraftIds]));
+          // Review confirmations are intentionally session-only. Restored draft
+          // text must be checked again before it can be sent.
+          setReviewedAnswerIds(new Set());
           if (bestDraft) {
             setHasDraft(true);
             setAnswers({ ...aiAnswers, ...bestDraft });
@@ -313,17 +323,50 @@ function ExtensionSmartApplyModal({
   const isFirstQuestion = currentQuestion === 0;
 
   async function handleSubmit() {
-    if (
-      isSendCv &&
-      SEND_CV_QUESTION_IDS.some((questionId) => !answers[questionId]?.trim())
-    ) {
-      const firstMissingIndex = questions.findIndex(
-        (question) => !answers[question.id]?.trim(),
-      );
-      if (firstMissingIndex >= 0) setCurrentQuestion(firstMissingIndex);
+    const missingAnswerId = isSendCv
+      ? SEND_CV_QUESTION_IDS.find((questionId) => !answers[questionId]?.trim()) ?? null
+      : findFirstMissingRequiredAnswerId(questions, answers);
+    if (missingAnswerId) {
+      const missingIndex = questions.findIndex((question) => question.id === missingAnswerId);
+      if (missingIndex >= 0) {
+        setCurrentQuestion(missingIndex);
+        setStep("review");
+      }
       toast({
-        title: "Complete all six answers",
-        description: "Please review and complete every Smart Apply answer before sending your CV.",
+        title: isSendCv ? "Complete all six answers" : "Complete the required answers",
+        description: isSendCv
+          ? "Please review and complete every Smart Apply answer before sending your CV."
+          : "Add an answer to each required question before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const unreviewedAnswerId = findFirstUnreviewedAnswerId(
+      questions,
+      answers,
+      reviewRequiredAnswerIds,
+      reviewedAnswerIds,
+    );
+    if (unreviewedAnswerId) {
+      const unreviewedIndex = questions.findIndex((question) => question.id === unreviewedAnswerId);
+      if (unreviewedIndex >= 0) {
+        setCurrentQuestion(unreviewedIndex);
+        setStep("review");
+      }
+      toast({
+        title: "Review each AI draft",
+        description: "Confirm every drafted answer is accurate before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isSendCv && coverLetter.done && clEditable.trim() && !coverLetterReviewed) {
+      setStep("coverLetter");
+      toast({
+        title: "Review the cover letter",
+        description: "Confirm the generated cover letter is accurate before submitting or copying it.",
         variant: "destructive",
       });
       return;
@@ -464,6 +507,12 @@ function ExtensionSmartApplyModal({
         onUseAnswer={(text) => {
           if (currentQ) {
             updateAnswers((prev) => ({ ...prev, [currentQ.id]: text }));
+            setReviewRequiredAnswerIds((prev) => new Set([...prev, currentQ.id]));
+            setReviewedAnswerIds((prev) => {
+              const next = new Set(prev);
+              next.delete(currentQ.id);
+              return next;
+            });
           }
         }}
         triggerQuestion={triggerQuestion}
@@ -594,24 +643,16 @@ function ExtensionSmartApplyModal({
                 {currentPrefill && (
                   <div
                     className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs ${
-                      CONFIDENCE_CONFIG[currentPrefill.confidence].bg
+                      currentPrefill.aiAnswer.trim()
+                        ? "border-amber-300 bg-amber-50 text-amber-900"
+                        : "border-border bg-muted/40 text-muted-foreground"
                     }`}
                   >
-                    {currentPrefill.confidence === "high" || currentPrefill.confidence === "medium" ? (
-                      <CheckCircle2
-                        className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                          CONFIDENCE_CONFIG[currentPrefill.confidence].color
-                        }`}
-                      />
-                    ) : (
-                      <AlertTriangle
-                        className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-                          CONFIDENCE_CONFIG[currentPrefill.confidence].color
-                        }`}
-                      />
-                    )}
-                    <span className={CONFIDENCE_CONFIG[currentPrefill.confidence].color}>
-                      AI: <span className="font-medium">{CONFIDENCE_CONFIG[currentPrefill.confidence].label}</span>
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {currentPrefill.aiAnswer.trim()
+                        ? "AI draft — verify every detail against your profile and CV before using it."
+                        : "No supported draft is available. Add only details you can confirm."}
                     </span>
                   </div>
                 )}
@@ -623,8 +664,33 @@ function ExtensionSmartApplyModal({
                   onChange={(e) => {
                     const val = e.target.value;
                     updateAnswers((prev) => ({ ...prev, [currentQ.id]: val }));
+                    if (reviewRequiredAnswerIds.has(currentQ.id)) {
+                      setReviewedAnswerIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(currentQ.id);
+                        return next;
+                      });
+                    }
                   }}
                 />
+                {reviewRequiredAnswerIds.has(currentQ.id) && answers[currentQ.id]?.trim() && (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                      checked={reviewedAnswerIds.has(currentQ.id)}
+                      onChange={(event) => {
+                        setReviewedAnswerIds((prev) => {
+                          const next = new Set(prev);
+                          if (event.target.checked) next.add(currentQ.id);
+                          else next.delete(currentQ.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span>I reviewed this draft and confirm every detail is accurate.</span>
+                  </label>
+                )}
               </motion.div>
             </AnimatePresence>
           )}
@@ -712,9 +778,10 @@ function ExtensionSmartApplyModal({
                   </p>
                   <Button
                     size="sm"
-                    onClick={() =>
-                      void coverLetter.generate({ jobTitle: roleTitle, roleId })
-                    }
+                    onClick={() => {
+                      setCoverLetterReviewed(false);
+                      void coverLetter.generate({ jobTitle: roleTitle, roleId });
+                    }}
                     className="gap-2"
                   >
                     <Sparkles className="w-4 h-4" /> Generate Cover Letter
@@ -725,7 +792,10 @@ function ExtensionSmartApplyModal({
                 <div className="text-center py-6">
                   <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
                   <p className="text-sm text-destructive mb-3">{coverLetter.error}</p>
-                  <Button size="sm" variant="outline" onClick={() => void coverLetter.generate({ jobTitle: roleTitle, roleId })}>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setCoverLetterReviewed(false);
+                    void coverLetter.generate({ jobTitle: roleTitle, roleId });
+                  }}>
                     Try Again
                   </Button>
                 </div>
@@ -740,7 +810,10 @@ function ExtensionSmartApplyModal({
                   <textarea
                     className="w-full min-h-[280px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
                     value={coverLetter.streaming ? coverLetter.text : clEditable}
-                    onChange={(e) => setClEditable(e.target.value)}
+                    onChange={(e) => {
+                      setClEditable(e.target.value);
+                      setCoverLetterReviewed(false);
+                    }}
                     readOnly={coverLetter.streaming}
                     placeholder="Your cover letter will appear here…"
                   />
@@ -748,6 +821,17 @@ function ExtensionSmartApplyModal({
                     <p className="text-[10px] text-muted-foreground border-l-2 border-primary/20 pl-2">
                       {coverLetter.disclaimer}
                     </p>
+                  )}
+                  {coverLetter.done && clEditable.trim() && (
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                        checked={coverLetterReviewed}
+                        onChange={(event) => setCoverLetterReviewed(event.target.checked)}
+                      />
+                      <span>I reviewed this cover letter and confirm every detail is accurate.</span>
+                    </label>
                   )}
                 </div>
               )}
@@ -759,17 +843,6 @@ function ExtensionSmartApplyModal({
 
         {step === "review" && (
           <div className="flex flex-col border-t border-border bg-muted/30">
-            {!isSendCv && (
-              <div className="flex items-center justify-center px-4 pt-3 sm:px-6">
-                <button
-                  onClick={handleSubmit}
-                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Accept all AI answers &amp; submit now
-                </button>
-              </div>
-            )}
             {cvDocuments.length >= 1 && (
               <div className="px-6 pt-3 flex items-center gap-2">
                 <span className="text-xs text-muted-foreground shrink-0">CV to record:</span>
@@ -865,7 +938,7 @@ function ExtensionSmartApplyModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={coverLetter.streaming}
+                    disabled={coverLetter.streaming || !coverLetterReviewed}
                     className="gap-1.5 text-xs"
                     onClick={() => {
                       const content = coverLetter.done ? clEditable : coverLetter.text;
@@ -883,7 +956,7 @@ function ExtensionSmartApplyModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={coverLetter.streaming}
+                    disabled={coverLetter.streaming || !coverLetterReviewed}
                     className="gap-1.5 text-xs"
                     onClick={() => {
                       const content = coverLetter.done ? clEditable : coverLetter.text;

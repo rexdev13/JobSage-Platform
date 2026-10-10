@@ -119,6 +119,15 @@ function CvParseDialog({
   isSaving: boolean;
 }) {
   const [fields, setFields] = useState<CvExtractedFields>({ ...extracted });
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+
+  function updateField<K extends keyof CvExtractedFields>(
+    key: K,
+    value: CvExtractedFields[K],
+  ) {
+    setFields((current) => ({ ...current, [key]: value }));
+    setReviewConfirmed(false);
+  }
 
   const displayFields: (keyof CvExtractedFields)[] = [
     "profession",
@@ -213,7 +222,7 @@ function CvParseDialog({
                 {key === "registrationStatus" ? (
                   <select
                     value={String(value ?? "")}
-                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || null }))}
+                    onChange={(e) => updateField(key, e.target.value || null)}
                     className={inputClass}
                   >
                     <option value="">Not found</option>
@@ -224,7 +233,7 @@ function CvParseDialog({
                 ) : key === "requiresSponsorship" ? (
                   <select
                     value={value === null || value === undefined ? "" : value ? "true" : "false"}
-                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value === "" ? null : e.target.value === "true" }))}
+                    onChange={(e) => updateField(key, e.target.value === "" ? null : e.target.value === "true")}
                     className={inputClass}
                   >
                     <option value="">Not found</option>
@@ -235,7 +244,7 @@ function CvParseDialog({
                   <input
                     type="number"
                     value={value === null || value === undefined ? "" : String(value)}
-                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                    onChange={(e) => updateField(key, e.target.value ? parseInt(e.target.value, 10) : null)}
                     className={inputClass}
                     placeholder="Not found"
                     min={key === "experienceYears" ? 0 : 1950}
@@ -244,7 +253,7 @@ function CvParseDialog({
                 ) : key === "rawNotes" ? (
                   <textarea
                     value={String(value ?? "")}
-                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || undefined }))}
+                    onChange={(e) => updateField(key, e.target.value || undefined)}
                     rows={2}
                     className={`${inputClass} resize-none`}
                     placeholder="No notes"
@@ -253,7 +262,7 @@ function CvParseDialog({
                   <input
                     type="text"
                     value={String(value ?? "")}
-                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || null }))}
+                    onChange={(e) => updateField(key, e.target.value || null)}
                     className={inputClass}
                     placeholder="Not found — type to add"
                   />
@@ -267,13 +276,22 @@ function CvParseDialog({
               <span className="font-semibold">Important:</span> Only fields with a value will be saved. Existing profile fields not found in your CV will not be overwritten. Always review before confirming.
             </p>
           </div>
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-xs text-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              checked={reviewConfirmed}
+              onChange={(event) => setReviewConfirmed(event.target.checked)}
+            />
+            <span>I reviewed the fields above and confirm the information being saved is accurate.</span>
+          </label>
         </div>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/30">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => onConfirm(fields)} disabled={isSaving}>
+          <Button size="sm" onClick={() => onConfirm(fields)} disabled={isSaving || !reviewConfirmed}>
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving…
@@ -368,7 +386,8 @@ function LabelEditor({
 
 export default function DocumentsPage() {
   const { data } = useListMyDocuments();
-  const { data: profile } = useGetMyProfile();
+  const profileQuery = useGetMyProfile();
+  const { data: profile } = profileQuery;
   const deleteMutation = useDeleteDocument();
   const parseCvMutation = useParseCv();
   const upsertProfileMutation = useUpsertMyProfile();
@@ -467,22 +486,63 @@ export default function DocumentsPage() {
   };
 
   const handleConfirmMerge = async (extracted: CvExtractedFields) => {
-    setIsSavingProfile(true);
+    if (profileQuery.isLoading || profileQuery.isError) {
+      toast({
+        title: "Profile is not ready",
+        description: "Wait for your existing profile to load, then try saving again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const isBootstrap = !profile;
+    if (isBootstrap) {
+      const requiredFields = [
+        { key: "profession", label: "Profession", value: extracted.profession },
+        { key: "specialty", label: "Specialty", value: extracted.specialty },
+        { key: "qualificationCountry", label: "Qualification country", value: extracted.qualificationCountry },
+        { key: "qualificationType", label: "Qualification type", value: extracted.qualificationType },
+        { key: "qualificationYear", label: "Qualification year", value: extracted.qualificationYear },
+        { key: "experienceYears", label: "Years of experience", value: extracted.experienceYears },
+        { key: "registrationStatus", label: "UK registration status", value: extracted.registrationStatus },
+        { key: "requiresSponsorship", label: "Sponsorship requirement", value: extracted.requiresSponsorship },
+      ] as const;
+      const missingFields = requiredFields
+        .filter(({ key, value }) => {
+          if (value === null || value === undefined) return true;
+          if (typeof value === "string") return value.trim().length === 0;
+          if (typeof value === "number") {
+            if (!Number.isInteger(value) || value < 0) return true;
+            return key === "qualificationYear" &&
+              (value < 1950 || value > new Date().getFullYear());
+          }
+          return false;
+        })
+        .map(({ label }) => label);
+
+      if (missingFields.length > 0) {
+        toast({
+          title: "Complete the missing profile fields",
+          description: `Enter a value for ${missingFields.join(", ")} before creating your profile.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setIsSavingProfile(true);
     try {
       const merged = {
         profession:
-          ((extracted.profession ?? profile?.profession) as "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic") ??
-          "doctor",
-        specialty: extracted.specialty ?? profile?.specialty ?? "",
-        qualificationCountry: extracted.qualificationCountry ?? profile?.qualificationCountry ?? "Unknown",
-        qualificationType: extracted.qualificationType ?? profile?.qualificationType ?? "Unknown",
-        qualificationYear: extracted.qualificationYear ?? profile?.qualificationYear ?? (new Date().getFullYear() - 5),
-        experienceYears: extracted.experienceYears ?? profile?.experienceYears ?? 0,
+          ((extracted.profession ?? profile?.profession)!) as "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic",
+        specialty: (extracted.specialty ?? profile?.specialty)!,
+        qualificationCountry: (extracted.qualificationCountry ?? profile?.qualificationCountry)!,
+        qualificationType: (extracted.qualificationType ?? profile?.qualificationType)!,
+        qualificationYear: (extracted.qualificationYear ?? profile?.qualificationYear)!,
+        experienceYears: (extracted.experienceYears ?? profile?.experienceYears)!,
         registrationStatus:
-          ((extracted.registrationStatus ?? profile?.registrationStatus) as "registered" | "not_registered" | "in_process") ??
-          "not_registered",
-        requiresSponsorship: extracted.requiresSponsorship ?? profile?.requiresSponsorship ?? false,
+          ((extracted.registrationStatus ?? profile?.registrationStatus)!) as "registered" | "not_registered" | "in_process",
+        requiresSponsorship: (extracted.requiresSponsorship ?? profile?.requiresSponsorship)!,
         licenceReady: profile?.licenceReady ?? null,
         residencyStatus: profile?.residencyStatus ?? "unknown",
         preferredRegion: extracted.preferredRegion

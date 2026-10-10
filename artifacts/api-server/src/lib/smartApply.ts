@@ -57,7 +57,8 @@ const SYSTEM_PROMPT = `You are a specialist UK healthcare career coach helping a
 
 Your task is to pre-fill job application questions using the candidate profile provided.
 For each question, write a concise, professional answer (2–5 sentences).
-Use only facts explicitly supplied in the candidate profile, CV extract, and role context. Never invent duties, qualifications, registrations, dates, achievements, employers, or personal circumstances. If the evidence is insufficient, set confidence to "none", explain what the candidate must add, and do not fabricate a response.
+Use only facts explicitly supplied in the candidate profile, CV extract, and role context. Never invent duties, qualifications, registrations, dates, achievements, employers, or personal circumstances. If the evidence is insufficient, set confidence to "none" and return an empty answer.
+Motivation, personal strengths, availability, and notice period are not structured candidate-profile facts. Do not infer them from a CV or job description; return an empty answer unless the candidate explicitly supplied the exact detail.
 Never answer criminal-record, conviction, disclosure, declaration, consent, agreement, or payroll questions. Those always need the candidate's own confirmation.
 
 Return ONLY valid JSON matching exactly:
@@ -152,19 +153,49 @@ ${roleContext.externalUrl ? `Vacancy URL: ${roleContext.externalUrl}` : ""}
     parsed = {};
   }
 
-  const prefills: PrefillResult[] = Array.isArray(parsed.prefills)
-    ? parsed.prefills
-        .filter(
-          (p): p is { questionId: string; aiAnswer: string; confidence: string; needsReview: boolean } =>
-            typeof p === "object" && p !== null
-        )
-        .map((p) => ({
-          questionId: String(p.questionId),
-          aiAnswer: String(p.aiAnswer),
-          confidence: normaliseConf(p.confidence),
-          needsReview: Boolean(p.needsReview),
-        }))
+  const modelPrefills = Array.isArray(parsed.prefills)
+    ? parsed.prefills.filter(
+        (p): p is Record<string, unknown> => typeof p === "object" && p !== null,
+      )
     : [];
+  const prefillsByQuestionId = new Map<string, Record<string, unknown>>();
+  for (const prefill of modelPrefills) {
+    if (typeof prefill.questionId === "string") {
+      prefillsByQuestionId.set(prefill.questionId, prefill);
+    }
+  }
+
+  // These questions ask for candidate-owned details that the profile schema
+  // does not store. Keep them blank rather than accepting plausible-sounding
+  // guesses from the model. The candidate can write their own answer.
+  const questionsWithoutStructuredEvidence = new Set([
+    "motivation",
+    "strengths",
+    "availability",
+  ]);
+
+  const prefills: PrefillResult[] = STANDARD_QUESTIONS.map((question) => {
+    const modelPrefill = prefillsByQuestionId.get(question.id);
+    const modelConfidence = normaliseConf(modelPrefill?.confidence);
+    const modelAnswer =
+      typeof modelPrefill?.aiAnswer === "string"
+        ? modelPrefill.aiAnswer.trim()
+        : "";
+    const aiAnswer =
+      modelConfidence === "none" ||
+      questionsWithoutStructuredEvidence.has(question.id)
+        ? ""
+        : modelAnswer;
+
+    return {
+      questionId: question.id,
+      aiAnswer,
+      // Model-reported confidence is not a review signal. Every generated
+      // answer must be checked by the candidate before it can be sent.
+      confidence: aiAnswer ? "medium" : "none",
+      needsReview: true,
+    };
+  });
 
   return prefills;
 }
