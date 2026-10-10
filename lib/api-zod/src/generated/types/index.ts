@@ -278,6 +278,8 @@ export * from "./smartApplyDraftResponse";
 export * from "./smartApplyDraftResponseAnswers";
 export * from "./smartApplyPrefill";
 export * from "./smartApplyPrefillConfidence";
+export * from "./smartApplyPrefillEvidenceItem";
+export * from "./smartApplyPrefillEvidenceItemSource";
 export * from "./smartApplyPrefillResponse";
 export * from "./smartApplyQuestionsResponse";
 export * from "./smartApplyRoleContext";

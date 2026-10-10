@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SmartApplyPrefillConfidence } from "./smartApplyPrefillConfidence";
+import type { SmartApplyPrefillEvidenceItem } from "./smartApplyPrefillEvidenceItem";
 
 export interface SmartApplyPrefill {
   questionId: string;
   aiAnswer: string;
+  /** Candidate-profile or CV phrases that support the retained answer. */
+  evidence: SmartApplyPrefillEvidenceItem[];
   confidence: SmartApplyPrefillConfidence;
   needsReview: boolean;
 }

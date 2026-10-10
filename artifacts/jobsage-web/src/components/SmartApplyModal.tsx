@@ -657,6 +657,20 @@ function ExtensionSmartApplyModal({
                   </div>
                 )}
 
+                {!!currentPrefill?.evidence?.length && (
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
+                    <p className="font-medium text-foreground">Supporting profile or CV details</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+                      {currentPrefill.evidence.map((item, index) => (
+                        <li key={`${currentQ.id}-evidence-${index}`}>
+                          <span className="font-medium text-foreground">{item.source === "cv" ? "CV: " : "Profile: "}</span>
+                          {item.phrase}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <textarea
                   className="w-full h-40 p-3 text-sm rounded-xl border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                   placeholder={currentQ.hint}

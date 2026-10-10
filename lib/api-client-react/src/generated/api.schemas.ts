@@ -897,6 +897,19 @@ export interface ApplicationQuestion {
   required: boolean;
 }
 
+export type SmartApplyPrefillEvidenceItemSource =
+  (typeof SmartApplyPrefillEvidenceItemSource)[keyof typeof SmartApplyPrefillEvidenceItemSource];
+
+export const SmartApplyPrefillEvidenceItemSource = {
+  profile: "profile",
+  cv: "cv",
+} as const;
+
+export type SmartApplyPrefillEvidenceItem = {
+  source: SmartApplyPrefillEvidenceItemSource;
+  phrase: string;
+};
+
 export type SmartApplyPrefillConfidence =
   (typeof SmartApplyPrefillConfidence)[keyof typeof SmartApplyPrefillConfidence];
 
@@ -910,6 +923,8 @@ export const SmartApplyPrefillConfidence = {
 export interface SmartApplyPrefill {
   questionId: string;
   aiAnswer: string;
+  /** Candidate-profile or CV phrases that support the retained answer. */
+  evidence: SmartApplyPrefillEvidenceItem[];
   confidence: SmartApplyPrefillConfidence;
   needsReview: boolean;
 }

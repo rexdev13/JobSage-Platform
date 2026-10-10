@@ -6034,12 +6034,24 @@ components:
 
     SmartApplyPrefill:
       type: object
-      required: [questionId, aiAnswer, confidence, needsReview]
+      required: [questionId, aiAnswer, evidence, confidence, needsReview]
       properties:
         questionId:
           type: string
         aiAnswer:
           type: string
+        evidence:
+          type: array
+          description: Candidate-profile or CV phrases that support the retained answer.
+          items:
+            type: object
+            required: [source, phrase]
+            properties:
+              source:
+                type: string
+                enum: [profile, cv]
+              phrase:
+                type: string
         confidence:
           type: string
           enum: [high, medium, low, none]

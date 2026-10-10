@@ -59,6 +59,14 @@ describe("Smart Apply prefill safety", () => {
     expect(byId.strengths.aiAnswer).toBe("");
     expect(byId.availability.aiAnswer).toBe("");
     expect(byId.clinical_experience.aiAnswer).toBe("I have eight years on adult medical wards.");
+    expect(byId.clinical_experience.evidence).toEqual([
+      { source: "cv", phrase: "Eight years on adult medical wards." },
+    ]);
+    expect(byId.uk_registration.aiAnswer).toBe("My NMC application is in process.");
+    expect(byId.uk_registration.evidence).toEqual([
+      { source: "cv", phrase: "NMC application in progress." },
+    ]);
+    expect(result.filter((item) => item.aiAnswer).every((item) => item.evidence.length > 0)).toBe(true);
     expect(result).toHaveLength(6);
     expect(result.every((item) => item.needsReview)).toBe(true);
     expect(result.filter((item) => item.aiAnswer).every((item) => item.confidence === "medium")).toBe(true);
@@ -85,6 +93,9 @@ describe("Smart Apply prefill safety", () => {
     expect(byId.motivation.needsReview).toBe(true);
     expect(byId.strengths.needsReview).toBe(true);
     expect(byId.availability.needsReview).toBe(true);
+    expect(byId.motivation.evidence).toEqual([
+      { source: "profile", phrase: "I want to support safe, compassionate care." },
+    ]);
   });
 
   it("keeps each unsupplied matching fact blank even when the model guesses", async () => {
@@ -126,9 +137,89 @@ describe("Smart Apply prefill safety", () => {
     const byId = Object.fromEntries(result.map((item) => [item.questionId, item]));
 
     expect(byId.clinical_experience.aiAnswer).toBe("");
+    expect(byId.clinical_experience.evidence).toEqual([]);
     expect(byId.clinical_experience.confidence).toBe("none");
     expect(byId.uk_registration.needsReview).toBe(true);
     expect(byId.right_to_work.aiAnswer).toBe("");
     expect(result).toHaveLength(6);
+  });
+
+  it("removes unsupported sentences from a high-confidence clinical answer", async () => {
+    createCompletion.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            prefills: [
+              {
+                questionId: "clinical_experience",
+                aiAnswer: "I have eight years on adult medical wards. I led a 12-person team and reduced infections by 30%.",
+                confidence: "high",
+                needsReview: false,
+              },
+            ],
+          }),
+        },
+      }],
+    });
+
+    const result = await prefillApplicationAnswers(profile, role);
+    const clinical = result.find((item) => item.questionId === "clinical_experience");
+
+    expect(clinical?.aiAnswer).toBe("I have eight years on adult medical wards.");
+    expect(clinical?.evidence).toEqual([
+      { source: "cv", phrase: "Eight years on adult medical wards." },
+    ]);
+    expect(clinical?.needsReview).toBe(true);
+  });
+
+  it("does not treat a negated source phrase as support for an affirmative registration claim", async () => {
+    createCompletion.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            prefills: [
+              {
+                questionId: "uk_registration",
+                aiAnswer: "I am registered with the NMC.",
+                confidence: "high",
+                needsReview: false,
+              },
+            ],
+          }),
+        },
+      }],
+    });
+
+    const result = await prefillApplicationAnswers({
+      ...profile,
+      cvText: "I am not registered with the NMC.",
+    }, role);
+    const registration = result.find((item) => item.questionId === "uk_registration");
+
+    expect(registration?.aiAnswer).toBe("");
+    expect(registration?.evidence).toEqual([]);
+  });
+
+  it.each([
+    {
+      description: "a conflicting profession",
+      cvText: "I am a doctor.",
+    },
+    {
+      description: "a conflicting qualification",
+      cvText: "Registered nurse with an MBBS qualification.",
+    },
+  ])("leaves clinical and registration answers blank when the CV contains $description evidence", async ({ cvText }) => {
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ prefills: modelPrefills() }) } }],
+    });
+
+    const result = await prefillApplicationAnswers({ ...profile, cvText }, role);
+    const byId = Object.fromEntries(result.map((item) => [item.questionId, item]));
+
+    expect(byId.clinical_experience.aiAnswer).toBe("");
+    expect(byId.clinical_experience.evidence).toEqual([]);
+    expect(byId.uk_registration.aiAnswer).toBe("");
+    expect(byId.uk_registration.evidence).toEqual([]);
   });
 });

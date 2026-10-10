@@ -1009,6 +1009,16 @@ export const SmartApplyPrefillResponse = zod.object({
     zod.object({
       questionId: zod.string(),
       aiAnswer: zod.string(),
+      evidence: zod
+        .array(
+          zod.object({
+            source: zod.enum(["profile", "cv"]),
+            phrase: zod.string(),
+          }),
+        )
+        .describe(
+          "Candidate-profile or CV phrases that support the retained answer.",
+        ),
       confidence: zod.enum(["high", "medium", "low", "none"]),
       needsReview: zod.boolean(),
     }),
