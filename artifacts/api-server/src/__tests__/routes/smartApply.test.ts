@@ -388,6 +388,75 @@ describe("Smart Apply extension endpoints", () => {
     expect(prompt).toContain("NMC");
   });
 
+  it("uses saved candidate-authored profile details for route-level prefill and keeps missing details blank", async () => {
+    const savedProfile = {
+      profession: "Registered Nurse",
+      specialty: "Adult Nursing",
+      qualificationCountry: "Nigeria",
+      qualificationType: "BSc Nursing",
+      qualificationYear: 2020,
+      experienceYears: 4,
+      registrationStatus: "registered",
+      residencyStatus: "Skilled Worker",
+      requiresSponsorship: true,
+      preferredStartDate: "Immediately",
+      preferredRegion: ["North West"],
+      languages: ["English"],
+      additionalNotes: null,
+      applicationMotivation: "I want to provide safe, compassionate care.",
+      applicationStrengths: "Calm under pressure; clear communicator.",
+      startAvailability: "Available from 1 September.",
+      noticePeriod: "Four weeks.",
+    };
+    const modelPrefills = [
+      { questionId: "motivation", aiAnswer: "A model-invented motivation.", confidence: "high", needsReview: false },
+      { questionId: "clinical_experience", aiAnswer: "", confidence: "none", needsReview: false },
+      { questionId: "uk_registration", aiAnswer: "", confidence: "none", needsReview: false },
+      { questionId: "right_to_work", aiAnswer: "", confidence: "none", needsReview: false },
+      { questionId: "strengths", aiAnswer: "A model-invented strength.", confidence: "high", needsReview: false },
+      { questionId: "availability", aiAnswer: "A model-invented start date and notice period.", confidence: "high", needsReview: false },
+    ];
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ prefills: modelPrefills }) } }],
+    });
+
+    queryResults.push([savedProfile], []);
+    const savedResponse = await request(buildApp())
+      .post("/roles/42/smart-apply/prefill")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(savedResponse.status).toBe(200);
+    const savedAnswers = Object.fromEntries(
+      savedResponse.body.prefills.map((item: { questionId: string }) => [item.questionId, item]),
+    );
+    expect(savedAnswers.motivation.aiAnswer).toBe(savedProfile.applicationMotivation);
+    expect(savedAnswers.strengths.aiAnswer).toBe(savedProfile.applicationStrengths);
+    expect(savedAnswers.availability.aiAnswer).toBe(
+      "Start availability: Available from 1 September.\nNotice period: Four weeks.",
+    );
+    expect(savedResponse.body.prefills.every((item: { needsReview: boolean }) => item.needsReview)).toBe(true);
+
+    queryResults.push([{
+      ...savedProfile,
+      applicationMotivation: null,
+      applicationStrengths: null,
+      startAvailability: null,
+      noticePeriod: null,
+    }], []);
+    const missingResponse = await request(buildApp())
+      .post("/roles/42/smart-apply/prefill")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(missingResponse.status).toBe(200);
+    const missingAnswers = Object.fromEntries(
+      missingResponse.body.prefills.map((item: { questionId: string }) => [item.questionId, item]),
+    );
+    expect(missingAnswers.motivation.aiAnswer).toBe("");
+    expect(missingAnswers.strengths.aiAnswer).toBe("");
+    expect(missingAnswers.availability.aiAnswer).toBe("");
+    expect(missingResponse.body.prefills.every((item: { needsReview: boolean }) => item.needsReview)).toBe(true);
+  });
+
   it("uses sponsor vacancy and licence context for the Smart Apply assistant", async () => {
     queryResults.push(
       [{
