@@ -1580,3 +1580,45 @@ mtime_ms = 1791439054172
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0d5891bf-5392-48e0-8668-16f4105d6ae1/6e0ac78d-011e-441e-93c5-543e2aaa1a3c"
 storage_version_token = "1791439056151901"
 content_type = "text/csv"
+
+[[outputs]]
+id = "5Xf2EpmYM_qMz0d4t5hsO"
+uri = "file://generated-artifacts/jobsage-sponsor-audit-20261010/merged-final/summary.md"
+type = "text"
+title = "Sponsor-vacancy audit summary"
+description = "Local no-write audit of 10 public-board CSVs plus the company-site output. Partial sources and import limitations are recorded."
+logical_id = "64a3e6cb-cdbd-45ca-9caa-166f8f1f475d"
+content_hash = "sha256:8a2529997c3ba498fdfbb84cc4639aaae60fd6d25cf1cb5daaaa0bb5d6455682"
+size = 3124
+mtime_ms = 1791631359412
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/64a3e6cb-cdbd-45ca-9caa-166f8f1f475d/ec7a6efb-30ab-4bef-94cb-e2defc5a269a"
+storage_version_token = "1791631459314518"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "kI8ZqY7XubO5YoceQsIGJ"
+uri = "file://generated-artifacts/jobsage-sponsor-audit-20261010/merged-final/guarded-vacancies.csv"
+type = "table"
+title = "Guarded vacancy subset (not imported)"
+description = "3,043 job-board rows pass local audit guards. The current protected importer does not accept these rows, so none were imported or made candidate-visible."
+logical_id = "6cd8cb1e-251e-4f24-ad89-217b272ce14d"
+content_hash = "sha256:0853391ef60b5c303275c31c1e4626e324d69bd948af01312ba628fbe626a3d6"
+size = 1482457
+mtime_ms = 1791631359212
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/6cd8cb1e-251e-4f24-ad89-217b272ce14d/7af786ae-6863-4838-8032-698cdd3e344a"
+storage_version_token = "1791631460697362"
+content_type = "text/csv"
+
+[[outputs]]
+id = "UqjyNT91ywoVWDBdyf29i"
+uri = "file://generated-artifacts/jobsage-sponsor-audit-20261010/merged-final/review-blocked-vacancies.csv"
+type = "table"
+title = "Review-blocked vacancy rows"
+description = "Vacancies held for location, profession, identity, title, source validation, or company-site role-link evidence."
+logical_id = "2fcbcf3f-994d-41cf-9a8e-e02caf514afd"
+content_hash = "sha256:7e98f7ec4c2ae1262974e17be95a4a7ee2ec8e9962724ab270a85d1fe327f2a3"
+size = 3157679
+mtime_ms = 1791631359300
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/2fcbcf3f-994d-41cf-9a8e-e02caf514afd/84aa7673-4f46-4465-b24e-2bd4ee8c4929"
+storage_version_token = "1791631462091807"
+content_type = "text/csv"
