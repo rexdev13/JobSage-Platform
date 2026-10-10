@@ -51,9 +51,11 @@ import { motion } from "framer-motion";
 import { AIChatSlideover } from "@/components/AIChatSlideover";
 import { cn } from "@/components/ui-enhanced";
 import { CareerJourneyCard } from "@/components/CareerJourneyCard";
+import { ExamPrepSupportCard } from "@/components/ExamPrepSupportCard";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 import { countPendingApplications, countUpcomingInterviews, getMonthlyReportOverview } from "@/lib/dashboardOverview";
 import { deriveCareerJourney, getCareerJourneyOverview } from "@/lib/candidateJourney";
+import { normalizeExamPrepProfession } from "@/lib/examPrepAccess";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -804,6 +806,19 @@ export default function DashboardPage() {
           applicationsQuery={applicationsQuery}
           reportQuery={reportQuery}
         />
+
+        {normalizeExamPrepProfession(profile?.profession) && (
+          <motion.section
+            aria-label="Professional exam preparation"
+            data-testid="dashboard-exam-prep"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.14, duration: 0.35 }}
+            className="mb-6"
+          >
+            <ExamPrepSupportCard compact />
+          </motion.section>
+        )}
 
         {/* ─── Nine-stage UK career journey ──────────────────────────────── */}
         <motion.div
