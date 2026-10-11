@@ -50,6 +50,10 @@ export function getContactWebSearchDailyCap(raw = process.env["CONTACT_WEB_SEARC
   return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, CONTACT_WEB_SEARCH_MAX_DAILY_CAP) : 0;
 }
 
+export function isContactWebSearchEnabled(raw = process.env["CONTACT_WEB_SEARCH_ENABLED"]): boolean {
+  return raw?.trim().toLowerCase() === "true";
+}
+
 function nextUtcDay(): Date { const value = new Date(); value.setUTCHours(24, 0, 0, 0); return value; }
 async function reserveContactWebSearch(organisationName: string): Promise<boolean> {
   const cap = getContactWebSearchDailyCap();
@@ -276,6 +280,9 @@ export async function lookupOfficialWebsite(
   organisationName: string,
   candidateUrl?: string | null,
 ): Promise<WebsiteLookupResult> {
+  if (!isContactWebSearchEnabled()) {
+    return { error: "contact web-search lookup is disabled", deferred: true };
+  }
   try {
     if (!await reserveContactWebSearch(organisationName)) {
       return { error: "contact web-search daily allowance unavailable", deferred: true };

@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   citedWebsiteFromResponse,
   chooseStoredContactCandidate,
   corroboratesEmployer,
   extractPublishedContactEmails,
   getContactWebSearchDailyCap,
+  isContactWebSearchEnabled,
+  lookupOfficialWebsite,
   shouldRunPaidContactEnrichment,
 } from "../../lib/contactEnrichmentRunner";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("extractPublishedContactEmails", () => {
   it("uses published mailto/plain-text addresses and prioritises recruitment", () => {
@@ -99,6 +105,18 @@ describe("stored contact harvest", () => {
 });
 
 describe("official website lookup guards", () => {
+  it("keeps model-backed contact lookup off unless explicitly enabled", async () => {
+    vi.stubEnv("CONTACT_WEB_SEARCH_ENABLED", "false");
+    expect(isContactWebSearchEnabled()).toBe(false);
+    await expect(lookupOfficialWebsite("Acme Hospital")).resolves.toEqual({
+      error: "contact web-search lookup is disabled",
+      deferred: true,
+    });
+
+    vi.stubEnv("CONTACT_WEB_SEARCH_ENABLED", "true");
+    expect(isContactWebSearchEnabled()).toBe(true);
+  });
+
   it("requires the URL written in output_text to have an exact-host URL citation", () => {
     const response = { output: [{ content: [{ annotations: [{ type: "url_citation", url: "https://www.acme.co.uk/about" }] }] }] };
     expect(citedWebsiteFromResponse("https://www.acme.co.uk", response)).toBe("https://www.acme.co.uk/");

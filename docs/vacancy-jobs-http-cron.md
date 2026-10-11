@@ -373,17 +373,20 @@ per hour would be needed. Staggered cron callers are safe only if they are
 strictly serialized and honor `Retry-After`.
 
 The contact worker has its own persisted UTC daily web-search allowance
-(`CONTACT_WEB_SEARCH_DAILY_CAP`, default 50, maximum 100). A zero-selected
-contact response may still report backlog because rows are awaiting their retry
-time or tomorrow's allowance; stop that loop rather than hammering the endpoint,
-and let the daily contact schedule run again.
+(`CONTACT_WEB_SEARCH_DAILY_CAP`, default 50, maximum 100). Model-backed website
+lookups are separately disabled unless `CONTACT_WEB_SEARCH_ENABLED=true` is set.
+Keep that flag unset to disable GPT-backed lookup; database-only harvesting
+still runs. A zero-selected contact response may still report backlog because
+rows are awaiting their retry time or tomorrow's allowance; stop that loop
+rather than hammering the endpoint, and let the daily contact schedule run again.
 
 Before any paid lookup, the contact worker drains a database-only harvest in
 batches of up to 250 employers with a 20-second time budget. It checks current,
 non-dead stored vacancies and matching employer-profile contacts, never fetches
 a page, and never overwrites an existing sponsor contact. Responses expose
 `harvested`, `skippedExisting`, `noEmailInStore`, and `harvestRemaining`.
-Paid website discovery remains disabled until `harvestRemaining` reaches zero.
+When explicitly enabled, paid website discovery remains disabled until
+`harvestRemaining` reaches zero.
 
 ## GitHub Actions loop
 
