@@ -1074,47 +1074,47 @@ export default function SponsorLicencesPage() {
                 )}
 
                 {/* Summary stats */}
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <Card className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  <Card className="flex min-w-0 flex-col items-start gap-2 p-3 xl:flex-row xl:items-center xl:gap-4 xl:p-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 xl:h-10 xl:w-10">
                       <Building2 className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Licensed Sponsors</p>
-                      <p className="text-xl font-bold text-foreground">
+                    <div className="w-full min-w-0">
+                      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">Total Licensed Sponsors</p>
+                      <p className="break-words text-lg font-bold text-foreground sm:text-xl">
                         {countsLoading ? "—" : totalSponsors.toLocaleString()}
                       </p>
                     </div>
                   </Card>
-                  <Card className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                  <Card className="flex min-w-0 flex-col items-start gap-2 p-3 xl:flex-row xl:items-center xl:gap-4 xl:p-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-500/10 xl:h-10 xl:w-10">
                       <Briefcase className="w-5 h-5 text-green-600" />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">With JOBSAGE Vacancies</p>
-                      <p className="text-xl font-bold text-foreground">
+                    <div className="w-full min-w-0">
+                      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">With JOBSAGE Vacancies</p>
+                      <p className="break-words text-lg font-bold text-foreground sm:text-xl">
                         {vacancyStatsLoading ? "—" : vacancyCompaniesCount.toLocaleString()}
                       </p>
                     </div>
                   </Card>
-                  <Card className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Card className="flex min-w-0 flex-col items-start gap-2 p-3 xl:flex-row xl:items-center xl:gap-4 xl:p-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 xl:h-10 xl:w-10">
                       <Bookmark className="w-5 h-5 text-amber-600" />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Bookmarked</p>
-                      <p className="text-xl font-bold text-foreground">
+                    <div className="w-full min-w-0">
+                      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">Bookmarked</p>
+                      <p className="break-words text-lg font-bold text-foreground sm:text-xl">
                         {bookmarkedCount.toLocaleString()}
                       </p>
                     </div>
                   </Card>
-                  <Card className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
+                  <Card className="flex min-w-0 flex-col items-start gap-2 p-3 xl:flex-row xl:items-center xl:gap-4 xl:p-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 xl:h-10 xl:w-10">
                       <RefreshCw className="w-5 h-5 text-sky-600" />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Last Register Sync</p>
-                      <p className="text-xl font-bold text-foreground">{formatSyncDate(lastSyncedAt)}</p>
+                    <div className="w-full min-w-0">
+                      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">Last Register Sync</p>
+                      <p className="break-words text-lg font-bold text-foreground sm:text-xl">{formatSyncDate(lastSyncedAt)}</p>
                     </div>
                   </Card>
                 </div>
@@ -1224,7 +1224,7 @@ export default function SponsorLicencesPage() {
                 )}
 
                 {/* Stats row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
                   {[
                     {
                       label: "Sponsors in this sector",
@@ -1255,13 +1255,13 @@ export default function SponsorLicencesPage() {
                       bg: "bg-sky-500/10",
                     },
                   ].map((s) => (
-                    <Card key={s.label} className="p-4 flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
+                    <Card key={s.label} className="flex min-w-0 flex-col items-start gap-2 p-3 xl:flex-row xl:items-center xl:gap-4 xl:p-4">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.bg} xl:h-10 xl:w-10`}>
                         <s.icon className={`w-5 h-5 ${s.color}`} />
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">{s.label}</p>
-                        <p className="text-xl font-bold text-foreground">{s.value}</p>
+                      <div className="w-full min-w-0">
+                        <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">{s.label}</p>
+                        <p className="break-words text-lg font-bold text-foreground sm:text-xl">{s.value}</p>
                       </div>
                     </Card>
                   ))}

@@ -598,15 +598,13 @@ export default function PathPage() {
             </h2>
 
             {/* 5 × 2 grid with connecting arrows */}
-            <div className="grid grid-cols-5 gap-x-2 gap-y-6">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-2 lg:gap-y-6">
               {stages.map((stage, i) => {
-                const isEvenRow = Math.floor(i / 5) % 2 === 0;
-                const posInRow = isEvenRow ? i % 5 : 4 - (i % 5);
                 const isLast = i === stages.length - 1;
                 const isRowEnd = (i + 1) % 5 === 0;
 
                 return (
-                  <div key={stage.id} className="relative flex flex-col items-center" style={{ order: Math.floor(i / 5) * 5 + posInRow }}>
+                  <div key={stage.id} className="relative flex min-w-0 flex-col items-center">
                     <StageNode
                       stage={stage}
                       isSelected={selectedId === stage.id}
@@ -614,7 +612,7 @@ export default function PathPage() {
                     />
                     {/* Connector line */}
                     {!isLast && !isRowEnd && (
-                      <div className="absolute right-0 top-7 w-1/2 h-0.5 bg-border translate-x-full" />
+                      <div className="absolute right-0 top-7 hidden h-0.5 w-1/2 translate-x-full bg-border lg:block" />
                     )}
                   </div>
                 );

@@ -141,7 +141,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-6 h-6" />
           </Button>
         </header>
-        <main className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 bg-gray-50/30">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto relative z-0 bg-gray-50/30">
           {children}
         </main>
       </div>

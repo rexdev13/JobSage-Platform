@@ -121,7 +121,7 @@ export default function ReleaseNotesPage() {
 
       {/* ── Top nav (hidden on print) ── */}
       <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between sm:px-6">
           <img src="/logo.png" alt="JOBSAGE" className="h-8" />
           <button
             onClick={() => window.print()}
@@ -132,23 +132,23 @@ export default function ReleaseNotesPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-10 print:py-4">
+      <main className="max-w-3xl mx-auto px-4 py-6 print:py-4 sm:px-6 sm:py-10">
 
         {/* ── Document header ── */}
         <div className="mb-10 print:mb-6">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">JOBSAGE — Release Notes</h1>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-600 mt-4">
+          <dl className="mt-4 grid grid-cols-1 gap-y-1 text-sm text-slate-600 sm:grid-cols-2 sm:gap-x-6">
             <div className="flex gap-2">
               <dt className="font-medium text-slate-400 w-20 shrink-0">Version</dt>
-              <dd>Internal Build · Sprint Week</dd>
+              <dd className="min-w-0 break-words">Internal Build · Sprint Week</dd>
             </div>
             <div className="flex gap-2">
               <dt className="font-medium text-slate-400 w-20 shrink-0">Period</dt>
-              <dd>Wednesday 12 August – Sunday 16 August 2026</dd>
+              <dd className="min-w-0 break-words">Wednesday 12 August – Sunday 16 August 2026</dd>
             </div>
             <div className="flex gap-2">
               <dt className="font-medium text-slate-400 w-20 shrink-0">Base URL</dt>
-              <dd>
+              <dd className="min-w-0 break-all">
                 <a href={PROD} className="text-primary underline underline-offset-2" target="_blank" rel="noopener noreferrer">
                   {PROD}
                 </a>

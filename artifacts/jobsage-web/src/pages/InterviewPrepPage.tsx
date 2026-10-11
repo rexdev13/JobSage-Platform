@@ -182,9 +182,9 @@ export default function InterviewPrepPage() {
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
         <DisclaimerBanner />
 
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
+        <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-display font-bold text-foreground">
               <Sparkles className="w-6 h-6 text-violet-500" />
               Interview Preparation
             </h1>
@@ -197,7 +197,7 @@ export default function InterviewPrepPage() {
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="gap-1.5 shrink-0"
+            className="gap-1.5 sm:shrink-0"
           >
             {isFetching ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -231,38 +231,40 @@ export default function InterviewPrepPage() {
             <Search className="w-3.5 h-3.5 text-primary" />
             Generate questions for a specific specialty
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="text"
               value={specialtyInput}
               onChange={(e) => setSpecialtyInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="e.g. Cardiology, Secondary Maths, Structural Engineering…"
-              className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="h-9 w-full min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <Button
-              size="sm"
-              onClick={handleSpecialtySearch}
-              disabled={isFetching}
-              className="gap-1.5 shrink-0"
-            >
-              {isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-              Search
-            </Button>
-            {activeSpecialty && (
+            <div className="flex gap-2">
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setActiveSpecialty(undefined);
-                  setSpecialtyInput("");
-                  void refetch();
-                }}
-                className="shrink-0 text-xs"
+                onClick={handleSpecialtySearch}
+                disabled={isFetching}
+                className="flex-1 justify-center gap-1.5 sm:flex-none"
               >
-                Reset
+                {isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Search
               </Button>
-            )}
+              {activeSpecialty && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setActiveSpecialty(undefined);
+                    setSpecialtyInput("");
+                    void refetch();
+                  }}
+                  className="flex-1 justify-center text-xs sm:flex-none"
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
           </div>
           {activeSpecialty && (
             <p className="text-xs text-primary mt-2">

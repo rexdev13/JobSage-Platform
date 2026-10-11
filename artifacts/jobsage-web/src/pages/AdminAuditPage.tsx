@@ -340,12 +340,14 @@ export default function AdminAuditPage() {
           </p>
         </div>
 
-        <div className="flex gap-2 border-b border-border pb-0">
+        <div role="tablist" aria-label="Audit log categories" className="flex max-w-full flex-wrap gap-x-1 gap-y-1 border-b border-border pb-0">
           {(["decisions", "consents", "admin-actions"] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              className={`shrink-0 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-px sm:px-5 sm:text-sm ${
                 tab === t
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"

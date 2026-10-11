@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AppLayout } from "@/components/layout/AppLayout";
 import {
   useGetCandidateMessages,
   useMarkMessageRead,
@@ -8,7 +8,7 @@ import {
   getGetInboxUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send, Reply, CalendarCheck, Trophy, LifeBuoy } from "lucide-react";
+import { Inbox, MailOpen, Archive, Building2, Info, ChevronLeft, ChevronRight, Send, Reply, CalendarCheck, Trophy, LifeBuoy } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import type { CandidateMessage } from "@workspace/api-client-react";
 import { buildThreads, type InboxThread } from "./inboxThreads";
@@ -97,11 +97,11 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <AppSidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <AppLayout>
+      <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <div className="h-16 border-b border-border flex items-center px-6 shrink-0">
+        <div className={cn("flex h-16 shrink-0 items-center border-b border-border px-4 md:px-6", selectedThread && "hidden md:flex")}>
           <Inbox className="w-5 h-5 text-primary mr-2" />
           <h1 className="text-lg font-display font-bold text-foreground">Messages</h1>
           {totalUnread > 0 && (
@@ -111,9 +111,12 @@ export default function InboxPage() {
           )}
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
           {/* Thread list */}
-          <div className="w-80 border-r border-border flex flex-col overflow-hidden shrink-0">
+          <div className={cn(
+            "w-full min-w-0 flex-col overflow-hidden border-r border-border md:flex md:w-80 md:shrink-0",
+            selectedThread ? "hidden" : "flex",
+          )}>
             {isLoading ? (
               <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">Loading…</div>
             ) : threads.length === 0 ? (
@@ -210,25 +213,38 @@ export default function InboxPage() {
           </div>
 
           {/* Thread detail */}
-          <div className="flex-1 overflow-y-auto">
+          <div className={cn(
+            "min-w-0 flex-1 overflow-y-auto",
+            selectedThread ? "block" : "hidden md:block",
+          )}>
             {activeThread ? (
-              <div className="max-w-2xl mx-auto py-8 px-8">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <p className="font-semibold text-base text-foreground">{activeThread.sender}</p>
-                    {activeThread.latestMessage.messageType === "employer" && activeThread.latestMessage.industry && (
-                      <p className="text-xs text-muted-foreground">{activeThread.latestMessage.industry}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {activeThread.messages.length} message{activeThread.messages.length !== 1 ? "s" : ""}
-                    </p>
+              <div className="mx-auto max-w-2xl px-4 py-4 sm:px-8 sm:py-8">
+                <div className="mb-6 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedThread(null)}
+                      aria-label="Back to messages"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted md:hidden"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold text-base text-foreground">{activeThread.sender}</p>
+                      {activeThread.latestMessage.messageType === "employer" && activeThread.latestMessage.industry && (
+                        <p className="text-xs text-muted-foreground">{activeThread.latestMessage.industry}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {activeThread.messages.length} message{activeThread.messages.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleArchiveThread(activeThread)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors px-3 py-1.5 rounded-lg hover:bg-destructive/10"
+                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive sm:px-3"
                   >
-                    <Archive className="w-4 h-4" />
-                    Archive thread
+                    <Archive className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Archive thread</span>
                   </button>
                 </div>
 
@@ -242,14 +258,14 @@ export default function InboxPage() {
                     const ReplyIcon = replyMeta?.icon;
                     return (
                       <div key={msg.id} className={cn(
-                        "rounded-xl p-5 border",
+                        "min-w-0 rounded-xl border p-4 sm:p-5",
                         isSupport
                           ? "bg-emerald-50/60 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50"
                           : isEmployerReply
                           ? "bg-violet-50/50 dark:bg-violet-900/10 border-violet-200 dark:border-violet-800/50"
                           : "bg-muted/30 border-border"
                       )}>
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className={cn(
                               "w-7 h-7 rounded-full flex items-center justify-center",
@@ -325,7 +341,8 @@ export default function InboxPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+        </section>
+      </div>
+    </AppLayout>
   );
 }

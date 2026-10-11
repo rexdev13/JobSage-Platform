@@ -492,8 +492,8 @@ export default function ProfilePage() {
     <AppLayout>
       <PageTransition>
         <header className="mb-6">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="flex items-center gap-5">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
               <div id="profile-photo-section" className="relative shrink-0">
                 <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
                   {displayPhotoUrl ? (
@@ -530,14 +530,14 @@ export default function ProfilePage() {
                   </p>
                 )}
               </div>
-              <div>
-                <h1 className="text-3xl font-display font-bold text-foreground">Personal & Professional Profile</h1>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-display font-bold text-foreground sm:text-3xl">Personal & Professional Profile</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Review and complete your details — fields are saved automatically as you fill them in.
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex min-h-11 w-full items-center justify-end gap-3 lg:w-auto lg:shrink-0">
               {autoSaveStatus === "saving" && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" /> Saving…
@@ -548,7 +548,7 @@ export default function ProfilePage() {
                   <CheckCircle2 className="w-3 h-3" /> Saved
                 </span>
               )}
-              <Button onClick={handleSubmit} disabled={upsertMutation.isPending} variant="outline" size="sm">
+              <Button onClick={handleSubmit} disabled={upsertMutation.isPending} variant="outline" size="sm" className="min-h-11 shrink-0 px-4">
                 <Save className="w-4 h-4 mr-2" />
                 {upsertMutation.isPending ? "Saving…" : "Save Changes"}
               </Button>

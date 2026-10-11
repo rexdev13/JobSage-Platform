@@ -1526,19 +1526,24 @@ export default function OpportunitiesPage() {
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
+              aria-label={label}
+              aria-pressed={activeTab === id}
               onClick={() => {
                 setSelectedRole(null);
                 setGapAnalysisRole(null);
                 setActiveTab(id);
               }}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`min-w-0 flex-1 flex min-h-12 flex-col items-center justify-center gap-1 px-1.5 py-2 text-[10px] leading-tight lg:min-h-10 lg:flex-row lg:gap-2 lg:px-3 lg:text-sm rounded-lg font-medium transition-all ${
                 activeTab === id
                   ? "bg-background shadow-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{label}</span>
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="text-center lg:hidden">
+                {id === "board" ? "Job board" : id === "employers" ? "Company sites" : "Send CV"}
+              </span>
+              <span className="hidden lg:inline">{label}</span>
             </button>
           ))}
         </div>

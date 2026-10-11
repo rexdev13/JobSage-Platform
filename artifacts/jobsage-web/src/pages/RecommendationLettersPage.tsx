@@ -239,9 +239,9 @@ export default function RecommendationLettersPage() {
       <PageTransition>
         {showAdd && <AddLetterModal onClose={() => setShowAdd(false)} />}
 
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
+        <header className="mb-8 flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-3 text-3xl font-display font-bold text-foreground">
               <Star className="w-8 h-8 text-primary" />
               References
             </h1>
@@ -249,7 +249,7 @@ export default function RecommendationLettersPage() {
               Professional references and verified employer endorsements that strengthen your profile.
             </p>
           </div>
-          <Button onClick={() => setShowAdd(true)} className="gap-1.5 shrink-0">
+          <Button onClick={() => setShowAdd(true)} className="gap-1.5 sm:shrink-0">
             <Plus className="w-4 h-4" /> Add Letter
           </Button>
         </header>

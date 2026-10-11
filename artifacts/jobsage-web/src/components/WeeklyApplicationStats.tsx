@@ -40,7 +40,7 @@ export function WeeklyApplicationStats({
         )}
       </div>
       {isLoading && !stats ? (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {ITEMS.map((item) => <div key={item.key} className="h-12 rounded-lg bg-muted animate-pulse" />)}
         </div>
       ) : (
