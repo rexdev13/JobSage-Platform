@@ -1650,3 +1650,87 @@ mtime_ms = 1791633861168
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e4bdeff9-1de2-47c6-b3ce-fc8a8bf0e71c/96b2ef63-9c40-4ed1-a625-e211782aba59"
 storage_version_token = "1791636387171545"
 content_type = "text/csv"
+
+[[outputs]]
+id = "_kCJi3Qof6IsCL8sDfPU_"
+uri = "file://generated-artifacts/visual-review/desktop-dashboard-time-to-eligibility.png"
+type = "image"
+title = "Desktop dashboard — eligibility estimate"
+description = "Authenticated local synthetic-candidate capture showing the dashboard readiness and time-to-eligibility card."
+logical_id = "e85197d6-4c12-41af-b899-478ac1fb3d73"
+content_hash = "sha256:efead35e719ad29072184e7e7ad2a43a1a9a7550e67b385cfb2a0d825c0e0120"
+size = 264293
+mtime_ms = 1791703783323
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e85197d6-4c12-41af-b899-478ac1fb3d73/e29f97fb-9d5b-4f0a-92e0-832c8097db5b"
+storage_version_token = "1791704322286913"
+content_type = "image/png"
+
+[[outputs]]
+id = "N6HTD75KNpbiTi3G2w3sk"
+uri = "file://generated-artifacts/visual-review/mobile-dashboard-final.png"
+type = "image"
+title = "Mobile dashboard"
+description = "390 px authenticated local capture of the candidate dashboard overview and readiness state."
+logical_id = "67adbc8a-f9d8-4674-806e-02f3f9e8e769"
+content_hash = "sha256:e495577717d5b85b19e7a234e89afadcffc1700ac8220ff5b4a64b36a0e5bd46"
+size = 95343
+mtime_ms = 1791703801432
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/67adbc8a-f9d8-4674-806e-02f3f9e8e769/a08788c5-1bba-480b-95b9-1f6c37dad71c"
+storage_version_token = "1791704323182466"
+content_type = "image/png"
+
+[[outputs]]
+id = "N2paNTl4bau0yqD8AeDNN"
+uri = "file://generated-artifacts/visual-review/tablet-opportunities-loaded.png"
+type = "image"
+title = "Tablet Opportunities — loaded results"
+description = "768 px local capture showing the job-board results, UK-region filters, and match cards."
+logical_id = "f5839e56-d283-4f52-a0bc-54859b2e0c8d"
+content_hash = "sha256:d0895a3ba4fd3f690f4adf692b629b8b81a4cc48f3c592840528142f99a08506"
+size = 180517
+mtime_ms = 1791703962827
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f5839e56-d283-4f52-a0bc-54859b2e0c8d/3e0df227-4f3e-460d-9703-68dd728a072a"
+storage_version_token = "1791704324060219"
+content_type = "image/png"
+
+[[outputs]]
+id = "5pb3igYvCtfL7TIDoF46Y"
+uri = "file://generated-artifacts/visual-review/mobile-opportunities-send-cv-loaded.png"
+type = "image"
+title = "Mobile Send CV — loaded matches"
+description = "390 px local capture showing matched-vacancy count and employer grouping; no send action was taken."
+logical_id = "6381e771-6ebb-4413-898d-b96a6df6d96f"
+content_hash = "sha256:79a673ae567e6df4bd918038a1187bdc150515e17e5686405e9c2aa849dea823"
+size = 71844
+mtime_ms = 1791703955815
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/6381e771-6ebb-4413-898d-b96a6df6d96f/ea9868a9-02e0-44e7-8028-ada9d2209ac5"
+storage_version_token = "1791704324786844"
+content_type = "image/png"
+
+[[outputs]]
+id = "kYtWZN2J77WOlX_UlGo-b"
+uri = "file://generated-artifacts/visual-review/mobile--profile.png"
+type = "image"
+title = "Mobile Profile — layout finding"
+description = "390 px local capture; the Save Changes control is clipped at the right edge. This profile page was unchanged by the merge and was not edited."
+logical_id = "06a832d5-bc44-4b4c-9356-2cb4563014cb"
+content_hash = "sha256:7f53968c9e42c2a2561e67356b8460349a60d328ffe2e9b281595877928a570e"
+size = 73820
+mtime_ms = 1791703818380
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/06a832d5-bc44-4b4c-9356-2cb4563014cb/31b905ba-fcba-4940-ad32-3ee24b2eeb5f"
+storage_version_token = "1791704325715986"
+content_type = "image/png"
+
+[[outputs]]
+id = "Se9JxeiucufLtes3x3vxF"
+uri = "file://generated-artifacts/visual-review/desktop-sponsor-vacancy-details.png"
+type = "image"
+title = "Sponsor vacancy details — loading state"
+description = "Local capture after expanding a sponsor. The vacancy-detail request remained loading and was aborted after about 20 seconds; Smart Apply was not reached."
+logical_id = "be294f0b-e6e1-4774-85e4-51ab90f0a231"
+content_hash = "sha256:191b8fe769dd86ff5c962452ebaedc781a35a32410441a9ae28bcdd7fac96089"
+size = 221497
+mtime_ms = 1791703991443
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/be294f0b-e6e1-4774-85e4-51ab90f0a231/6d9e0277-4eab-4e84-956e-270f54c3f444"
+storage_version_token = "1791704326662160"
+content_type = "image/png"
