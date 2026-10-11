@@ -69,6 +69,7 @@
 - [Company-site health probes](company-site-health-probes.md) — classify hosts through the shared safe fetch path before crawling; timeouts must retain the writer lock until work settles.
 - [Public-feed phase pacing](public-feed-phase-pacing.md) — phase yields are necessary; source retry expiry alone does not prove shared host pacing has cleared.
 - [Vacancy visibility enforcement](vacancy-visibility-enforcement.md) — keep one status rule aligned across SQL aggregates, detail lists, click checks, and application creation.
+- [Untyped live vacancy audits](untyped-vacancy-audit.md) — include NULL-source fresh-live vacancies in location and candidate-visibility audits; do not silently drop them.
 - [Multi-round task sync](task-rebase-generated-assets.md) — generated assets can conflict repeatedly; defer asset re-registration until all sync rounds finish.
 - [Vacancy sync-log contract](vacancy-sync-log-contract.md) — every external vacancy batch needs an explicit kind, liveness counters, and one serialized writer path.
 - [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.
