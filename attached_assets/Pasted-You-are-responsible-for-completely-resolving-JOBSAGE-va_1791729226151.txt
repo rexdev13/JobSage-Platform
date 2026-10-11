@@ -1,0 +1,606 @@
+You are responsible for completely resolving JOBSAGE vacancy coverage.
+
+Work autonomously in the repository until the development environment has broad, valid, current and reproducible vacancy coverage across every supported sector and all three candidate modes:
+
+1. Job Boards
+2. Company Websites
+3. Direct Send CV eligibility
+
+Supported sectors:
+
+- Healthcare
+- Education
+- Engineering
+- IT
+- Legal
+- Accounting
+- Architecture
+- Business Development
+
+Do not stop after changing code or passing mocked tests. Continuously measure the actual development database and candidate API, identify the weakest sector/mode combination, fix or expand it, rerun ingestion, run liveness and contact enrichment, and measure again.
+
+Continue until all acceptance gates below pass or a genuine external dependency requires unavailable credentials or written permission. A blocked provider must not stop progress on other providers, sectors or modes.
+
+SAFETY AND SCOPE
+
+- Work in development only.
+- Do not deploy.
+- Do not change production cron.
+- Do not write to production data.
+- Do not send real candidate CVs to real employers.
+- Before editing, record:
+  - `git status --short --branch`
+  - `git remote -v`
+  - `git branch -vv`
+  - current commit hash
+- Preserve unrelated work.
+- Inspect the actual repository. Do not assume previously discussed local files exist.
+- Never fabricate vacancies, companies, URLs, sponsorship claims or email addresses.
+- A sponsor licence does not prove that a particular vacancy offers sponsorship. Keep sponsorship unknown unless the vacancy advert explicitly proves it.
+
+EMAIL AND CONTACT RULES
+
+Find recruitment emails aggressively but lawfully and with evidence.
+
+Allowed sources:
+
+1. Email explicitly published on the vacancy advert.
+2. Structured contact data on the official vacancy or ATS page.
+3. Official employer recruitment, careers or contact page.
+4. Persisted employer account/contact.
+5. Approved and licensed lookup provider, only when configured and permitted.
+
+For every accepted email, store:
+
+- normalized email;
+- evidence URL;
+- source type;
+- extraction timestamp;
+- employer identity;
+- associated vacancy where applicable;
+- confidence;
+- validation result.
+
+Do not:
+
+- invent or guess email patterns;
+- brute-force mailboxes;
+- bypass authentication, CAPTCHAs or access restrictions;
+- use leaked or personal datasets;
+- scrape websites that prohibit it;
+- send verification spam;
+- count an operations fallback as direct Send CV.
+
+Prefer role-specific recruitment addresses, followed by official general recruitment/careers addresses. A personal staff email is usable only when the employer explicitly published it as the contact for that vacancy.
+
+Respect robots.txt, source terms, APIs, rate limits, DNS and SSRF protections, redirect limits, response limits, host pacing, timeouts and backoff.
+
+You may study official documentation and reputable technical videos where helpful, but research is not completion. Working code and measured development evidence are required.
+
+KNOWN AUDIT LEADS — VERIFY THEM YOURSELF
+
+- GitHub master may not contain locally developed ATS-directory bootstrap, source registry, Adzuna/CV-Library clients, expanded profession targets or updated scheduling.
+- A previous local development audit found 332 stored sponsor vacancies but zero satisfying the current 48-hour candidate-visibility freshness gate.
+- The same database had approximately 143,027 sponsor records but only two syntactically usable sponsor contact emails.
+- No Send CV delivery records were present.
+- Historical September coverage reports are stale and cannot establish current vacancy volume.
+- Production API startup delegates short vacancy jobs to an authenticated external HTTP scheduler, but the actual external scheduler has not been proven operational.
+- The standalone vacancy CLI may support fewer job kinds than the HTTP endpoint.
+
+Recheck everything rather than blindly trusting these observations.
+
+FIRST DELIVERABLE: ARCHITECTURE AND BASELINE AUDIT
+
+Map the entire vacancy path:
+
+source discovery
+→ employer identity
+→ sponsor matching
+→ classification
+→ persistence
+→ deduplication
+→ liveness
+→ candidate visibility
+→ contact enrichment
+→ Opportunities API/UI
+→ Send CV delivery
+→ application tracker
+
+Audit:
+
+- source registry and permission state;
+- credentials required by each source;
+- every job board, API, feed and ATS connector;
+- all eight sector taxonomies and profession targets;
+- sponsor identity matching and ambiguity handling;
+- URL validation and normalization;
+- persistence and database migrations;
+- duplicate detection;
+- liveness and freshness;
+- company-site evidence;
+- contact-email enrichment;
+- Send CV eligibility and delivery;
+- background jobs, cursors, locks and retries;
+- cron ownership and monitoring;
+- candidate API and UI filters that hide vacancies.
+
+Generate a baseline matrix with one row for each sector and separate columns for:
+
+- discovered;
+- identity eligible;
+- sponsor matched;
+- classified;
+- persisted unique;
+- live;
+- fresh candidate visible;
+- Job Board candidate visible;
+- Company Website candidate visible;
+- verified direct Send CV eligible;
+- sandbox Send CV delivered;
+- rejected;
+- failed;
+- empty success;
+- stale;
+- duplicate;
+- unknown sponsorship.
+
+Never merge these stages into one misleading total.
+
+IMPLEMENTATION REQUIREMENTS
+
+1. CANONICAL COVERAGE MODEL
+
+Create one typed and centralized source/sector matrix.
+
+Every target must have:
+
+- stable ID;
+- sector;
+- profession/category;
+- query variants;
+- enabled sources;
+- cursor state;
+- last attempt;
+- last success;
+- failure/backoff state;
+- measured funnel counts.
+
+Do not depend on array positions.
+
+Keep onboarding professions, classification, source searches, candidate filters, audits and tests aligned.
+
+Add a safe development command such as:
+
+`pnpm vacancy:prove-dev`
+
+It must:
+
+- refuse a production database;
+- run the development coverage pipeline;
+- generate JSON and Markdown evidence reports;
+- be resumable;
+- be idempotent;
+- print counts without exposing secrets.
+
+2. CANONICAL SECTOR DROPDOWN EVERYWHERE
+
+Every user-facing, employer-facing and admin-facing field that selects a vacancy, opportunity or professional sector must use one shared dropdown or searchable combobox.
+
+Do not allow arbitrary free-text sector or category values.
+
+The canonical dropdown options are:
+
+- Healthcare
+- Education
+- Engineering
+- IT
+- Legal
+- Accounting
+- Architecture
+- Business Development
+
+Use these stable internal values:
+
+- `healthcare`
+- `education`
+- `engineering`
+- `it`
+- `legal`
+- `accounting`
+- `architecture`
+- `business_development`
+
+Use the exact display labels above consistently across the application.
+
+The shared dropdown requirement applies everywhere relevant, including:
+
+- candidate onboarding;
+- candidate profile creation and editing;
+- profession and sector preferences;
+- employer onboarding;
+- employer vacancy creation and editing;
+- Opportunities filters;
+- vacancy search filters;
+- saved searches;
+- job alerts;
+- admin vacancy creation and editing;
+- admin imports;
+- sponsor-company tools;
+- analytics filters;
+- internal scripts;
+- API request schemas;
+- URL query parameters;
+- mobile and desktop interfaces.
+
+Requirements:
+
+- Define the canonical options once in a shared package or module consumed by both browser and server code.
+- Do not maintain separate handwritten sector arrays in different files.
+- Replace every relevant free-text sector input with an accessible dropdown or searchable combobox containing all eight options.
+- Do not replace genuine job-title or keyword search fields. Only classification and sector selection must be constrained.
+- When a profession dropdown exists, every profession must map deterministically to one canonical sector.
+- Do not present or accept a profession that the vacancy-matching and classification pipeline cannot resolve.
+- Validate sector values on both the client and server.
+- The API must reject unknown sector values with a clear HTTP 400 response.
+- Never silently accept unmatched text.
+- Background imports and scripts must validate against the same canonical enum.
+- Unknown imported values must be quarantined with an explicit reason.
+- Never silently coerce ambiguous values.
+- Audit existing database values before introducing constraints.
+- Produce a migration report mapping legacy spellings and aliases to canonical values.
+- Quarantine genuinely ambiguous legacy values for review.
+- Do not guess destructive mappings.
+- Preserve a `Not sure` choice only where product requirements genuinely need it.
+- Store `Not sure` as a distinct unresolved/review state, not as a fake sector.
+- Do not include unresolved selections in vacancy matching until they are resolved.
+- Keep old saved filters, alerts and URL parameters backward-compatible where practical.
+- Add a documented migration for obsolete aliases.
+- Add component, API-contract, migration and end-to-end tests.
+- Prove that all eight options appear in every relevant dropdown.
+- Prove keyboard and screen-reader behavior.
+- Prove valid selections round-trip through UI, API and database.
+- Prove arbitrary free text and unknown values cannot be persisted.
+- Add a repository check that fails if developers introduce another independent sector list.
+- Add a test that fails if any relevant selector omits a canonical sector.
+
+Provide a final inventory of every sector-selecting screen, endpoint and script. Include the shared source-of-truth location, screenshots or DOM assertions, and tests showing that unsupported values cannot enter the matching pipeline.
+
+3. JOB BOARD COVERAGE
+
+Use only public-permitted or officially authorized integrations.
+
+Inspect and improve the current adapters, including where available:
+
+- Reed;
+- NHS Jobs;
+- jobs.ac.uk;
+- Teaching Vacancies;
+- Adzuna official API;
+- CV-Library approved partner API;
+- other lawful sector-specific official feeds or APIs.
+
+Do not scrape LinkedIn, Indeed, Glassdoor or another prohibited platform. Use official integrations or lawful alternatives.
+
+Each adapter must:
+
+- preserve its source and external ID;
+- return a specific UK vacancy URL;
+- reject category pages, search pages and editorial pages;
+- paginate completely using resumable bounded jobs;
+- separate request failures from successful empty results;
+- normalize and deduplicate results;
+- verify employer identity;
+- match sponsors with explicit confidence;
+- quarantine ambiguous identities;
+- classify sector and title correctly;
+- persist only valid rows;
+- run liveness and candidate-visibility validation.
+
+Add specialist sources for thin sectors. Strong healthcare or IT volume does not compensate for missing legal, accounting, architecture, education, engineering or business-development coverage.
+
+4. COMPANY WEBSITE COVERAGE
+
+Scale employer-controlled sources using verified ATS mappings and official careers pages.
+
+Support and test existing connectors where present:
+
+- Ashby;
+- Greenhouse;
+- Lever;
+- SmartRecruiters;
+- Recruitee;
+- Personio;
+- Pinpoint;
+- Workday.
+
+A company-directory or name match is only a discovery hint.
+
+Before storing vacancies, require:
+
+- reliable sponsor/employer identity;
+- ownership evidence linking the employer to the ATS board;
+- a complete live provider response;
+- a specific vacancy detail URL;
+- a valid apply or recruitment route.
+
+For non-ATS websites, accept only:
+
+- structured JobPosting data;
+- documented public feeds or sitemaps;
+- strict vacancy detail pages with a valid application route.
+
+Do not convert generic careers pages into vacancies.
+
+Preserve complete-versus-partial snapshot semantics. An incomplete crawl must never retire legitimate vacancies.
+
+Create sector-specific employer cohorts from the development sponsor register.
+
+Persist:
+
+- cursors;
+- leases;
+- host pacing;
+- failure class;
+- retry time;
+- mapping evidence;
+- last successful completion;
+- completeness state.
+
+Continuously prioritize the lowest-coverage sector/mode cell.
+
+5. CONTACT ENRICHMENT AND SEND CV
+
+Contact enrichment must be a durable background queue, not a slow interactive lookup inside Send CV.
+
+Run enrichment until every eligible vacancy is:
+
+- enriched with verified evidence;
+- waiting for a legitimate retry;
+- blocked by a named external dependency;
+- or terminally rejected with a reason.
+
+Validate email syntax and domain.
+
+Reject unrelated, unsupported or suspicious addresses.
+
+Never replace stronger evidence with weaker evidence.
+
+The candidate-facing Send CV action must require:
+
+- a currently candidate-visible vacancy;
+- a persisted direct employer/recruitment destination;
+- a candidate-owned PDF CV;
+- a JOBSAGE alias;
+- successful validation of file type and size.
+
+Sending must:
+
+- use the candidate’s JOBSAGE alias as Reply-To;
+- never expose the personal login email;
+- attach the selected PDF CV;
+- attach the optional cover letter when requested;
+- enforce document ownership;
+- enforce attachment-size limits;
+- enforce daily rate limits;
+- prevent duplicate clicks;
+- persist every delivery attempt;
+- record the exact delivery route;
+- mark delivered only after provider acceptance;
+- retain truthful pending or failed states;
+- never display a false success.
+
+Use sandbox/test email infrastructure and controlled inboxes in development.
+
+Do not send test messages to real employers.
+
+Prove at least one complete sandbox Send CV delivery for every sector.
+
+6. AUTONOMOUS, DURABLE SCHEDULING
+
+Use:
+
+- one serialized database writer;
+- database advisory locking or equivalent;
+- durable cursors;
+- bounded batches;
+- deadlines;
+- exponential backoff with jitter;
+- source rate limits;
+- dead-letter or quarantine state;
+- resumable progress;
+- structured metrics and alerts.
+
+A 409 or Retry-After response must be respected.
+
+Do not hammer the endpoint.
+
+The coverage loop must:
+
+1. Calculate the sector-by-mode matrix.
+2. Select the lowest-coverage cell with a lawful available source.
+3. Run a bounded discovery batch.
+4. Persist valid development rows.
+5. Run liveness.
+6. Run contact enrichment.
+7. Recalculate actual candidate-visible counts.
+8. Persist the next cursor and decision.
+9. Repeat.
+
+Do not create an uncontrolled infinite loop.
+
+Every iteration must be:
+
+- bounded;
+- rate-limited;
+- resumable;
+- recorded;
+- safe to restart.
+
+Provide a reproducible production scheduling plan using the platform’s actual scheduler or authenticated external cron.
+
+Include:
+
+- secret handling;
+- timezone;
+- non-overlapping schedules;
+- lock behavior;
+- Retry-After behavior;
+- stale-cursor alerts;
+- source-failure alerts;
+- repeated empty-success alerts;
+- freshness alerts;
+- daily sector/mode coverage reports.
+
+Do not enable production scheduling during this task.
+
+MINIMUM COMPLETION GATES
+
+These targets apply across all eight sectors.
+
+Results must not be concentrated in only one or two sectors.
+
+PER-SECTOR MINIMUMS
+
+Every sector must have at least:
+
+- 200 unique fresh candidate-visible Job Board vacancies;
+- 100 unique fresh candidate-visible Company Website vacancies;
+- 100 unique fresh candidate-visible vacancies with verified direct Send CV eligibility.
+
+Additional per-sector requirements:
+
+- At least two independent source families contribute vacancies.
+- No single employer contributes more than 20% of the sector total.
+- No sector is Red.
+- No sector/mode cell has zero coverage.
+- Send CV eligibility is attached to a genuine candidate-visible vacancy.
+- Do not create an invented third vacancy record for Send CV.
+- All per-sector values must be generated through the same candidate visibility predicates used by the product.
+
+GLOBAL MINIMUMS
+
+Across all eight sectors combined:
+
+- At least 3,000 unique fresh candidate-visible Job Board vacancies.
+- At least 2,000 unique fresh candidate-visible Company Website vacancies.
+- At least 1,000 unique fresh candidate-visible vacancies with verified direct Send CV.
+- At least 5,000 combined unique candidate-visible vacancies after cross-source deduplication.
+
+Meeting the global total while leaving a sector thin does not pass.
+
+Meeting the per-sector minimums while missing the global total does not pass.
+
+Do not weaken validity to reach the count.
+
+If lawful live-market supply genuinely cannot reach a target:
+
+- show exact measured evidence;
+- identify the constrained sector and mode;
+- list every source attempted;
+- explain why each source is exhausted, unavailable or blocked;
+- continue improving every other sector;
+- do not fabricate data;
+- do not silently lower the target.
+
+Only unavailable credentials, required provider permission, provider outage or demonstrably insufficient lawful live supply can justify an exception.
+
+VALIDITY GATES
+
+Every counted vacancy must pass:
+
+- employer/sponsor identity validation;
+- UK-location validation;
+- canonical sector validation;
+- profession/title classification;
+- specific-vacancy URL validation;
+- current liveness;
+- freshness;
+- expiry and closure checks;
+- source-evidence requirements;
+- cross-source deduplication;
+- candidate API visibility predicates.
+
+Every counted Send CV vacancy must also have:
+
+- a validated persisted email destination;
+- evidence provenance;
+- an eligible live vacancy;
+- no operations fallback;
+- a successful controlled sandbox-delivery test for its sector.
+
+Run a deterministic stratified audit of at least 50 vacancies per sector per mode.
+
+The audit must reach at least 98% precision.
+
+Investigate and repair every systematic failure class, then resample.
+
+Counts must come from the same business predicates used by the candidate API and UI. Do not use a looser SQL approximation.
+
+REQUIRED TEST/FIX/MEASURE LOOP
+
+Repeat until the gates pass:
+
+1. Run library and API typechecks.
+2. Run focused unit and fixture tests.
+3. Run canonical-sector dropdown tests.
+4. Run client/server enum-consistency tests.
+5. Run adapter contract tests covering pagination, malformed responses, partial snapshots, retries, timeouts and deduplication.
+6. Run development PostgreSQL integration tests covering advisory locks, leases, cursors, idempotent upserts and delivery attempts.
+7. Run no-write live discovery probes for every enabled source and sector.
+8. Apply accepted rows to the development database only.
+9. Run liveness until the eligible backlog is fresh.
+10. Run contact enrichment until the eligible backlog is resolved or retry-scheduled.
+11. Query the real candidate API for every sector and mode.
+12. Inspect the Opportunities UI for every sector and mode.
+13. Confirm all relevant sector dropdowns contain all eight canonical sectors.
+14. Execute controlled Send CV sandbox E2E for every sector.
+15. Generate the coverage matrix.
+16. Find the weakest cell.
+17. Fix or expand it.
+18. Repeat.
+
+Do not stop merely because one round of tests passes.
+
+Do not use infinite tight loops. Every run must respect rate limits, time budgets, backoff and persisted cursors.
+
+FINAL REPORT
+
+Provide:
+
+- final commit hash;
+- exact changed-file list;
+- migrations and rollback instructions;
+- redacted source-permission and credential matrix;
+- inventory of every sector dropdown;
+- shared canonical sector source-of-truth location;
+- proof that all eight sectors appear everywhere relevant;
+- proof that unsupported free text cannot be persisted;
+- legacy sector-value migration report;
+- before/after sector-by-mode funnel;
+- exact commands and exit codes;
+- test files and pass/fail totals;
+- no-write probe results;
+- development database write-run results;
+- candidate API and UI evidence;
+- Send CV eligibility counts;
+- separate Send CV sandbox-delivery evidence;
+- scheduler configuration;
+- cursor rotation and non-overlap proof;
+- remaining failures and blockers;
+- one command or runbook that reproduces the entire development proof from a clean checkout.
+
+Do not claim “all works,” “thousands,” “valid,” “production-ready” or “Send CV works” unless the corresponding measured evidence is included.
+
+Passing mocked tests is not completion.
+
+Historical counts are not current counts.
+
+Discovered vacancies are not candidate-visible vacancies.
+
+A sponsor licence is not vacancy-level sponsorship proof.
+
+A stored email is not a delivered CV.
+
+A global total does not compensate for a missing sector.
+
+A free-text sector value that the matching pipeline cannot understand must never be accepted.
