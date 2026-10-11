@@ -30,6 +30,7 @@ import {
   isEmployerJobRoleId,
 } from "../lib/sponsorVacancyRoles";
 import { getVacancyLinkStatus, getCandidateVacancyStatus } from "../lib/vacancyLiveness";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 import { buildCoverLetterPdf, safeCoverLetterFilename } from "../lib/coverLetterPdf";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
@@ -145,6 +146,26 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
 
   const normalizedCompanyName = companyName.trim();
   const normalizedVacancyTitle = vacancyTitle?.trim() || null;
+  if (roleId != null && (typeof roleId !== "number" || !Number.isSafeInteger(roleId) || roleId <= 0)) {
+    res.status(400).json({ error: "roleId must be a positive integer." });
+    return;
+  }
+  const sponsorVacancyRefId = vacancyRef?.startsWith("sponsor-vacancy:")
+    ? Number(vacancyRef.slice("sponsor-vacancy:".length))
+    : null;
+  const locationRoleId =
+    typeof roleId === "number" && Number.isInteger(roleId) && roleId > 0
+      ? roleId
+      : Number.isInteger(sponsorVacancyRefId) && sponsorVacancyRefId! > 0
+        ? sponsorVacancyRefId! + SPONSOR_VACANCY_ID_OFFSET
+        : null;
+  if (
+    locationRoleId != null &&
+    await getCandidateRoleLocationStatus(locationRoleId) !== "confirmed_uk"
+  ) {
+    res.status(422).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+    return;
+  }
   const normalizedVacancyRef =
     vacancyRef?.trim() ||
     (roleId ? `role:${roleId}` : sponsorLicenceId ? `sponsor:${sponsorLicenceId}:general` : `company:${normalizedCompanyName.toLowerCase()}`);

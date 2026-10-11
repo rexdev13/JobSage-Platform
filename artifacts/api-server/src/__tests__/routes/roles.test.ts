@@ -244,12 +244,13 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
    *   3. rolesTable            (all active roles)
    *   4. jobListingsTable      (published employer jobs — empty)
    *   5. sponsorLicenceVacanciesTable ⋈ sponsorLicencesTable (discovered vacancies)
-   *   6. Promise.all[0] applicationsTable
-   *   7. Promise.all[1] speculativeApplicationsTable
-   *   8. Promise.all[2] candidateMatchScoresTable
-   *   9. Promise.all[3] sponsorLicenceVacancyScoresTable
-   *   10. Promise.all[4] vacancyFavoritesTable
-   *   11. Promise.all[5] sponsorLicenceBookmarksTable
+   *   6–7. direct-contact eligibility lookups (sponsor and employer profile)
+   *   8. Promise.all[0] applicationsTable
+   *   9. Promise.all[1] speculativeApplicationsTable
+   *   10. Promise.all[2] candidateMatchScoresTable
+   *   11. Promise.all[3] sponsorLicenceVacancyScoresTable
+   *   12. Promise.all[4] vacancyFavoritesTable
+   *   13. Promise.all[5] sponsorLicenceBookmarksTable
    */
   function pushRolesDbResults(
     roles: any[],
@@ -279,6 +280,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push(roles);   // rolesTable
     dbResults.push([]);      // jobListingsTable — no employer jobs
     dbResults.push(opts.sponsorVacancies ?? []); // sponsor vacancies join
+    dbResults.push([]); // sponsor direct-contact lookup
+    dbResults.push([]); // employer-profile direct-contact lookup
     dbResults.push(opts.applications ?? []); // applicationsTable
     dbResults.push(specApps); // speculativeApplicationsTable
     dbResults.push(opts.cachedScores ?? []); // candidateMatchScoresTable
@@ -521,6 +524,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push([role]);  // rolesTable
     dbResults.push([]);      // jobListingsTable
     dbResults.push([]);      // sponsor vacancies join
+    dbResults.push([]);      // sponsor direct-contact lookup
+    dbResults.push([]);      // employer-profile direct-contact lookup
     dbResults.push([{ roleId: 10 }]); // applicationsTable — a formal application to role 10
     dbResults.push([specApp]);        // speculativeApplicationsTable
     dbResults.push([]);               // candidateMatchScoresTable
@@ -616,6 +621,8 @@ describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
     dbResults.push(roles);            // rolesTable
     dbResults.push([]);               // jobListingsTable
     dbResults.push(sponsorVacancies); // sponsor vacancies join
+    dbResults.push([]);               // sponsor direct-contact lookup
+    dbResults.push([]);               // employer-profile direct-contact lookup
     dbResults.push([]);               // applicationsTable
     dbResults.push([]);               // speculativeApplicationsTable
     dbResults.push([]);               // candidateMatchScoresTable

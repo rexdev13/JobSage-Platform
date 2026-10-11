@@ -34,6 +34,7 @@ import {
   hasVacancyClosingDateLabel,
 } from "./vacancyDates";
 import { hasApprovedCompanyVacancyRoleEligibilityReview } from "./vacancyLiveness";
+import { classifyUkVacancyLocation } from "./ukVacancyLocation";
 
 export interface BoardAdvert {
   organisationName: string;
@@ -504,7 +505,139 @@ export interface UpsertBoardVacanciesResult {
   inserted: number;
   updated: number;
   revived: number;
+  excludedNonUk?: number;
+  heldUnknownLocation?: number;
+  acceptedConfirmedUk?: number;
   outcomes?: UpsertBoardVacancyOutcome[];
+}
+
+function clearStoredUkLocationSuppression(
+  incoming: Record<string, unknown> | null | undefined,
+  existing: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
+  const metadata = { ...(incoming ?? existing ?? {}) };
+  delete metadata["jobsageLocationEligibility"];
+  return Object.keys(metadata).length > 0 ? metadata : null;
+}
+
+export async function suppressUnconfirmedBoardVacancies(
+  input: readonly BoardAdvert[],
+  options: { dryRun?: boolean } = {},
+): Promise<{ excludedNonUk: number; heldUnknownLocation: number }> {
+  const normalized = normaliseAndDedupeBoardAdverts(input, {
+    preserveCrossSourceRows: true,
+  });
+  const classified = normalized.map((advert) => ({
+    advert,
+    sourceId: boardAdvertSourceId(advert),
+    status: classifyUkVacancyLocation({
+      location: advert.location,
+      targetRegions: advert.targetRegions,
+      sourceMetadata: advert.sourceMetadata,
+    }),
+  }));
+  const excludedNonUk = classified.filter(({ status }) => status === "confirmed_non_uk").length;
+  const heldUnknownLocation = classified.filter(({ status }) => status === "unknown").length;
+  const confirmedIdentityKeys = new Set(classified
+    .filter(({ status, sourceId, advert }) =>
+      status === "confirmed_uk" && sourceId && advert.externalId?.trim(),
+    )
+    .map(({ sourceId, advert }) => `${sourceId}\u0000${advert.externalId!.trim()}`));
+  const pending = classified.filter(({ status, sourceId, advert }) =>
+    status !== "confirmed_uk" &&
+    !(sourceId && advert.externalId?.trim() &&
+      confirmedIdentityKeys.has(`${sourceId}\u0000${advert.externalId.trim()}`)),
+  );
+  if (options.dryRun || pending.length === 0) {
+    return { excludedNonUk, heldUnknownLocation };
+  }
+
+  const lockKeys = [...new Set(pending.flatMap(({ advert, sourceId }) => [
+    `url:${canonicalVacancyUrl(advert.url) ?? advert.url}`,
+    ...(sourceId && advert.externalId
+      ? [`external:${sourceId}|${advert.externalId.trim()}`]
+      : []),
+  ]))].sort();
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtext(value))
+      FROM jsonb_array_elements_text(${JSON.stringify(lockKeys)}::jsonb) AS value
+      ORDER BY value
+    `);
+
+    const urls = [...new Set(pending.map(({ advert }) => advert.url))];
+    const urlBases = [...new Set(pending.map(({ advert }) =>
+      advert.url.split(/[?#]/, 1)[0]!.toLowerCase().replace(/\/+$/, ""),
+    ))];
+    const sourcePairs = pending.flatMap(({ advert, sourceId }) =>
+      sourceId && advert.externalId?.trim()
+        ? [{ sourceId, externalId: advert.externalId.trim() }]
+        : [],
+    );
+    const externalIds = [...new Set(sourcePairs.map((pair) => pair.externalId))];
+    const storedUrlBase = sql<string>`
+      regexp_replace(
+        split_part(split_part(lower(coalesce(${sponsorLicenceVacanciesTable.url}, '')), '#', 1), '?', 1),
+        '/+$',
+        ''
+      )
+    `;
+    const possibleRows = await tx
+      .select()
+      .from(sponsorLicenceVacanciesTable)
+      .where(or(
+        inArray(sponsorLicenceVacanciesTable.url, urls),
+        inArray(storedUrlBase, urlBases),
+        ...(externalIds.length > 0
+          ? [inArray(sponsorLicenceVacanciesTable.externalListingId, externalIds)]
+          : []),
+      ));
+    const observations = sourcePairs.length > 0
+      ? await tx
+          .select()
+          .from(vacancySourceObservationsTable)
+          .where(and(
+            inArray(vacancySourceObservationsTable.sourceId, [...new Set(sourcePairs.map((pair) => pair.sourceId))]),
+            inArray(vacancySourceObservationsTable.externalId, externalIds),
+          ))
+      : [];
+    const observationVacancyIds = new Map(
+      observations.map((observation) => [
+        `${observation.sourceId}\u0000${observation.externalId}`,
+        observation.vacancyId,
+      ]),
+    );
+    const now = new Date().toISOString();
+    for (const { advert, sourceId, status } of pending) {
+      const externalId = advert.externalId?.trim() ?? "";
+      const observedVacancyId = sourceId && externalId
+        ? observationVacancyIds.get(`${sourceId}\u0000${externalId}`)
+        : undefined;
+      const existing = possibleRows.find((row) =>
+        row.id === observedVacancyId ||
+        (
+          (sourceId
+            ? storedAdvertSourceId(row) === sourceId
+            : row.sourceType === (advert.sourceType ?? "job_board")) &&
+          (
+            (sourceId && externalId && row.externalListingId === externalId) ||
+            (row.url != null &&
+              canonicalVacancyUrl(row.url) === canonicalVacancyUrl(advert.url))
+          )
+        ),
+      );
+      if (!existing) continue;
+      const metadata = {
+        ...(existing.sourceMetadata ?? {}),
+        jobsageLocationEligibility: { status, recordedAt: now },
+      };
+      await tx
+        .update(sponsorLicenceVacanciesTable)
+        .set({ sourceMetadata: metadata })
+        .where(eq(sponsorLicenceVacanciesTable.id, existing.id));
+    }
+  });
+  return { excludedNonUk, heldUnknownLocation };
 }
 
 type ContactWriteExecutor = {
@@ -574,14 +707,33 @@ export async function upsertSharedBoardVacancies(
   const normalizedAdverts = normaliseAndDedupeBoardAdverts(input, {
     preserveCrossSourceRows: true,
   });
+  const classified = normalizedAdverts.map((advert) => ({
+    advert,
+    status: classifyUkVacancyLocation({
+      location: advert.location,
+      targetRegions: advert.targetRegions,
+      sourceMetadata: advert.sourceMetadata,
+    }),
+  }));
+  const excludedNonUk = classified.filter(({ status }) => status === "confirmed_non_uk").length;
+  const heldUnknownLocation = classified.filter(({ status }) => status === "unknown").length;
+  const confirmedUkAdverts = classified
+    .filter(({ status }) => status === "confirmed_uk")
+    .map(({ advert }) => advert);
+  if (!options.dryRun && !options.skipExisting) {
+    await suppressUnconfirmedBoardVacancies(input);
+  }
   const adverts = options.enrichContacts === false || options.dryRun
-    ? normalizedAdverts
-    : await enrichAdvertContacts(normalizedAdverts);
+    ? confirmedUkAdverts
+    : await enrichAdvertContacts(confirmedUkAdverts);
   if (adverts.length === 0) {
     return {
       inserted: 0,
       updated: 0,
       revived: 0,
+      excludedNonUk,
+      heldUnknownLocation,
+      acceptedConfirmedUk: 0,
       ...(options.includeOutcomes ? { outcomes: [] } : {}),
     };
   }
@@ -899,7 +1051,10 @@ export async function upsertSharedBoardVacancies(
            applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
           description: advert.description,
           postedDate: advert.postedDate,
-          sourceMetadata: advert.sourceMetadata ?? existingRow.sourceMetadata ?? null,
+          sourceMetadata: clearStoredUkLocationSuppression(
+            advert.sourceMetadata,
+            existingRow.sourceMetadata,
+          ),
           targetRegions: advert.targetRegions ?? [],
           sourceType,
           boardName: sourceType === "company_site" ? null : advert.boardName,
@@ -951,7 +1106,10 @@ export async function upsertSharedBoardVacancies(
         externalListingId: advert.externalId,
         url: advert.url,
         applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
-        sourceMetadata: advert.sourceMetadata ?? existingRow.sourceMetadata ?? null,
+        sourceMetadata: clearStoredUkLocationSuppression(
+          advert.sourceMetadata,
+          existingRow.sourceMetadata,
+        ),
         companyVacancyEvidence: mergedCompanyVacancyEvidence !== undefined
           ? mergedCompanyVacancyEvidence
           : existingRow.companyVacancyEvidence,
@@ -1066,6 +1224,9 @@ export async function upsertSharedBoardVacancies(
     inserted: transactionResult.inserted,
     updated: transactionResult.updated,
     revived: transactionResult.revived,
+    excludedNonUk,
+    heldUnknownLocation,
+    acceptedConfirmedUk: adverts.length,
     ...(options.includeOutcomes ? { outcomes: transactionResult.outcomes } : {}),
   };
 }

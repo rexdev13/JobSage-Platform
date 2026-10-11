@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
+import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 import {
   db,
   vacancyFavoritesTable,
@@ -50,6 +52,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
               title: rolesTable.title,
               employer: rolesTable.employer,
               location: rolesTable.location,
+              targetRegions: rolesTable.targetRegions,
               applyUrl: rolesTable.applyUrl,
             })
             .from(rolesTable)
@@ -61,6 +64,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
               id: jobListingsTable.id,
               title: jobListingsTable.title,
               location: jobListingsTable.location,
+              targetRegions: jobListingsTable.targetRegions,
               applyUrl: jobListingsTable.applyUrl,
               employerProfileId: jobListingsTable.employerProfileId,
             })
@@ -74,6 +78,8 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
               title: sponsorLicenceVacanciesTable.title,
               organisationName: sponsorLicenceVacanciesTable.organisationName,
               location: sponsorLicenceVacanciesTable.location,
+              targetRegions: sponsorLicenceVacanciesTable.targetRegions,
+              sourceMetadata: sponsorLicenceVacanciesTable.sourceMetadata,
               url: sponsorLicenceVacanciesTable.url,
               sourceType: sponsorLicenceVacanciesTable.sourceType,
               liveness: sponsorLicenceVacanciesTable.liveness,
@@ -112,6 +118,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
     };
     const detailByVacancyId = new Map<number, Detail>();
     for (const r of roleRows) {
+      if (classifyUkVacancyLocation({ location: r.location, targetRegions: r.targetRegions }) !== "confirmed_uk") continue;
       detailByVacancyId.set(r.id, {
         title: r.title,
         company: r.employer,
@@ -120,6 +127,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       });
     }
     for (const l of listingRows) {
+      if (classifyUkVacancyLocation({ location: l.location, targetRegions: l.targetRegions }) !== "confirmed_uk") continue;
       detailByVacancyId.set(l.id + JOB_LISTING_OFFSET, {
         title: l.title,
         company: companyByProfileId[l.employerProfileId] ?? null,
@@ -128,6 +136,11 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       });
     }
     for (const s of sponsorRows) {
+      if (classifyUkVacancyLocation({
+        location: s.location,
+        targetRegions: s.targetRegions,
+        sourceMetadata: s.sourceMetadata,
+      }) !== "confirmed_uk") continue;
       const status = getCandidateVacancyStatus({ ...s, title: s.title });
       const pendingReview = status === "pending_review";
       detailByVacancyId.set(s.id + SPONSOR_VACANCY_OFFSET, {
@@ -143,6 +156,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
     res.json({
       favorites: favorites.flatMap((f) => {
         const d = detailByVacancyId.get(f.vacancyId);
+        if (!d) return [];
         // Keep the persisted favorite, but do not expose a pending-review
         // company vacancy in the candidate-facing list.
         if (f.vacancyId > SPONSOR_VACANCY_OFFSET && !d) return [];
@@ -170,6 +184,10 @@ router.post("/vacancy-favorites/:vacancyId", requireAuthenticated, async (req: R
     const vacancyId = parseInt(String(req.params["vacancyId"] ?? ""), 10);
     if (!vacancyId || isNaN(vacancyId) || vacancyId <= 0) {
       res.status(400).json({ error: "Invalid vacancy id." });
+      return;
+    }
+    if (await getCandidateRoleLocationStatus(vacancyId) !== "confirmed_uk") {
+      res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
       return;
     }
 

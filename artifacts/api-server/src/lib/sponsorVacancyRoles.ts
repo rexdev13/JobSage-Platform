@@ -20,6 +20,7 @@ import {
   type OpportunityCategory,
   type StatutoryRegulator,
 } from "./professionCategory";
+import { classifyUkVacancyLocation } from "./ukVacancyLocation";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -308,6 +309,7 @@ export interface SponsorVacancyAsRole {
   title: string;
   employer: string;
   location: string;
+  ukLocationStatus: "confirmed_uk";
   /** Statutory regulator when applicable; broader matching uses opportunityCategory. */
   regulator: StatutoryRegulator | null;
   opportunityCategory: OpportunityCategory;
@@ -463,6 +465,11 @@ export async function fetchSponsorVacanciesAsRoles(
     const lic = row.lic ?? null;
     if (seen.has(vac.id)) continue; // multiple licence rows per org — take first
     seen.add(vac.id);
+    if (classifyUkVacancyLocation({
+      location: vac.location ?? "",
+      targetRegions: vac.targetRegions,
+      sourceMetadata: vac.sourceMetadata,
+    }) !== "confirmed_uk") continue;
 
     // Company-site discovery is allowed to populate rows asynchronously, but
     // candidate feeds must not expose them until the post-commit verifier has
@@ -522,7 +529,8 @@ export async function fetchSponsorVacanciesAsRoles(
       id: vac.id + SPONSOR_VACANCY_ID_OFFSET,
       title: vac.title,
       employer: vac.organisationName,
-      location: vac.location?.trim() || "United Kingdom",
+      location: vac.location ?? "",
+      ukLocationStatus: "confirmed_uk",
       regulator: statutoryRegulatorForCategory(category),
       opportunityCategory: category,
       statutoryRegulator: statutoryRegulatorForCategory(category),

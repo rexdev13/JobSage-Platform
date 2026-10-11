@@ -3,7 +3,14 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { favResults } = vi.hoisted(() => ({ favResults: [] as any[] }));
+const { favResults, locationStatusMock } = vi.hoisted(() => ({
+  favResults: [] as any[],
+  locationStatusMock: vi.fn().mockResolvedValue("confirmed_uk"),
+}));
+
+vi.mock("../../lib/candidateVacancyLocation", () => ({
+  getCandidateRoleLocationStatus: locationStatusMock,
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -168,7 +175,10 @@ describe("GET /vacancy-favorites", () => {
 });
 
 describe("POST /vacancy-favorites/:vacancyId", () => {
-  beforeEach(() => { favResults.length = 0; });
+  beforeEach(() => {
+    favResults.length = 0;
+    locationStatusMock.mockResolvedValue("confirmed_uk");
+  });
 
   it("favorites a vacancy", async () => {
     favResults.push([]);
@@ -177,6 +187,15 @@ describe("POST /vacancy-favorites/:vacancyId", () => {
       .set("Authorization", `Bearer ${SESS}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ favorited: true, vacancyId: 42 });
+  });
+
+  it("does not favorite a vacancy whose UK location is unconfirmed", async () => {
+    locationStatusMock.mockResolvedValueOnce("unknown");
+    const res = await request(buildApp())
+      .post("/vacancy-favorites/42")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(409);
   });
 
   it("rejects an invalid vacancy id", async () => {

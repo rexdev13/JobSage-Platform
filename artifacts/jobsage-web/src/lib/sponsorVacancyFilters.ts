@@ -4,6 +4,7 @@ export interface SponsorPanelVacancy {
   title: string;
   location?: string | null;
   targetRegions?: string[] | null;
+  ukLocationStatus?: "confirmed_uk" | "confirmed_non_uk" | "unknown" | null;
 }
 
 export function filterSponsorPanelVacancies<T extends SponsorPanelVacancy>(
@@ -20,6 +21,7 @@ export function filterSponsorPanelVacancies<T extends SponsorPanelVacancy>(
 ): T[] {
   const query = search.trim().toLowerCase();
   return vacancies
+    .filter((vacancy) => vacancy.ukLocationStatus == null || vacancy.ukLocationStatus === "confirmed_uk")
     .filter((vacancy) => !preferredRegionOnly || hasRegionOverlap(vacancy.targetRegions, preferredRegions))
     .filter((vacancy) =>
       query.length === 0

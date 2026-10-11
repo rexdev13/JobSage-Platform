@@ -16,6 +16,7 @@ import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
 import { queueLinkVerification } from "../lib/linkVerification";
+import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
 import { createSystemMessage } from "../lib/systemMessages";
 import { DBS_CLEARANCE_LEVELS, SAFEGUARDING_TRAINING_LEVELS } from "../lib/safeguarding";
 
@@ -334,6 +335,13 @@ router.put("/employer/jobs/:id/publish", requireEmployer(), async (req, res): Pr
 
   if (!job.description?.trim() && !job.requirements?.trim()) {
     res.status(400).json({ error: "Please add a description or requirements before publishing." });
+    return;
+  }
+  if (classifyUkVacancyLocation({
+    location: job.location,
+    targetRegions: job.targetRegions,
+  }) !== "confirmed_uk") {
+    res.status(422).json({ error: "This vacancy must have a confirmed UK location before it can be published." });
     return;
   }
 

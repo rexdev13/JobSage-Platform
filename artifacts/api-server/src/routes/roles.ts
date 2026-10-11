@@ -54,6 +54,8 @@ import {
   type SafeguardingAssessment,
 } from "../lib/safeguarding";
 import { normalizeRegion, normalizeRegionList, regionsOverlap } from "../lib/regionMatching";
+import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 import {
   calculateBehaviouralRanking,
   normalizeBehaviouralEmployer,
@@ -150,9 +152,14 @@ const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
 function roleMatchesPreferredRegions(
+  location: string | null | undefined,
   targetRegions: readonly (string | null | undefined)[] | null | undefined,
   preferredRegion: readonly (string | null | undefined)[] | string | null | undefined,
+  sourceMetadata?: unknown,
 ): boolean {
+  if (classifyUkVacancyLocation({ location, targetRegions, sourceMetadata }) !== "confirmed_uk") {
+    return false;
+  }
   const preferred = Array.isArray(preferredRegion) ? preferredRegion : preferredRegion ? [preferredRegion] : [];
   return regionsOverlap(targetRegions, preferred);
 }
@@ -398,7 +405,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       const job = row.job;
       if (!employerJobTargetsCategory(job, opportunityCategory)) return false;
       const tr = (job.targetRegions ?? []) as string[];
-      if (!roleMatchesPreferredRegions(tr, profile.preferredRegion)) return false;
+      if (!roleMatchesPreferredRegions(job.location, tr, profile.preferredRegion)) return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
@@ -448,7 +455,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   }))
-    .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
+    .filter((role) => roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion));
   if (
     sourceFilter === "job_board" &&
     !hasFreshCandidateBoardSnapshot(
@@ -468,7 +475,7 @@ router.get("/roles", async (req, res): Promise<void> => {
        .filter((role) =>
          storedRegulatorMatchesCategory(role.regulator, opportunityCategory) &&
          !isLikelyEditorialTitle(role.title) &&
-         roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion)
+          roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
       const link = presentApplyLink(
@@ -729,8 +736,12 @@ router.get("/roles", async (req, res): Promise<void> => {
 
     return {
       role: professionallyRelevant
-        ? role
-        : { ...role, requiredRegistration: "Not applicable — outside your professional scope" },
+        ? { ...role, ukLocationStatus: "confirmed_uk" as const }
+        : {
+            ...role,
+            requiredRegistration: "Not applicable — outside your professional scope",
+            ukLocationStatus: "confirmed_uk" as const,
+          },
       explanation,
       rulesetVersion,
       decisionRecordId: decisionRecordId ?? 0,
@@ -829,7 +840,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       .filter((row) => {
       const job = row.job;
       if (!employerJobTargetsCategory(job, opportunityCategory)) return false;
-        if (!roleMatchesPreferredRegions(job.targetRegions, profile.preferredRegion)) return false;
+        if (!roleMatchesPreferredRegions(job.location, job.targetRegions, profile.preferredRegion)) return false;
       if (job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
@@ -874,7 +885,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   }))
-    .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
+    .filter((role) => roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion));
   if (
     sourceFilter === "job_board" &&
     !hasFreshCandidateBoardSnapshot(
@@ -892,7 +903,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
          storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
          && r.liveness !== "dead"
          && !isLikelyEditorialTitle(r.title)
-         && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion)
+         && roleMatchesPreferredRegions(r.location, r.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
       const link = presentApplyLink(
@@ -1138,6 +1149,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         title: r.title,
         employer: r.employer,
         location: r.location,
+        ukLocationStatus: "confirmed_uk" as const,
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
         licensedSponsor: "licensedSponsor" in r ? r.licensedSponsor : false,
@@ -1229,6 +1241,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const employerJobsAsRoles = publishedJobListings
     .filter((row) => {
       if (!employerJobTargetsCategory(row.job, opportunityCategory)) return false;
+      if (classifyUkVacancyLocation({
+        location: row.job.location,
+        targetRegions: row.job.targetRegions,
+      }) !== "confirmed_uk") return false;
       if (row.job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
@@ -1338,6 +1354,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     ...allRoles
       .filter((r) =>
         storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
+        && classifyUkVacancyLocation({ location: r.location, targetRegions: r.targetRegions }) === "confirmed_uk"
         && r.liveness !== "dead"
         && !isLikelyEditorialTitle(r.title)
         && !isManualLabourTitle(r.title)
@@ -1445,6 +1462,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     const matchReason = behaviouralRanking.reason ?? deriveMatchReason(r, isEligible, profile.requiresSponsorship, effectiveSpecialty);
     return {
       ...r,
+      ukLocationStatus: "confirmed_uk" as const,
       matchScore: Math.min(100, matchScore + behaviouralRanking.boost),
       isEligible,
       safeguarding,
@@ -1735,6 +1753,16 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       });
       continue;
     }
+    const locationStatus = classifyUkVacancyLocation({ location: row.location, targetRegions });
+    if (locationStatus !== "confirmed_uk") {
+      errors.push({
+        row: rowNum,
+        message: locationStatus === "confirmed_non_uk"
+          ? "location is outside the UK"
+          : "location is not confirmed as a UK opportunity",
+      });
+      continue;
+    }
 
     validRows.push({
       title: row.title.trim(),
@@ -1804,6 +1832,10 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
   const userId = req.user!.id;
   const roleId = parseInt(typeof req.params["roleId"] === "string" ? req.params["roleId"] : "", 10);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID." }); return; }
+  if (await getCandidateRoleLocationStatus(roleId) !== "confirmed_uk") {
+    res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+    return;
+  }
 
   let bonusReserved = false;
   try {

@@ -19,13 +19,14 @@ import {
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
+import { suppressUnconfirmedBoardVacancies } from "./boardVacancyPipeline";
 import {
   COMPANY_SITE_PROBE_BATCH_SIZE,
   COMPANY_SITE_PROBE_OK_RECHECK_MS,
   runCompanySiteProbeBatch,
   type CompanySiteProbeSummary,
 } from "./companySiteProbe";
-import { regionsFromLocationText } from "./regionMatching";
+import { classifyUkVacancyLocation } from "./ukVacancyLocation";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -215,6 +216,9 @@ export type CompanySiteCheckOutcome =
       rawAdvertsFound: number;
       ukLocationKnown: number;
       ukLocationUnknown: number;
+      excludedNonUk?: number;
+      heldUnknownLocation?: number;
+      acceptedConfirmedUk?: number;
       careersUrl: string | null;
       atsProvider: string | null;
       repeatImport?: { inserted: number; updated: number; revived: number };
@@ -252,6 +256,9 @@ export type CompanySiteEmployerRunMetric = {
   advertsRejected: number;
   ukLocationKnown: number;
   ukLocationUnknown: number;
+  excludedNonUk?: number;
+  heldUnknownLocation?: number;
+  acceptedConfirmedUk?: number;
 };
 
 export type CompanySiteBatchSummary = {
@@ -274,6 +281,9 @@ export type CompanySiteBatchSummary = {
   pagesFetched: number;
   advertsExtracted: number;
   advertsRejected: number;
+  excludedNonUk?: number;
+  heldUnknownLocation?: number;
+  acceptedConfirmedUk?: number;
   inserted: number;
   updated: number;
   revived: number;
@@ -968,12 +978,26 @@ export async function runCompanySiteCheck(
       return { status: "skipped", reason: result.diagnostics.directFeedSkipReason };
     }
   }
+  await suppressUnconfirmedBoardVacancies(result.adverts);
+  const locationStatusByAdvert = result.adverts.map((advert) => ({
+    advert,
+    status: classifyUkVacancyLocation({
+      location: advert.location,
+      targetRegions: advert.targetRegions,
+      sourceMetadata: advert.sourceMetadata,
+    }),
+  }));
+  const excludedNonUk = locationStatusByAdvert.filter(({ status }) => status === "confirmed_non_uk").length;
+  const heldUnknownLocation = locationStatusByAdvert.filter(({ status }) => status === "unknown").length;
+  const confirmedUkAdverts = locationStatusByAdvert
+    .filter(({ status }) => status === "confirmed_uk")
+    .map(({ advert }) => advert);
   const circlePersistenceAllowed = isCircleDirectFeedPersistenceAllowed(row, result);
   // Keep the discovery result and its diagnostics intact for source tracking,
   // while making the shared vacancy write path receive no Circle adverts unless
   // the strict direct-feed boundary has been satisfied.
-  const advertsForPersistence = circlePersistenceAllowed ? result.adverts : [];
-  const directAtsAdverts = result.adverts.filter((advert) =>
+  const advertsForPersistence = circlePersistenceAllowed ? confirmedUkAdverts : [];
+  const directAtsAdverts = confirmedUkAdverts.filter((advert) =>
     advert.sourceType === "company_site" &&
     advert.companyVacancyEvidence?.kind === "known_ats_posting" &&
     Boolean(advert.companyVacancyEvidence.provider) &&
@@ -1096,13 +1120,8 @@ export async function runCompanySiteCheck(
     options.preserveExistingSiteMetadata === true &&
     Boolean(existing?.careersUrl) &&
     result.atsMappingVerified !== true;
-  const ukLocationKnown = eligibleAdvertsForPersistence.filter((advert) =>
-    (advert.targetRegions?.length ?? 0) > 0 ||
-    regionsFromLocationText(advert.location).length > 0 ||
-    /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland)\b/i.test(
-      advert.location ?? "",
-    ),
-  ).length;
+  const acceptedConfirmedUk = eligibleAdvertsForPersistence.length;
+  const ukLocationKnown = acceptedConfirmedUk;
 
   const directErrorCategory = options.directFeedsOnly
     ? classifyCompanySiteJobErrorCategory(result.error ?? "")
@@ -1195,10 +1214,13 @@ export async function runCompanySiteCheck(
     transientFailure: result.transientFailure,
     failureClass,
     completion,
-    advertsRejected: result.advertsRejected + Math.max(0, result.adverts.length - eligibleAdvertsForPersistence.length),
+    advertsRejected: result.advertsRejected + excludedNonUk + heldUnknownLocation + Math.max(0, confirmedUkAdverts.length - eligibleAdvertsForPersistence.length),
     rawAdvertsFound: result.advertsExtracted,
     ukLocationKnown,
-    ukLocationUnknown: Math.max(0, eligibleAdvertsForPersistence.length - ukLocationKnown),
+    ukLocationUnknown: heldUnknownLocation,
+    excludedNonUk,
+    heldUnknownLocation,
+    acceptedConfirmedUk,
     careersUrl: result.careersUrl,
     atsProvider: result.atsProvider,
     repeatImport,
@@ -1264,6 +1286,9 @@ export async function runCompanySiteDiscoveryBatch(
     let empty = 0;
     let pagesFetched = 0;
     let advertsRejected = 0;
+    let excludedNonUk = 0;
+    let heldUnknownLocation = 0;
+    let acceptedConfirmedUk = 0;
     let careersFound = 0;
     let atsFound = 0;
     let permanentFailures = 0;
@@ -1347,6 +1372,12 @@ export async function runCompanySiteDiscoveryBatch(
                 outcome.status === "checked" ? outcome.ukLocationKnown : 0,
               ukLocationUnknown:
                 outcome.status === "checked" ? outcome.ukLocationUnknown : 0,
+              excludedNonUk:
+                outcome.status === "checked" ? outcome.excludedNonUk ?? 0 : 0,
+              heldUnknownLocation:
+                outcome.status === "checked" ? outcome.heldUnknownLocation ?? 0 : 0,
+              acceptedConfirmedUk:
+                outcome.status === "checked" ? outcome.acceptedConfirmedUk ?? 0 : 0,
             });
           }
           if (outcome.status === "skipped") {
@@ -1356,6 +1387,9 @@ export async function runCompanySiteDiscoveryBatch(
             adverts += outcome.adverts;
             pagesFetched += outcome.pagesFetched;
             advertsRejected += outcome.advertsRejected;
+            excludedNonUk += outcome.excludedNonUk ?? 0;
+            heldUnknownLocation += outcome.heldUnknownLocation ?? 0;
+            acceptedConfirmedUk += outcome.acceptedConfirmedUk ?? 0;
             careersFound += outcome.careersFound ?? 0;
             atsFound += outcome.atsFound ?? 0;
             const completion = outcome.completion ?? "complete";
@@ -1415,6 +1449,9 @@ export async function runCompanySiteDiscoveryBatch(
               advertsRejected: 0,
               ukLocationKnown: 0,
               ukLocationUnknown: 0,
+              excludedNonUk: 0,
+              heldUnknownLocation: 0,
+              acceptedConfirmedUk: 0,
             });
           }
           console.error(
@@ -1458,6 +1495,9 @@ export async function runCompanySiteDiscoveryBatch(
       pagesFetched,
       advertsExtracted: adverts,
       advertsRejected,
+      excludedNonUk,
+      heldUnknownLocation,
+      acceptedConfirmedUk,
       inserted,
       updated,
       revived,

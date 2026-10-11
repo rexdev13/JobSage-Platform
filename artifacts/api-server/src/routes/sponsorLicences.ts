@@ -17,6 +17,8 @@ import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
 import { getNextReadinessReset, getReadinessQuota, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
 import { getDirectContactEligibility } from "../lib/employerRecipient";
+import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 import { SPONSOR_VACANCY_ID_OFFSET, classifyVacancyCategory, inferSafeguardingRequirements, inferVacancySponsorshipStatus } from "../lib/sponsorVacancyRoles";
 import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
 import { assessSafeguarding } from "../lib/safeguarding";
@@ -262,7 +264,14 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       .select()
       .from(sponsorLicenceVacanciesTable)
       .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
-    const staleRows = allVacancyRows.filter(
+    const candidateLocationRows = allVacancyRows.filter((vacancy) =>
+      classifyUkVacancyLocation({
+        location: vacancy.location,
+        targetRegions: vacancy.targetRegions,
+        sourceMetadata: vacancy.sourceMetadata,
+      }) === "confirmed_uk",
+    );
+    const staleRows = candidateLocationRows.filter(
       (vacancy) => {
         const status = getCandidateVacancyStatus({
         sourceType: vacancy.sourceType,
@@ -283,7 +292,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
         return status === "stale";
       },
     );
-    const vacancyRows = allVacancyRows.filter(
+    const vacancyRows = candidateLocationRows.filter(
       (vacancy) => !staleRows.includes(vacancy) && getCandidateVacancyStatus({
         sourceType: vacancy.sourceType,
         title: vacancy.title,
@@ -409,6 +418,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
             { requiredDbsClearanceLevel, requiredSafeguardingLevel },
           ),
           location: v.location,
+          ukLocationStatus: "confirmed_uk" as const,
           salary: v.salary,
           url: v.url,
           linkStatus,
@@ -442,7 +452,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       });
 
     const nonLiveReasons = [...new Set(
-      allVacancyRows
+      candidateLocationRows
         .filter((vacancy) => getVacancyLinkStatus(
           vacancy.url,
           vacancy.liveness,
@@ -465,7 +475,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       vacancies,
       lastCheckedAt: lastCheck?.checkedAt ?? null,
       nonLiveEvidence: {
-         count: allVacancyRows.length - vacancyRows.length,
+         count: candidateLocationRows.length - vacancyRows.length,
         reasons: nonLiveReasons,
       },
     }));
@@ -550,7 +560,9 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
     const countRows = await db
       .select({
         organisationName: sponsorLicenceVacanciesTable.organisationName,
-        vacancyCount: sql<number>`cast(count(*) as integer)`,
+        location: sponsorLicenceVacanciesTable.location,
+        targetRegions: sponsorLicenceVacanciesTable.targetRegions,
+        sourceMetadata: sponsorLicenceVacanciesTable.sourceMetadata,
       })
       .from(sponsorLicenceVacanciesTable)
       .where(
@@ -603,11 +615,19 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
               sql`${sponsorLicenceVacanciesTable.closedReason} !~* '(closed|filled|no longer accepting|closing date has passed)'`,
             ),
         ),
-      )
-      .groupBy(sponsorLicenceVacanciesTable.organisationName);
+      );
 
-    const companiesWithVacancies = countRows.length;
-    const totalVacanciesFound = countRows.reduce((acc, r) => acc + r.vacancyCount, 0);
+    const confirmedUkRows = countRows.filter((row) =>
+      classifyUkVacancyLocation({
+        location: row.location,
+        targetRegions: row.targetRegions,
+        sourceMetadata: row.sourceMetadata,
+      }) === "confirmed_uk",
+    );
+    const companiesWithVacancies = new Set(
+      confirmedUkRows.map((row) => row.organisationName.trim().toLowerCase()),
+    ).size;
+    const totalVacanciesFound = confirmedUkRows.length;
 
     // companiesChecked = organisations that have ever had a check run
     const [checkedCountRow] = await db
@@ -914,9 +934,14 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       })),
     );
 
-    const visibleVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number }>(
+    const visibleVacancyRows = await db.execute<{
+      organisation_name: string;
+      location: string | null;
+      target_regions: string[] | null;
+      source_metadata: Record<string, unknown> | null;
+    }>(
       sql`SELECT lower(trim(organisation_name)) AS organisation_name,
-                 cast(count(*) as integer) AS vacancy_count
+                 location, target_regions, source_metadata
           FROM sponsor_licence_vacancies
           WHERE liveness = 'live'
             AND last_verified_at >= now() - interval '48 hours'
@@ -946,23 +971,40 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                   OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                       AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
                      AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}))
-          GROUP BY lower(trim(organisation_name))`,
+          `,
     );
     const latestCheckRows = await db.execute<{ organisation_name: string; checked_at: string }>(
       sql`SELECT DISTINCT ON (organisation_name) organisation_name, checked_at
           FROM sponsor_licence_vacancy_checks
           ORDER BY organisation_name, checked_at DESC`,
     );
-    const storedVacancyCounts = new Map<string, number>(
-      visibleVacancyRows.rows.map((r) => [r.organisation_name, r.vacancy_count]),
-    );
+    const storedVacancyCounts = new Map<string, number>();
+    for (const vacancy of visibleVacancyRows.rows) {
+      if (classifyUkVacancyLocation({
+        location: vacancy.location,
+        targetRegions: vacancy.target_regions,
+        sourceMetadata: vacancy.source_metadata,
+      }) !== "confirmed_uk") continue;
+      storedVacancyCounts.set(
+        vacancy.organisation_name,
+        (storedVacancyCounts.get(vacancy.organisation_name) ?? 0) + 1,
+      );
+    }
     const lastVacancyCheckedAtByOrg = new Map<string, string>(
       latestCheckRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.checked_at]),
     );
 
     // Top vacancy match score/eligibility per org for the current candidate.
-    const matchScoreRows = await db.execute<{ organisation_name: string; score: number; is_eligible: boolean }>(
-      sql`SELECT DISTINCT ON (s.organisation_name) s.organisation_name, s.score, s.is_eligible
+    const matchScoreRows = await db.execute<{
+      organisation_name: string;
+      score: number;
+      is_eligible: boolean;
+      location: string | null;
+      target_regions: string[] | null;
+      source_metadata: Record<string, unknown> | null;
+    }>(
+      sql`SELECT s.organisation_name, s.score, s.is_eligible,
+                 v.location, v.target_regions, v.source_metadata
           FROM sponsor_licence_vacancy_scores s
           JOIN sponsor_licence_vacancies v ON s.vacancy_id = v.id
           WHERE s.user_id = ${userId}
@@ -996,9 +1038,18 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND (v.closed_reason IS NULL OR v.closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
           ORDER BY s.organisation_name, s.score DESC`,
     );
-    const matchScoresByOrg = new Map<string, { score: number; isEligible: boolean }>(
-      matchScoreRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), { score: r.score, isEligible: r.is_eligible }]),
-    );
+    const matchScoresByOrg = new Map<string, { score: number; isEligible: boolean }>();
+    for (const row of matchScoreRows.rows) {
+      if (classifyUkVacancyLocation({
+        location: row.location,
+        targetRegions: row.target_regions,
+        sourceMetadata: row.source_metadata,
+      }) !== "confirmed_uk") continue;
+      const key = row.organisation_name.toLowerCase().trim();
+      if (!matchScoresByOrg.has(key)) {
+        matchScoresByOrg.set(key, { score: row.score, isEligible: row.is_eligible });
+      }
+    }
 
     const annotated = allCompanies.map((c, index) => {
       const key = c.organisationName.toLowerCase().trim();
@@ -1015,7 +1066,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
         lastVacancyCheckedAt: lastVacancyCheckedAtByOrg.get(key) ?? null,
         // Send CV remains available without a stored contact. The server
         // persists the request as pending until a real destination exists.
-        sendCvEligible: true,
+        sendCvEligible: directContactEligibility[index] === true,
       };
     });
 
@@ -1145,6 +1196,10 @@ router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthent
     const vacancyId = parseInt(rawId, 10);
     if (!vacancyId || isNaN(vacancyId)) {
       res.status(400).json({ error: "Invalid vacancy ID." });
+      return;
+    }
+    if (await getCandidateRoleLocationStatus(vacancyId + SPONSOR_VACANCY_ID_OFFSET) !== "confirmed_uk") {
+      res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
       return;
     }
 

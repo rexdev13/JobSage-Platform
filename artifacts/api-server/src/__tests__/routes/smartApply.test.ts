@@ -3,7 +3,13 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 
-const { queryResults, storage, createCompletion, ensureCanonicalJobsageAlias } = vi.hoisted(() => ({
+const {
+  queryResults,
+  storage,
+  createCompletion,
+  ensureCanonicalJobsageAlias,
+  locationStatusMock,
+} = vi.hoisted(() => ({
   queryResults: [] as any[],
   storage: {
     getObjectEntityFile: vi.fn(),
@@ -12,6 +18,11 @@ const { queryResults, storage, createCompletion, ensureCanonicalJobsageAlias } =
   },
   createCompletion: vi.fn(),
   ensureCanonicalJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.co.uk"),
+  locationStatusMock: vi.fn().mockResolvedValue("confirmed_uk"),
+}));
+
+vi.mock("../../lib/candidateVacancyLocation", () => ({
+  getCandidateRoleLocationStatus: locationStatusMock,
 }));
 
 vi.mock("@workspace/db", () => {
@@ -107,6 +118,7 @@ describe("Smart Apply extension endpoints", () => {
   beforeEach(() => {
     queryResults.length = 0;
     vi.clearAllMocks();
+    locationStatusMock.mockResolvedValue("confirmed_uk");
     createCompletion.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({ values: [] }) } }],
     });

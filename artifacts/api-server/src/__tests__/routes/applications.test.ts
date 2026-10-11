@@ -3,14 +3,19 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { appResults, insertValues, updateSets } = vi.hoisted(() => ({
+const { appResults, insertValues, updateSets, locationStatusMock } = vi.hoisted(() => ({
   appResults: [] as any[],
   insertValues: [] as any[],
   updateSets: [] as any[],
+  locationStatusMock: vi.fn().mockResolvedValue("confirmed_uk"),
 }));
 
 vi.mock("../../lib/jobsageEmailGen", () => ({
   resolveJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.co.uk"),
+}));
+
+vi.mock("../../lib/candidateVacancyLocation", () => ({
+  getCandidateRoleLocationStatus: locationStatusMock,
 }));
 
 vi.mock("@workspace/db", () => {
@@ -250,6 +255,7 @@ describe("POST /applications", () => {
     appResults.length = 0;
     insertValues.length = 0;
     updateSets.length = 0;
+    locationStatusMock.mockResolvedValue("confirmed_uk");
   });
 
   it("returns 400 when roleId is missing", async () => {
@@ -259,6 +265,17 @@ describe("POST /applications", () => {
       .set("Authorization", `Bearer ${SESS}`)
       .send({ coverLetter: "Hello" });
     expect(res.status).toBe(400);
+  });
+
+  it("rejects an application when the vacancy location is not confirmed UK", async () => {
+    locationStatusMock.mockResolvedValueOnce("unknown");
+    const res = await request(buildApp())
+      .post("/applications")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ roleId: 42 });
+
+    expect(res.status).toBe(409);
+    expect(insertValues).toEqual([]);
   });
 
   it("creates new application and returns 200 when no duplicate exists", async () => {

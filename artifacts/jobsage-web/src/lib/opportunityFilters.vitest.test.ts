@@ -31,6 +31,14 @@ describe("opportunity filters", () => {
     )).toHaveLength(1);
   });
 
+  it("hides vacancies unless the server confirms UK eligibility", () => {
+    expect(filterOpportunities([
+      { id: 1, targetRegions: ["London"], ukLocationStatus: "confirmed_uk" as const },
+      { id: 2, targetRegions: ["London"], ukLocationStatus: "confirmed_non_uk" as const },
+      { id: 3, targetRegions: ["London"], ukLocationStatus: "unknown" as const },
+    ], { selectedRegions: ["London"] }).map((role) => role.id)).toEqual([1]);
+  });
+
   it("keeps only server-approved roles in Apply First and separates low scores", () => {
     const grouped = groupRankedOpportunities([
       { id: 1, recommended: true, aiScore: 82, matchScore: 70 },
@@ -133,6 +141,16 @@ describe("opportunity filters", () => {
     expect(filterSendCvVacancies(vacancies, "")).toEqual(vacancies);
     expect(filterSendCvVacancies(vacancies, "north")).toEqual(vacancies.slice(0, 2));
     expect(filterSendCvVacancies(vacancies, "doctor")).toEqual([vacancies[1]]);
+  });
+
+  it("hides unconfirmed vacancies from Send CV", () => {
+    const vacancies = [
+      { role: { employer: "UK Trust", title: "Nurse", location: "London", ukLocationStatus: "confirmed_uk" as const } },
+      { role: { employer: "US Trust", title: "Nurse", location: "Boston", ukLocationStatus: "confirmed_non_uk" as const } },
+      { role: { employer: "Unknown Trust", title: "Nurse", location: "Remote", ukLocationStatus: "unknown" as const } },
+    ];
+    expect(filterSendCvVacancies(vacancies, "").map(({ role }) => role.employer))
+      .toEqual(["UK Trust"]);
   });
 
   it("excludes operations-only and stale sponsor records from the Send CV feed", () => {

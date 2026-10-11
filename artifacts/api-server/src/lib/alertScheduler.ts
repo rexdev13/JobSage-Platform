@@ -33,6 +33,7 @@ import {
 } from "./professionCategory";
 import { isLikelyEditorialTitle, isManualLabourTitle } from "./vacancyTitlePolicy";
 import { regionsOverlap } from "./regionMatching";
+import { classifyUkVacancyLocation } from "./ukVacancyLocation";
 import { calculateBehaviouralRanking, normalizeBehaviouralEmployer } from "./behavioralRanking";
 import { assessSafeguarding, safeguardingBlocksEligibility } from "./safeguarding";
 import { compareOpportunityRanking } from "./opportunityRanking";
@@ -77,9 +78,11 @@ type ScoredAlertRole = AlertCandidateRole & {
 };
 
 function roleMatchesPreferredRegions(
+  location: string | null | undefined,
   targetRegions: readonly (string | null | undefined)[] | null | undefined,
   preferredRegion: readonly (string | null | undefined)[] | string | null | undefined,
 ): boolean {
+  if (classifyUkVacancyLocation({ location, targetRegions }) !== "confirmed_uk") return false;
   const preferred = Array.isArray(preferredRegion)
     ? preferredRegion
     : preferredRegion
@@ -140,7 +143,7 @@ function buildAlertCandidates(
     .filter((role) =>
       opportunityCategoriesMatch(category, categoryForStatutoryRegulator(role.regulator)) &&
       !isLikelyEditorialTitle(role.title) &&
-      roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion) &&
+      roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion) &&
       hasRoleContactInfo(role),
     )
     .map((role) => {
@@ -175,7 +178,7 @@ function buildAlertCandidates(
   const employerJobs: AlertCandidateRole[] = publishedJobs
     .filter(({ job, emp }) =>
       employerJobTargetsCategory(job, category) &&
-      roleMatchesPreferredRegions(job.targetRegions, profile.preferredRegion) &&
+      roleMatchesPreferredRegions(job.location, job.targetRegions, profile.preferredRegion) &&
       hasEmployerJobContactInfo({ job, emp }),
     )
     .map(({ job, emp }) => {
@@ -216,7 +219,7 @@ function buildAlertCandidates(
       role.classifiedRelevant !== false &&
       !isManualLabourTitle(role.title) &&
       !(role.sourceType === "company_site" && isLikelyEditorialTitle(role.title)) &&
-      roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion) &&
+      roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion) &&
       (role.sourceType !== "company_site" || !curatedKeys.has(roleDedupKey(role.employer, role.title))),
     )
     .map((role) => ({

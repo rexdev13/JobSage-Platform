@@ -9,6 +9,18 @@ const vacancies = [
 ];
 
 describe("filterSponsorPanelVacancies", () => {
+  it("hides vacancies without confirmed UK location status", () => {
+    expect(filterSponsorPanelVacancies([
+      { title: "UK Nurse", location: "London", targetRegions: ["London"], ukLocationStatus: "confirmed_uk" },
+      { title: "US Nurse", location: "Boston", targetRegions: ["London"], ukLocationStatus: "confirmed_non_uk" },
+      { title: "Remote Nurse", location: "Remote", targetRegions: ["London"], ukLocationStatus: "unknown" },
+    ], {
+      search: "",
+      preferredRegions: ["London"],
+      preferredRegionOnly: false,
+    }).map((vacancy) => vacancy.title)).toEqual(["UK Nurse"]);
+  });
+
   it("searches vacancy titles and locations", () => {
     expect(filterSponsorPanelVacancies(vacancies, {
       search: "leeds",

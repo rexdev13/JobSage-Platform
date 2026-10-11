@@ -17,6 +17,7 @@ import {
 } from "../lib/sponsorVacancyRoles";
 import { statutoryRegulatorForCategory } from "../lib/professionCategory";
 import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -275,6 +276,10 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     res.status(400).json({ error: "Invalid role ID" });
     return;
   }
+  if (await getCandidateRoleLocationStatus(roleId) !== "confirmed_uk") {
+    res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+    return;
+  }
 
   const userId = req.user!.id;
   const suppliedContext = (req.body ?? {}) as {
@@ -356,7 +361,7 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
         employer: row.licence?.organisationName ?? row.vacancy.organisationName,
         description: row.vacancy.description,
         regulator: category ? (statutoryRegulatorForCategory(category) ?? "GMC/NMC/HCPC") : "GMC/NMC/HCPC",
-        location: row.vacancy.location?.trim() || "United Kingdom",
+          location: row.vacancy.location ?? "",
         salary: optionalText(suppliedContext.salary, 200),
         externalUrl: row.vacancy.url ?? optionalText(suppliedContext.externalUrl, 2000),
         sponsorshipOffered: inferVacancySponsorshipStatus(row.vacancy.title, row.vacancy.description) === "confirmed",
@@ -429,6 +434,10 @@ router.get("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
     res.status(400).json({ error: "Invalid role ID" });
     return;
   }
+  if (await getCandidateRoleLocationStatus(roleId) !== "confirmed_uk") {
+    res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+    return;
+  }
 
   const [draft] = await db
     .select()
@@ -452,6 +461,10 @@ router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
   const roleId = parseInt(req.params.roleId as string, 10);
   if (isNaN(roleId)) {
     res.status(400).json({ error: "Invalid role ID" });
+    return;
+  }
+  if (await getCandidateRoleLocationStatus(roleId) !== "confirmed_uk") {
+    res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
     return;
   }
 
@@ -491,6 +504,14 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     wordLimit?: number;
     maxLength?: number;
   };
+  if (roleId != null && (typeof roleId !== "number" || !Number.isSafeInteger(roleId) || roleId <= 0)) {
+    res.status(400).json({ error: "roleId must be a positive integer." });
+    return;
+  }
+  if (typeof roleId === "number" && roleId > 0 && await getCandidateRoleLocationStatus(roleId) !== "confirmed_uk") {
+    res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+    return;
+  }
 
   const userMessage = (message ?? question)?.trim();
   if (!userMessage) {

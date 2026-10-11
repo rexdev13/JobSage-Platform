@@ -6,6 +6,7 @@ export const UK_REGIONS = [
 
 export type OpportunityFilterRole = {
   targetRegions?: string[] | null;
+  ukLocationStatus?: "confirmed_uk" | "confirmed_non_uk" | "unknown" | null;
 };
 
 export type RankedOpportunity = {
@@ -145,17 +146,28 @@ export function filterOpportunities<T extends OpportunityFilterRole>(
   roles: T[],
   filters: { selectedRegions: string[] },
 ): T[] {
-  return roles.filter((role) => hasRegionOverlap(role.targetRegions, filters.selectedRegions));
+  return roles.filter((role) =>
+    (role.ukLocationStatus == null || role.ukLocationStatus === "confirmed_uk") &&
+    hasRegionOverlap(role.targetRegions, filters.selectedRegions),
+  );
 }
 
-export function filterSendCvVacancies<T extends { role: { employer: string; title: string; location: string } }>(
+export function filterSendCvVacancies<T extends {
+  role: {
+    employer: string;
+    title: string;
+    location: string | null;
+    ukLocationStatus?: "confirmed_uk" | "confirmed_non_uk" | "unknown" | null;
+  };
+}>(
   vacancies: T[],
   search: string,
 ): T[] {
   const query = search.trim().toLowerCase();
-  if (!query) return vacancies;
-  return vacancies.filter(({ role }) =>
-    [role.employer, role.title, role.location].some((value) => value?.toLowerCase().includes(query)),
+  return vacancies
+    .filter(({ role }) => role.ukLocationStatus == null || role.ukLocationStatus === "confirmed_uk")
+    .filter(({ role }) =>
+      !query || [role.employer, role.title, role.location].some((value) => value?.toLowerCase().includes(query)),
   );
 }
 

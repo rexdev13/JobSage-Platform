@@ -7,6 +7,7 @@ import { createApplicationReceivedMessage } from "../lib/systemMessages";
 import { resolveJobsageAlias } from "../lib/jobsageEmailGen";
 import { SPONSOR_VACANCY_ID_OFFSET, isSponsorVacancyRoleId, sponsorVacancyIdFromRoleId } from "../lib/sponsorVacancyRoles";
 import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
+import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
 
 const router: IRouter = Router();
 
@@ -311,6 +312,19 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
   };
 
   const isWebsite = applicationType === "website";
+
+  if (roleId != null && (typeof roleId !== "number" || !Number.isSafeInteger(roleId) || roleId < 0)) {
+    res.status(400).json({ error: "roleId must be a non-negative integer." });
+    return;
+  }
+
+  if (typeof roleId === "number" && roleId > 0) {
+    const locationStatus = await getCandidateRoleLocationStatus(roleId);
+    if (locationStatus !== "confirmed_uk") {
+      res.status(409).json({ error: "This vacancy is not confirmed as a current UK opportunity." });
+      return;
+    }
+  }
 
   if (typeof roleId === "number" && isSponsorVacancyRoleId(roleId)) {
     const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId);
