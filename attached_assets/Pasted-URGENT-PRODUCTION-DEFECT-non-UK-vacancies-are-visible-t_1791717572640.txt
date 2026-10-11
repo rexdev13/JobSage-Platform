@@ -1,0 +1,426 @@
+URGENT PRODUCTION DEFECT: non-UK vacancies are visible to candidates.
+
+The client has shown candidate-visible vacancies located in:
+
+- San Francisco, CA
+- New York, NY
+- Austin, TX
+- Toronto, ON
+- Montréal, Quebec, Canada
+- Remote with no UK qualification
+
+This may affect more records than the screenshots show.
+
+Fix this comprehensively across ingestion, persistence, candidate queries, alerts, Send CV, Smart Apply and existing production records. Do not patch only the displayed examples.
+
+A scoped production hotfix and safe production cleanup are authorised. Do not modify unrelated functionality, send applications/CVs/emails, or hard-delete vacancy records.
+
+======================================================================
+KNOWN LOCAL CODE FINDINGS TO VERIFY
+======================================================================
+
+Inspect the current Replit code rather than assuming local line numbers are unchanged.
+
+The previously inspected code showed:
+
+1. regionMatching.ts
+
+regionsFromLocationText("New York, NY") correctly returns [].
+
+However, regionsOverlap() treats an empty target-region list as eligible everywhere. Therefore foreign locations become “unknown” and survive preference filtering.
+
+2. sponsorVacancyRoles.ts
+
+fetchSponsorVacanciesAsRoles() checks liveness, profession and URL evidence but does not require confirmed UK location before returning candidate-visible roles.
+
+It defaults a missing location to “United Kingdom,” which is unsafe. Missing location evidence must not be converted into UK evidence.
+
+3. companySiteScheduler.ts
+
+The scheduler calculates ukLocationKnown after selecting/persisting eligible adverts. It records a metric but does not consistently use confirmed UK location as a persistence gate.
+
+4. boardVacancyPipeline.ts
+
+upsertSharedBoardVacancies() has no central UK-location eligibility check. Foreign or unknown-location rows can therefore be inserted or updated.
+
+5. roles.ts
+
+Candidate-facing role lists rely on preferred-region overlap. Empty targetRegions remain visible.
+
+The main roles, my-matches, recommended roles and Send CV data all require review.
+
+6. sponsorLicences.ts
+
+The sponsor vacancy panel filters liveness but does not consistently filter confirmed UK location.
+
+Its vacancy counts and top-match queries can count foreign vacancies.
+
+7. opportunityFilters.ts and sponsorVacancyFilters.ts
+
+The browser treats empty targetRegions as visible. Browser filtering must not be the primary security boundary, but it should also reject records explicitly marked non-UK.
+
+8. alertScheduler.ts
+
+Alerts use the same permissive region-overlap behaviour and may send foreign vacancies.
+
+9. Send CV
+
+roles.ts and sponsorLicences.ts previously contained unconditional:
+
+sendCvEligible: true
+
+This can label vacancies “Employer email available” or expose Send CV even when no verified recruitment route exists. Audit and correct this while fixing foreign vacancy visibility.
+
+10. atsDirectoryBootstrap.ts
+
+isClearlyUkAtsAdvert() already rejects New York and bare Remote. Reuse a shared policy rather than keeping this safety rule in only one ingestion path.
+
+======================================================================
+1. CREATE ONE SHARED LOCATION POLICY
+======================================================================
+
+Create a single reusable server-side location classifier, for example:
+
+classifyUkVacancyLocation(...)
+
+It must return:
+
+- confirmed_uk
+- confirmed_non_uk
+- unknown
+
+Use all available structured evidence:
+
+- location text
+- targetRegions
+- source-provided country/country code
+- structured ATS location fields
+- UK postcode
+- explicit UK nation or region
+- source metadata where authoritative
+
+Rules:
+
+A vacancy is confirmed_uk when it has reliable evidence such as:
+
+- United Kingdom, UK or GB
+- England
+- Scotland
+- Wales
+- Northern Ireland
+- Valid UK postcode
+- Recognised UK region/county/city
+- “Remote UK” or equivalent explicit UK remote wording
+- A structured country code of GB/GBR
+
+A vacancy is confirmed_non_uk when it has explicit foreign evidence, including:
+
+- United States, USA or US
+- Canada
+- Foreign country names/codes
+- US state names or state abbreviations in location context
+- Canadian province names or abbreviations
+- Explicit foreign cities/regions
+- Structured country code other than GB/GBR
+
+Foreign evidence must take precedence over ambiguous city names.
+
+Required examples:
+
+- London, UK → confirmed_uk
+- London, England → confirmed_uk
+- Remote - UK → confirmed_uk
+- Manchester → confirmed_uk when matched deterministically
+- Edinburgh, Scotland → confirmed_uk
+- Belfast, Northern Ireland → confirmed_uk
+- San Francisco, CA → confirmed_non_uk
+- New York, NY → confirmed_non_uk
+- Austin, TX → confirmed_non_uk
+- Toronto, ON → confirmed_non_uk
+- Montréal, Quebec, Canada → confirmed_non_uk
+- London, Ontario → confirmed_non_uk
+- Cambridge, MA → confirmed_non_uk
+- Manchester, NH → confirmed_non_uk
+- Birmingham, Alabama → confirmed_non_uk
+- York, PA → confirmed_non_uk
+- Remote → unknown
+- Worldwide → unknown
+- Multiple locations → unknown
+- Empty/null → unknown
+- United Kingdom and New York → confirmed_uk only if the advert explicitly states the role is available in the UK
+
+For JobSage candidate visibility:
+
+ONLY confirmed_uk is allowed.
+
+confirmed_non_uk and unknown must remain hidden until better evidence is obtained.
+
+Do not globally change region-preference semantics in a way that breaks unrelated uses. Apply UK eligibility first, then apply candidate region preferences.
+
+======================================================================
+2. ENFORCE AT INGESTION
+======================================================================
+
+Apply the shared policy to every ingestion source:
+
+- Company-site discovery
+- Employer-specific ATS connectors
+- ATS directory bootstrap
+- Greenhouse
+- Ashby
+- Workday
+- Lever
+- SmartRecruiters
+- Workable
+- BambooHR
+- Reed
+- Additional boards
+- Free/public boards
+- Candidate-triggered board refreshes
+- Reviewed public-board importer
+- CSV/manual role import
+- Employer-created job listings where applicable
+
+Before persistence:
+
+- confirmed_uk → may continue through other guards
+- confirmed_non_uk → reject with reason non_uk_location
+- unknown → hold with reason uk_location_unconfirmed
+
+Track metrics separately:
+
+- excludedNonUk
+- heldUnknownLocation
+- acceptedConfirmedUk
+
+Do not infer that a vacancy is UK merely because the employer is a UK sponsor. Sponsors may advertise roles worldwide.
+
+======================================================================
+3. ENFORCE IN CENTRAL PERSISTENCE
+======================================================================
+
+Add defence-in-depth to the shared vacancy persistence/upsert layer.
+
+upsertSharedBoardVacancies() and company-site persistence must not insert, update or reactivate a candidate-eligible vacancy unless it is confirmed_uk.
+
+Do not allow an existing foreign vacancy to be revived merely because its URL responds successfully.
+
+URL liveness and UK eligibility are separate facts:
+
+- A foreign URL may be live.
+- It must still remain hidden from UK candidates.
+
+Do not mark a foreign vacancy as “dead” merely because it is foreign. Preserve truthful liveness and store/report a separate location eligibility reason if the current schema supports it.
+
+If no location-status column exists, implement the emergency candidate-query gate without waiting for a migration. A migration can be added only if required for durable review/auditing.
+
+======================================================================
+4. ENFORCE AT EVERY CANDIDATE READ PATH
+======================================================================
+
+Filter to confirmed_uk on the server for:
+
+- GET /roles
+- GET /roles/my-matches
+- GET /opportunities/recommended
+- Sponsor vacancy role merging
+- Sponsor vacancy detail/panel endpoints
+- Sponsor vacancy counts
+- Best-match counts
+- Send CV vacancy lists
+- Company-website vacancy tab
+- Job-board vacancy tab
+- Alerts and notifications
+- Favourites/bookmarks when presenting an actionable vacancy
+- Any candidate-facing search endpoint
+
+Do not trust targetRegions=[].
+
+An empty list is not evidence of UK location.
+
+Remove the unsafe fallback that turns a missing vacancy location into “United Kingdom.”
+
+The browser should also hide non-UK/unknown records as a final presentation safeguard, but the server must be authoritative.
+
+======================================================================
+5. PROTECT ACTION ENDPOINTS
+======================================================================
+
+Even if someone knows an old vacancy ID, reject actions for a vacancy that is not confirmed_uk.
+
+Apply the check to:
+
+- Apply/outbound click handling
+- Smart Apply
+- Send CV
+- Vacancy-specific application creation
+- Vacancy gap/readiness actions where an application can follow
+- Any direct candidate vacancy endpoint
+
+Return a clear non-sensitive error such as:
+
+“This vacancy is not confirmed as a current UK opportunity.”
+
+Do not send a CV, email or application during testing.
+
+======================================================================
+6. FIX SEND CV ELIGIBILITY
+======================================================================
+
+Audit every unconditional sendCvEligible=true.
+
+Send CV must only be available when the existing verified Send CV policy passes:
+
+- confirmed UK vacancy or confirmed UK employer-level speculative route
+- verified sponsor/employer identity
+- official current evidence page
+- explicit instruction to email/send/submit a CV
+- verified recipient/evidence under the current Send CV model
+
+A generic email address or pending recipient resolution must not be displayed as:
+
+“Employer email available”
+
+If the product intentionally supports a pending outreach queue, label it accurately and do not represent it as a verified email route.
+
+Ensure foreign vacancies never appear in the Send CV tab.
+
+======================================================================
+7. AUDIT EXISTING PRODUCTION DATA
+======================================================================
+
+Run a read-only production audit first across:
+
+- sponsor_licence_vacancies
+- roles
+- job_listings
+- Any other candidate vacancy tables
+
+Report counts grouped by:
+
+- confirmed_uk
+- confirmed_non_uk
+- unknown
+- source type
+- source/board
+- table
+- application mode
+- candidate-visible status
+
+Specifically search for:
+
+- US and Canadian states/provinces
+- Foreign country names
+- Foreign country codes
+- Bare Remote
+- Worldwide
+- Empty location
+- Empty targetRegions
+- Foreign locations incorrectly mapped to UK regions
+
+Provide representative examples and record IDs.
+
+Then apply a safe production correction:
+
+- Hide confirmed_non_uk records from candidates.
+- Hide unknown-location records until UK evidence exists.
+- Do not hard-delete them.
+- Do not mark live foreign links dead.
+- Preserve them for review.
+- Do not change unrelated applications or historical records.
+- Do not remove already-submitted application history.
+
+Recalculate candidate-facing vacancy and sponsor counts after the correction.
+
+======================================================================
+8. TEST THE EXACT REGRESSIONS
+======================================================================
+
+Add unit and integration tests covering:
+
+- San Francisco, CA
+- New York, NY
+- Austin, TX
+- Toronto, ON
+- Montréal, Quebec, Canada
+- London, Ontario
+- Cambridge, MA
+- Manchester, NH
+- Birmingham, Alabama
+- York, PA
+- Remote
+- Worldwide
+- Empty location
+- Remote - UK
+- London, UK
+- London, England
+- Manchester, Greater Manchester
+- Edinburgh, Scotland
+- Cardiff, Wales
+- Belfast, Northern Ireland
+- A multi-location advert explicitly including a UK location
+
+Test all layers:
+
+- Location classifier
+- Direct ATS import
+- Company-site scheduler
+- Shared persistence
+- Public-board importer
+- Sponsor vacancy role conversion
+- roles/my-matches
+- recommended opportunities
+- Sponsor vacancy panel
+- Send CV list
+- Alert scheduler
+- Apply/Smart Apply/Send CV action rejection
+- Production cleanup/audit logic
+
+Prove that a live URL in New York is still excluded.
+
+Prove that “Remote” alone is excluded.
+
+Prove that “Remote UK” remains allowed.
+
+======================================================================
+9. RELEASE AND VERIFY
+======================================================================
+
+Run:
+
+- Relevant focused tests
+- API typecheck
+- Web typecheck
+- API build
+- Web build
+
+Prepare a scoped hotfix containing only:
+
+- Shared UK-location policy
+- Ingestion and persistence enforcement
+- Candidate-query enforcement
+- Send CV correction
+- Production audit/correction tooling
+- Tests
+
+Do not include generated CSVs, secrets or unrelated Replit work.
+
+Publish the scoped hotfix through the established Replit production process.
+
+After publishing:
+
+1. Confirm homepage and /api/healthz return 200.
+2. Rerun the production location audit.
+3. Confirm candidate-visible foreign count is zero.
+4. Confirm candidate-visible unknown-location count is zero.
+5. Verify the signed-in Opportunities screen.
+6. Verify Job Board, Company Website and Send CV tabs.
+7. Search for San Francisco, New York, Austin, Toronto and Montréal.
+8. Confirm none appear.
+9. Verify representative legitimate UK vacancies still appear.
+10. Confirm alerts cannot select foreign/unknown vacancies.
+11. Confirm action endpoints reject old foreign vacancy IDs.
+
+Report exact before/after counts by table, source, profession and application mode.
+
+Do not stop after changing the UI. This must be enforced at ingestion, persistence, API visibility and action execution.
