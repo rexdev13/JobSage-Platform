@@ -211,6 +211,23 @@ export const ListProfessionsResponse = zod.object({
     .describe(
       "Merged list of well-known and community-contributed profession labels.",
     ),
+  catalogue: zod.array(
+    zod.object({
+      label: zod.string(),
+      category: zod.string(),
+      sector: zod.enum([
+        "healthcare",
+        "education",
+        "engineering",
+        "it",
+        "legal",
+        "accounting",
+        "architecture",
+        "business_development",
+      ]),
+      regulator: zod.string().nullable(),
+    }),
+  ),
 });
 
 /**
@@ -223,8 +240,27 @@ export const GetMyProfileResponse = zod.object({
   userId: zod.string(),
   profession: zod
     .string()
+    .describe("The candidate's canonical profession label."),
+  sector: zod
+    .enum([
+      "healthcare",
+      "education",
+      "engineering",
+      "it",
+      "legal",
+      "accounting",
+      "architecture",
+      "business_development",
+    ])
+    .nullish()
     .describe(
-      "The candidate's profession (free text; well-known values are suggested on the client).",
+      "Canonical sector derived from the profession; null for quarantined legacy values.",
+    ),
+  sectorLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      "Display label for the canonical sector, computed by the server.",
     ),
   specialty: zod.string().nullish(),
   qualificationCountry: zod.string().nullish(),
@@ -232,7 +268,13 @@ export const GetMyProfileResponse = zod.object({
   qualificationYear: zod.number().nullish(),
   experienceYears: zod.number().nullish(),
   registrationStatus: zod
-    .enum(["registered", "not_registered", "in_process"])
+    .enum([
+      "registered",
+      "not_registered",
+      "in_process",
+      "not_applicable",
+      "unknown",
+    ])
     .nullish(),
   licenceReady: zod.boolean().nullish(),
   dbsClearanceLevel: zod
@@ -341,15 +383,34 @@ export const upsertMyProfileBodyStartAvailabilityMax = 500;
 export const UpsertMyProfileBody = zod.object({
   profession: zod
     .string()
+    .describe("The candidate's canonical profession label."),
+  sector: zod
+    .enum([
+      "healthcare",
+      "education",
+      "engineering",
+      "it",
+      "legal",
+      "accounting",
+      "architecture",
+      "business_development",
+    ])
+    .optional()
     .describe(
-      "The candidate's profession (free text; well-known values are suggested on the client).",
+      "Current clients send this canonical sector; legacy clients may omit it and the server derives it from profession.",
     ),
   specialty: zod.string(),
   qualificationCountry: zod.string(),
   qualificationType: zod.string(),
   qualificationYear: zod.number(),
   experienceYears: zod.number(),
-  registrationStatus: zod.enum(["registered", "not_registered", "in_process"]),
+  registrationStatus: zod.enum([
+    "registered",
+    "not_registered",
+    "in_process",
+    "not_applicable",
+    "unknown",
+  ]),
   licenceReady: zod.boolean().nullish(),
   dbsClearanceLevel: zod
     .enum(["unknown", "none", "basic", "standard", "enhanced"])
@@ -398,8 +459,27 @@ export const UpsertMyProfileResponse = zod.object({
   userId: zod.string(),
   profession: zod
     .string()
+    .describe("The candidate's canonical profession label."),
+  sector: zod
+    .enum([
+      "healthcare",
+      "education",
+      "engineering",
+      "it",
+      "legal",
+      "accounting",
+      "architecture",
+      "business_development",
+    ])
+    .nullish()
     .describe(
-      "The candidate's profession (free text; well-known values are suggested on the client).",
+      "Canonical sector derived from the profession; null for quarantined legacy values.",
+    ),
+  sectorLabel: zod
+    .string()
+    .nullish()
+    .describe(
+      "Display label for the canonical sector, computed by the server.",
     ),
   specialty: zod.string().nullish(),
   qualificationCountry: zod.string().nullish(),
@@ -407,7 +487,13 @@ export const UpsertMyProfileResponse = zod.object({
   qualificationYear: zod.number().nullish(),
   experienceYears: zod.number().nullish(),
   registrationStatus: zod
-    .enum(["registered", "not_registered", "in_process"])
+    .enum([
+      "registered",
+      "not_registered",
+      "in_process",
+      "not_applicable",
+      "unknown",
+    ])
     .nullish(),
   licenceReady: zod.boolean().nullish(),
   dbsClearanceLevel: zod
@@ -802,8 +888,21 @@ export const RunRegressionTestBody = zod.object({
       profile: zod.object({
         profession: zod
           .string()
+          .describe("The candidate's canonical profession label."),
+        sector: zod
+          .enum([
+            "healthcare",
+            "education",
+            "engineering",
+            "it",
+            "legal",
+            "accounting",
+            "architecture",
+            "business_development",
+          ])
+          .optional()
           .describe(
-            "The candidate's profession (free text; well-known values are suggested on the client).",
+            "Current clients send this canonical sector; legacy clients may omit it and the server derives it from profession.",
           ),
         specialty: zod.string(),
         qualificationCountry: zod.string(),
@@ -814,6 +913,8 @@ export const RunRegressionTestBody = zod.object({
           "registered",
           "not_registered",
           "in_process",
+          "not_applicable",
+          "unknown",
         ]),
         licenceReady: zod.boolean().nullish(),
         dbsClearanceLevel: zod
@@ -2522,8 +2623,27 @@ export const GetReviewCaseResponse = zod.object({
       userId: zod.string(),
       profession: zod
         .string()
+        .describe("The candidate's canonical profession label."),
+      sector: zod
+        .enum([
+          "healthcare",
+          "education",
+          "engineering",
+          "it",
+          "legal",
+          "accounting",
+          "architecture",
+          "business_development",
+        ])
+        .nullish()
         .describe(
-          "The candidate's profession (free text; well-known values are suggested on the client).",
+          "Canonical sector derived from the profession; null for quarantined legacy values.",
+        ),
+      sectorLabel: zod
+        .string()
+        .nullish()
+        .describe(
+          "Display label for the canonical sector, computed by the server.",
         ),
       specialty: zod.string().nullish(),
       qualificationCountry: zod.string().nullish(),
@@ -2531,7 +2651,13 @@ export const GetReviewCaseResponse = zod.object({
       qualificationYear: zod.number().nullish(),
       experienceYears: zod.number().nullish(),
       registrationStatus: zod
-        .enum(["registered", "not_registered", "in_process"])
+        .enum([
+          "registered",
+          "not_registered",
+          "in_process",
+          "not_applicable",
+          "unknown",
+        ])
         .nullish(),
       licenceReady: zod.boolean().nullish(),
       dbsClearanceLevel: zod

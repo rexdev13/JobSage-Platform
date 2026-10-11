@@ -5,14 +5,17 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CanonicalSector } from "./canonicalSector";
 import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 import type { UpsertProfileRequestAlertFrequency } from "./upsertProfileRequestAlertFrequency";
 import type { UpsertProfileRequestRegistrationStatus } from "./upsertProfileRequestRegistrationStatus";
 
 export interface UpsertProfileRequest {
-  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  /** The candidate's canonical profession label. */
   profession: string;
+  /** Current clients send this canonical sector; legacy clients may omit it and the server derives it from profession. */
+  sector?: CanonicalSector;
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;

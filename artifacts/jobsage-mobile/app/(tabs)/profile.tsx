@@ -21,6 +21,7 @@ import { useColors } from "@/hooks/useColors";
 
 interface ProfileData {
   profession?: string | null;
+  sectorLabel?: string | null;
   specialty?: string | null;
   qualificationCountry?: string | null;
   registrationStatus?: string | null;
@@ -165,6 +166,13 @@ export default function ProfileScreen() {
               icon="medical-outline"
               label="Profession"
               value={formatEnum(profileData.profession)}
+            />
+          ) : null}
+          {profileData.sectorLabel ? (
+            <InfoRow
+              icon="briefcase-outline"
+              label="Sector"
+              value={profileData.sectorLabel}
             />
           ) : null}
           {profileData.specialty ? (

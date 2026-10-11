@@ -11,7 +11,9 @@ import {
   PROFESSION_CATALOG,
   PROFESSION_OPTIONS,
   canonicalProfessionLabel,
+  canonicalSectorForProfession,
 } from "@workspace/api-zod/profession-catalog";
+import { canonicalSectorLabel } from "@workspace/api-zod/sector-catalog";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
@@ -23,6 +25,7 @@ const router: IRouter = Router();
 
 const MAKER_PROFILE_FACT_FIELDS = [
   "profession",
+  "sector",
   "specialty",
   "qualificationCountry",
   "qualificationType",
@@ -105,7 +108,12 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     }
   }
 
-  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
+  res.json(GetMyProfileResponse.parse({
+    ...profile,
+    sectorLabel: profile.sector ? canonicalSectorLabel(profile.sector) : null,
+    completionPct: computeCompletionPct(profile),
+    missingFields: computeMissingFields(profile),
+  }));
 });
 
 router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
@@ -123,6 +131,18 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     });
     return;
   }
+  const professionSector = canonicalSectorForProfession(canonicalProfession);
+  if (!professionSector) {
+    res.status(400).json({ error: "Choose a profession with a supported canonical sector." });
+    return;
+  }
+  if (d.sector && d.sector !== professionSector) {
+    res.status(400).json({
+      error: "The selected sector does not match the selected profession.",
+    });
+    return;
+  }
+  const canonicalSector = d.sector ?? professionSector;
 
   // Resolve a JOBSAGE email alias for this candidate.
   // Look up any existing profile first so we never overwrite an already-assigned alias.
@@ -131,6 +151,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
       id: profilesTable.id,
       jobsageEmail: profilesTable.jobsageEmail,
       profession: profilesTable.profession,
+      sector: profilesTable.sector,
       specialty: profilesTable.specialty,
       qualificationCountry: profilesTable.qualificationCountry,
       qualificationType: profilesTable.qualificationType,
@@ -158,6 +179,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   const values = {
     userId: req.user!.id,
     profession: canonicalProfession,
+    sector: canonicalSector,
     specialty: d.specialty,
     qualificationCountry: d.qualificationCountry,
     qualificationType: d.qualificationType,
@@ -191,6 +213,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   // recorded safeguarding evidence unless the client explicitly changes it.
   const updateValues: Record<string, unknown> = {
     profession: canonicalProfession,
+    sector: canonicalSector,
     specialty: d.specialty,
     qualificationCountry: d.qualificationCountry,
     qualificationType: d.qualificationType,
@@ -235,7 +258,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   // A reviewed factual draft is no longer safe to download after any
   // candidate-confirmed fact used by the Maker changes. Keep the text so the
   // candidate can review it, but require review again for every career profile.
-  if (existing?.id !== undefined && hasMakerProfileFactsChanged(existing, d)) {
+  if (existing?.id !== undefined && hasMakerProfileFactsChanged(existing, { ...d, sector: canonicalSector })) {
     await db
       .update(careerProfilesTable)
       .set({ aiCvReviewedAt: null })
@@ -259,7 +282,12 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     }
   }
 
-  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
+  res.json(UpsertMyProfileResponse.parse({
+    ...profile,
+    sectorLabel: profile.sector ? canonicalSectorLabel(profile.sector) : null,
+    completionPct: computeCompletionPct(profile),
+    missingFields: computeMissingFields(profile),
+  }));
 });
 
 router.patch("/profiles/me/boost", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

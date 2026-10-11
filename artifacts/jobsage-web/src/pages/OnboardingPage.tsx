@@ -10,8 +10,14 @@ import { JourneyIslands } from "@/components/JourneyIslands";
 import { JOURNEY_STEPS } from "@/lib/journeySteps";
 import type { IslandState } from "@/lib/journeySteps";
 import { PROFESSION_OPTIONS } from "@workspace/api-zod/profession-catalog";
+import {
+  canonicalSectorForProfession,
+  professionRequiresUkRegistration,
+} from "@workspace/api-zod/profession-catalog";
+import { type CanonicalSector } from "@workspace/api-zod/sector-catalog";
+import { CanonicalSectorSelect } from "@/components/forms/CanonicalSectorSelect";
 
-type RegistrationStatus = "registered" | "not_registered" | "in_process";
+type RegistrationStatus = "registered" | "not_registered" | "in_process" | "not_applicable" | "unknown";
 type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
 type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
 const UK_REGIONS = [
@@ -28,7 +34,7 @@ type ProfileData = {
   qualificationYear: string;
   experienceYears: string;
   registrationStatus: RegistrationStatus;
-  licenceReady: boolean;
+  licenceReady: boolean | null;
   dbsClearanceLevel: DbsClearanceLevel;
   safeguardingTrainingLevel: SafeguardingTrainingLevel;
   residencyStatus: string;
@@ -59,6 +65,7 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient();
   const upsertProfileMutation = useUpsertMyProfile();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedSector, setSelectedSector] = useState<CanonicalSector | "">("");
 
   const [data, setData] = useState<ProfileData>({
     profession: "",
@@ -67,8 +74,8 @@ export default function OnboardingPage() {
     qualificationType: "",
     qualificationYear: "",
     experienceYears: "",
-    registrationStatus: "not_registered",
-    licenceReady: false,
+    registrationStatus: "unknown",
+    licenceReady: null,
     dbsClearanceLevel: "unknown",
     safeguardingTrainingLevel: "unknown",
     residencyStatus: "",
@@ -85,6 +92,18 @@ export default function OnboardingPage() {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
     setData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    if (name === "profession") {
+      const sector = canonicalSectorForProfession(value) ?? "";
+      setSelectedSector(sector);
+      const requiresRegistration = sector === "healthcare" && professionRequiresUkRegistration(value);
+      setData((prev) => ({
+        ...prev,
+        registrationStatus: requiresRegistration
+          ? (prev.registrationStatus === "not_applicable" ? "unknown" : prev.registrationStatus)
+          : "not_applicable",
+        licenceReady: requiresRegistration ? prev.licenceReady : null,
+      }));
+    }
   };
 
   const handleNext = () => setStep(s => Math.min(s + 1, 4));
@@ -94,6 +113,7 @@ export default function OnboardingPage() {
     setSubmitError(null);
     try {
       if (!data.profession) throw new Error("Profession is required");
+      if (!selectedSector) throw new Error("Professional sector is required");
       if (!data.qualificationCountry) throw new Error("Country of qualification is required");
       if (!data.qualificationType) throw new Error("Degree type is required");
       if (!data.qualificationYear) throw new Error("Qualification year is required");
@@ -103,6 +123,7 @@ export default function OnboardingPage() {
       await upsertProfileMutation.mutateAsync({
         data: {
           profession: data.profession,
+          sector: selectedSector,
           specialty: data.specialty,
           qualificationCountry: data.qualificationCountry,
           qualificationType: data.qualificationType,
@@ -130,7 +151,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const isStep1Valid = data.profession !== "";
+  const isStep1Valid = data.profession !== "" && canonicalSectorForProfession(data.profession) === selectedSector;
   const isStep2Valid = data.qualificationCountry !== "" && data.qualificationType !== "" && data.qualificationYear !== "";
   const isStep3Valid = data.experienceYears !== "";
   const isStep4Valid = data.residencyStatus !== "" && data.phone.trim() !== "" && data.streetAddress.trim() !== "" && data.city.trim() !== "" && data.postcode.trim() !== "" && data.country.trim() !== "";
@@ -148,10 +169,14 @@ export default function OnboardingPage() {
 
       {/* Journey islands — compact preview showing where profile setup fits */}
       <div className="w-full max-w-2xl mb-6 px-2">
-        <p className="text-xs text-muted-foreground mb-3 text-center">
-          Your UK healthcare career journey — you're on step 1
-        </p>
-        <JourneyIslands islands={ONBOARDING_ISLANDS} activeStep={1} compact />
+        {selectedSector === "healthcare" && (
+          <>
+            <p className="text-xs text-muted-foreground mb-3 text-center">
+              Your UK healthcare career journey — profile setup is step 1
+            </p>
+            <JourneyIslands islands={ONBOARDING_ISLANDS} activeStep={1} compact />
+          </>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -186,15 +211,41 @@ export default function OnboardingPage() {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-display font-bold text-foreground mb-1">Professional Identity</h2>
-                    <p className="text-muted-foreground text-sm">Select your primary healthcare profession and specialty.</p>
+                    <p className="text-muted-foreground text-sm">Choose your sector and profession. Your profession is used to match vacancies.</p>
                   </div>
+                  <CanonicalSectorSelect
+                    id="onboarding-sector"
+                    label="Professional sector"
+                    value={selectedSector}
+                    required
+                    onChange={(sector) => {
+                      setSelectedSector(sector);
+                      setData((previous) => {
+                        const profession = canonicalSectorForProfession(previous.profession) === sector
+                          ? previous.profession
+                          : "";
+                        const requiresRegistration = sector === "healthcare"
+                          && professionRequiresUkRegistration(profession);
+                        return {
+                          ...previous,
+                          profession,
+                          registrationStatus: requiresRegistration
+                            ? (previous.registrationStatus === "not_applicable" ? "unknown" : previous.registrationStatus)
+                            : "not_applicable",
+                          licenceReady: requiresRegistration ? previous.licenceReady : null,
+                        };
+                      });
+                    }}
+                  />
                   <div>
                     <Label htmlFor="profession">Profession <span className="text-destructive">*</span></Label>
-                    <Select name="profession" value={data.profession} onChange={handleChange} required>
+                    <Select name="profession" value={data.profession} onChange={handleChange} required disabled={!selectedSector}>
                       <option value="" disabled>Select profession...</option>
-                      {PROFESSION_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
+                      {PROFESSION_OPTIONS
+                        .filter((profession) => canonicalSectorForProfession(profession) === selectedSector)
+                        .map((profession) => (
+                          <option key={profession} value={profession}>{profession}</option>
+                        ))}
                     </Select>
                   </div>
                   <div>
@@ -244,54 +295,63 @@ export default function OnboardingPage() {
               {step === 3 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Experience & Registration</h2>
-                    <p className="text-muted-foreground text-sm">Your regulatory standing and clinical experience.</p>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Experience & Professional Readiness</h2>
+                    <p className="text-muted-foreground text-sm">Share your experience and any checks relevant to the roles you want.</p>
                   </div>
                   <div>
                     <Label htmlFor="experienceYears">Years of Post-graduate Experience <span className="text-destructive">*</span></Label>
                     <Input name="experienceYears" type="number" min="0" placeholder="e.g. 5" value={data.experienceYears} onChange={handleChange} required />
                   </div>
-                  <div>
-                    <Label htmlFor="registrationStatus">UK Registration Status <span className="text-destructive">*</span></Label>
-                    <Select name="registrationStatus" value={data.registrationStatus} onChange={handleChange}>
-                      <option value="not_registered">Not Registered</option>
-                      <option value="in_process">In Process</option>
-                      <option value="registered">Fully Registered</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="dbsClearanceLevel">DBS clearance level</Label>
-                    <Select name="dbsClearanceLevel" value={data.dbsClearanceLevel} onChange={handleChange}>
-                      <option value="unknown">Not sure / not recorded</option>
-                      <option value="none">None</option>
-                      <option value="basic">Basic DBS</option>
-                      <option value="standard">Standard DBS</option>
-                      <option value="enhanced">Enhanced DBS</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="safeguardingTrainingLevel">Safeguarding training</Label>
-                    <Select name="safeguardingTrainingLevel" value={data.safeguardingTrainingLevel} onChange={handleChange}>
-                      <option value="unknown">Not sure / not recorded</option>
-                      <option value="none">None</option>
-                      <option value="level_1">Level 1</option>
-                      <option value="level_2">Level 2</option>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">Used only to compare stated role requirements; it is not a legal DBS decision.</p>
-                  </div>
-                  <label className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      name="licenceReady"
-                      checked={data.licenceReady}
-                      onChange={handleChange}
-                      className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
-                    />
-                    <div>
-                      <div className="font-semibold text-foreground text-sm">Licence to Practice Ready</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">Do you have all documents required to apply for a licence?</div>
-                    </div>
-                  </label>
+                  {selectedSector === "healthcare" && professionRequiresUkRegistration(data.profession) && (
+                    <>
+                      <div>
+                        <Label htmlFor="registrationStatus">UK Registration Status</Label>
+                        <Select name="registrationStatus" value={data.registrationStatus} onChange={handleChange}>
+                          <option value="unknown">Not recorded</option>
+                          <option value="not_registered">Not Registered</option>
+                          <option value="in_process">In Process</option>
+                          <option value="registered">Fully Registered</option>
+                        </Select>
+                      </div>
+                      <label className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          name="licenceReady"
+                          checked={!!data.licenceReady}
+                          onChange={handleChange}
+                          className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
+                        />
+                        <div>
+                          <div className="font-semibold text-foreground text-sm">Licence to Practice Ready</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">Do you have all documents required to apply for a licence?</div>
+                        </div>
+                      </label>
+                    </>
+                  )}
+                  {(selectedSector === "healthcare" || selectedSector === "education") && (
+                    <>
+                      <div>
+                        <Label htmlFor="dbsClearanceLevel">DBS clearance level</Label>
+                        <Select name="dbsClearanceLevel" value={data.dbsClearanceLevel} onChange={handleChange}>
+                          <option value="unknown">Not sure / not recorded</option>
+                          <option value="none">None</option>
+                          <option value="basic">Basic DBS</option>
+                          <option value="standard">Standard DBS</option>
+                          <option value="enhanced">Enhanced DBS</option>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="safeguardingTrainingLevel">Safeguarding training</Label>
+                        <Select name="safeguardingTrainingLevel" value={data.safeguardingTrainingLevel} onChange={handleChange}>
+                          <option value="unknown">Not sure / not recorded</option>
+                          <option value="none">None</option>
+                          <option value="level_1">Level 1</option>
+                          <option value="level_2">Level 2</option>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">Used only to compare stated role requirements; it is not a legal DBS decision.</p>
+                      </div>
+                    </>
+                  )}
                   <div className="pt-4 flex justify-between">
                     <Button variant="outline" onClick={handlePrev} size="lg">
                       <ArrowLeft className="w-5 h-5 mr-2" /> Back

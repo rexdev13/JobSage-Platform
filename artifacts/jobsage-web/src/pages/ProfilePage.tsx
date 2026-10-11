@@ -21,7 +21,14 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
 import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
-import { PROFESSION_OPTIONS } from "@workspace/api-zod/profession-catalog";
+import {
+  PROFESSION_OPTIONS,
+  canonicalProfessionLabel,
+  canonicalSectorForProfession,
+  professionRequiresUkRegistration,
+} from "@workspace/api-zod/profession-catalog";
+import { isCanonicalSector, type CanonicalSector } from "@workspace/api-zod/sector-catalog";
+import { CanonicalSectorSelect } from "@/components/forms/CanonicalSectorSelect";
 import { useToast } from "@/hooks/use-toast";
 import {
   CAREER_PROFILE_MAKER_DESCRIPTION,
@@ -34,33 +41,12 @@ import {
   getRemainingCompletenessPct,
 } from "@/lib/profileCompletenessChecklist";
 
-type RegistrationStatus = "registered" | "not_registered" | "in_process";
+type RegistrationStatus = "registered" | "not_registered" | "in_process" | "not_applicable" | "unknown";
 type AlertFrequency = "daily" | "weekly" | "off";
 type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
 type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
 
 const FALLBACK_PROFESSIONS = PROFESSION_OPTIONS;
-
-const REGULATED_PROFESSION_KEYWORDS = [
-  "doctor",
-  "nurse",
-  "midwife",
-  "dentist",
-  "pharmacist",
-  "optometrist",
-  "physiotherapist",
-  "radiographer",
-  "paramedic",
-  "occupational therapist",
-  "allied health",
-  "clinical academic",
-  "social worker",
-];
-
-function isUkRegulatedProfession(profession: string): boolean {
-  const lower = profession.toLowerCase().replace(/_/g, " ").trim();
-  return REGULATED_PROFESSION_KEYWORDS.some((kw) => lower.includes(kw));
-}
 
 const RESIDENCY_STATUS_OPTIONS = [
   "British / Irish Citizen",
@@ -99,7 +85,7 @@ type ProfileFormData = {
   qualificationYear: string;
   experienceYears: string;
   registrationStatus: RegistrationStatus;
-  licenceReady: boolean;
+  licenceReady: boolean | null;
   dbsClearanceLevel: DbsClearanceLevel;
   safeguardingTrainingLevel: SafeguardingTrainingLevel;
   residencyStatus: string;
@@ -214,7 +200,10 @@ export default function ProfilePage() {
   });
   const { toast } = useToast();
 
-  const professionSuggestions = FALLBACK_PROFESSIONS;
+  const [selectedSector, setSelectedSector] = useState<CanonicalSector | "">("");
+  const professionSuggestions = FALLBACK_PROFESSIONS.filter(
+    (profession) => !selectedSector || canonicalSectorForProfession(profession) === selectedSector,
+  );
 
   const [formData, setFormData] = useState<ProfileFormData>({
     profession: "",
@@ -223,8 +212,8 @@ export default function ProfilePage() {
     qualificationType: "",
     qualificationYear: "",
     experienceYears: "",
-    registrationStatus: "not_registered",
-    licenceReady: false,
+    registrationStatus: "unknown",
+    licenceReady: null,
     dbsClearanceLevel: "unknown",
     safeguardingTrainingLevel: "unknown",
     residencyStatus: "",
@@ -259,6 +248,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
+      const profileSector = isCanonicalSector(profile.sector)
+        ? profile.sector
+        : canonicalSectorForProfession(profile.profession) ?? "";
+      const requiresRegistration = profileSector === "healthcare"
+        && professionRequiresUkRegistration(profile.profession);
+      const savedRegistrationStatus = profile.registrationStatus as RegistrationStatus | null | undefined;
       const storedResidency = profile.residencyStatus || "";
       const isOther =
         storedResidency !== "" &&
@@ -271,14 +266,18 @@ export default function ProfilePage() {
         : (rawLanguages as string) ?? "";
 
       setFormData({
-        profession: profile.profession || "",
+        profession: canonicalProfessionLabel(profile.profession) ?? profile.profession ?? "",
         specialty: profile.specialty || "",
         qualificationCountry: profile.qualificationCountry || "",
         qualificationType: profile.qualificationType || "",
         qualificationYear: profile.qualificationYear?.toString() || "",
         experienceYears: profile.experienceYears?.toString() || "",
-        registrationStatus: (profile.registrationStatus as RegistrationStatus) || "not_registered",
-        licenceReady: profile.licenceReady || false,
+        registrationStatus: requiresRegistration
+          ? savedRegistrationStatus && savedRegistrationStatus !== "not_applicable"
+            ? savedRegistrationStatus
+            : "unknown"
+          : "not_applicable",
+        licenceReady: requiresRegistration ? profile.licenceReady ?? null : null,
         dbsClearanceLevel: (profile.dbsClearanceLevel as DbsClearanceLevel) ?? "unknown",
         safeguardingTrainingLevel: (profile.safeguardingTrainingLevel as SafeguardingTrainingLevel) ?? "unknown",
         residencyStatus: isOther ? "Other" : storedResidency,
@@ -302,6 +301,7 @@ export default function ProfilePage() {
         country: (p.country as string) || "United Kingdom",
         profilePhotoKey: (p.profilePhotoKey as string) ?? "",
       });
+      setSelectedSector(profileSector);
     }
   }, [profile]);
 
@@ -309,6 +309,18 @@ export default function ProfilePage() {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    if (name === "profession") {
+      const sector = canonicalSectorForProfession(value) ?? "";
+      setSelectedSector(sector);
+      const requiresRegistration = sector === "healthcare" && professionRequiresUkRegistration(value);
+      setFormData((prev) => ({
+        ...prev,
+        registrationStatus: requiresRegistration
+          ? (prev.registrationStatus === "not_applicable" ? "unknown" : prev.registrationStatus)
+          : "not_applicable",
+        licenceReady: requiresRegistration ? prev.licenceReady : null,
+      }));
+    }
   };
 
   const buildPayload = useCallback(() => {
@@ -319,6 +331,7 @@ export default function ProfilePage() {
         : fd.residencyStatus;
     return {
       profession: fd.profession.trim(),
+      ...(selectedSector ? { sector: selectedSector } : {}),
       specialty: fd.specialty.trim(),
       qualificationCountry: fd.qualificationCountry.trim(),
       qualificationType: fd.qualificationType.trim(),
@@ -348,7 +361,7 @@ export default function ProfilePage() {
       postcode: fd.postcode.trim() || undefined,
       country: fd.country.trim() || undefined,
     };
-  }, []);
+  }, [selectedSector]);
 
   const doAutoSave = useCallback(async () => {
     const fd = formDataRef.current;
@@ -461,7 +474,8 @@ export default function ProfilePage() {
     }
   };
 
-  const showRegistrationStatus = isUkRegulatedProfession(formData.profession);
+  const showRegistrationStatus = selectedSector === "healthcare"
+    && professionRequiresUkRegistration(formData.profession);
 
   const p = profile as unknown as Record<string, unknown>;
   const storedPhotoKey = p?.profilePhotoKey as string | null | undefined;
@@ -668,6 +682,30 @@ export default function ProfilePage() {
           <Card id="profile-professional-section" className="p-6 scroll-mt-6">
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Professional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CanonicalSectorSelect
+                id="profile-field-sector"
+                label="Professional sector"
+                value={selectedSector}
+                required
+                onChange={(sector) => {
+                  setSelectedSector(sector);
+                setFormData((previous) => {
+                  const profession = canonicalSectorForProfession(previous.profession) === sector
+                    ? previous.profession
+                    : "";
+                  const requiresRegistration = sector === "healthcare"
+                    && professionRequiresUkRegistration(profession);
+                  return {
+                    ...previous,
+                    profession,
+                    registrationStatus: requiresRegistration
+                      ? (previous.registrationStatus === "not_applicable" ? "unknown" : previous.registrationStatus)
+                      : "not_applicable",
+                    licenceReady: requiresRegistration ? previous.licenceReady : null,
+                  };
+                });
+                }}
+              />
               <div>
                 <Label className="flex items-center gap-1">
                   Profession *
@@ -677,7 +715,20 @@ export default function ProfilePage() {
                   id="profile-field-profession"
                   name="profession"
                   value={formData.profession}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, profession: event.target.value }))}
+                  onChange={(event) => {
+                    setFormData((prev) => ({ ...prev, profession: event.target.value }));
+                    const sector = canonicalSectorForProfession(event.target.value) ?? "";
+                    setSelectedSector(sector);
+                    const requiresRegistration = sector === "healthcare"
+                      && professionRequiresUkRegistration(event.target.value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      registrationStatus: requiresRegistration
+                        ? (prev.registrationStatus === "not_applicable" ? "unknown" : prev.registrationStatus)
+                        : "not_applicable",
+                      licenceReady: requiresRegistration ? prev.licenceReady : null,
+                    }));
+                  }}
                   onBlur={handleBlur}
                   required
                 >
@@ -730,6 +781,7 @@ export default function ProfilePage() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                   >
+                    <option value="unknown">Not recorded</option>
                     <option value="not_registered">Not Yet Registered</option>
                     <option value="in_process">In Process</option>
                     <option value="registered">Fully Registered</option>
@@ -827,60 +879,63 @@ export default function ProfilePage() {
                 <FieldHint>The year you were awarded your qualification.</FieldHint>
               </div>
 
-              <div className="flex items-start pt-8">
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="licenceReady"
-                    checked={formData.licenceReady}
-                    onChange={handleChange}
-                    className="mt-0.5 w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
-                  />
-                  <span>
-                    <span className="font-medium text-foreground block">
-                      Licence to Practise Ready
+              {showRegistrationStatus && (
+                <div className="flex items-start pt-8">
+                  <label className="flex items-start space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="licenceReady"
+                      checked={!!formData.licenceReady}
+                      onChange={handleChange}
+                      className="mt-0.5 w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
+                    />
+                    <span>
+                      <span className="font-medium text-foreground block">
+                        Licence to Practise Ready
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Tick if you hold a current, valid licence to practise in your home country.
+                      </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Tick if you hold a current, valid licence to practise in your home country.
-                    </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
             </div>
           </Card>
 
-          {/* Safeguarding */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-2 border-b pb-4 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-primary" />
-              DBS &amp; Safeguarding
-            </h3>
-            <p className="text-sm text-muted-foreground mb-5">
-              Share the levels you already hold so JOBSAGE can compare them with stated job requirements.
-              This is not a legal DBS decision.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label>DBS clearance level</Label>
-                <Select name="dbsClearanceLevel" value={formData.dbsClearanceLevel} onChange={handleChange} onBlur={handleBlur}>
-                  <option value="unknown">I don&apos;t know / not recorded</option>
-                  <option value="none">None</option>
-                  <option value="basic">Basic DBS</option>
-                  <option value="standard">Standard DBS</option>
-                  <option value="enhanced">Enhanced DBS</option>
-                </Select>
+          {(selectedSector === "healthcare" || selectedSector === "education") && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-2 border-b pb-4 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                DBS &amp; Safeguarding
+              </h3>
+              <p className="text-sm text-muted-foreground mb-5">
+                Share the levels you already hold so JOBSAGE can compare them with stated job requirements.
+                This is not a legal DBS decision.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label>DBS clearance level</Label>
+                  <Select name="dbsClearanceLevel" value={formData.dbsClearanceLevel} onChange={handleChange} onBlur={handleBlur}>
+                    <option value="unknown">I don&apos;t know / not recorded</option>
+                    <option value="none">None</option>
+                    <option value="basic">Basic DBS</option>
+                    <option value="standard">Standard DBS</option>
+                    <option value="enhanced">Enhanced DBS</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Safeguarding training level</Label>
+                  <Select name="safeguardingTrainingLevel" value={formData.safeguardingTrainingLevel} onChange={handleChange} onBlur={handleBlur}>
+                    <option value="unknown">I don&apos;t know / not recorded</option>
+                    <option value="none">None</option>
+                    <option value="level_1">Level 1</option>
+                    <option value="level_2">Level 2</option>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label>Safeguarding training level</Label>
-                <Select name="safeguardingTrainingLevel" value={formData.safeguardingTrainingLevel} onChange={handleChange} onBlur={handleBlur}>
-                  <option value="unknown">I don&apos;t know / not recorded</option>
-                  <option value="none">None</option>
-                  <option value="level_1">Level 1</option>
-                  <option value="level_2">Level 2</option>
-                </Select>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Immigration & Location */}
           <Card id="profile-immigration-section" className="p-6 scroll-mt-6">

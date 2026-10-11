@@ -38,6 +38,9 @@ function normaliseEmployer(value: string): string {
 }
 
 function arg(name: string, fallback?: string): string | undefined {
+  const equalsPrefix = `--${name}=`;
+  const equalsArgument = process.argv.find((value) => value.startsWith(equalsPrefix));
+  if (equalsArgument !== undefined) return equalsArgument.slice(equalsPrefix.length);
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : fallback;
 }
@@ -57,7 +60,9 @@ function writeCsv(file: string, headers: readonly string[], rows: readonly Recor
 async function main(): Promise<void> {
   // Imports in the production modules construct a lazy pg Pool. All database
   // callbacks are injected below, so this URL is never contacted.
-  process.env.DATABASE_URL ||= "postgresql://no-write-audit:invalid@127.0.0.1:1/no-write-audit";
+  // Fail closed if an injected callback is accidentally used: never let this
+  // public-source audit connect to whichever database is in the shell env.
+  process.env.DATABASE_URL = "postgresql://no-write-audit:invalid@127.0.0.1:1/no-write-audit";
   process.env.DATABASE_READ_ONLY = "true";
   process.env.JOBSAGE_NO_WRITE_PUBLIC_FEED_AUDIT = "true";
 

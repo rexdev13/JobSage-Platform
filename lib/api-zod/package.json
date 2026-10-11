@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./profession-catalog": "./src/professionCatalog.ts"
+    "./profession-catalog": "./src/professionCatalog.ts",
+    "./sector-catalog": "./src/sectorCatalog.ts"
   },
   "dependencies": {
     "zod": "catalog:"

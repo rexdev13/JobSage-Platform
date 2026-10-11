@@ -304,6 +304,20 @@ export interface SafeguardingAssessment {
   safeguardingStatus: SafeguardingStatus;
 }
 
+export type CanonicalSector =
+  (typeof CanonicalSector)[keyof typeof CanonicalSector];
+
+export const CanonicalSector = {
+  healthcare: "healthcare",
+  education: "education",
+  engineering: "engineering",
+  it: "it",
+  legal: "legal",
+  accounting: "accounting",
+  architecture: "architecture",
+  business_development: "business_development",
+} as const;
+
 export type CandidateProfileRegistrationStatus =
   | (typeof CandidateProfileRegistrationStatus)[keyof typeof CandidateProfileRegistrationStatus]
   | null;
@@ -312,6 +326,8 @@ export const CandidateProfileRegistrationStatus = {
   registered: "registered",
   not_registered: "not_registered",
   in_process: "in_process",
+  not_applicable: "not_applicable",
+  unknown: "unknown",
 } as const;
 
 /**
@@ -330,8 +346,12 @@ export const CandidateProfileAlertFrequency = {
 export interface CandidateProfile {
   id: number;
   userId: string;
-  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  /** The candidate's canonical profession label. */
   profession: string;
+  /** Canonical sector derived from the profession; null for quarantined legacy values. */
+  sector?: CanonicalSector | null;
+  /** Display label for the canonical sector, computed by the server. */
+  sectorLabel?: string | null;
   specialty?: string | null;
   qualificationCountry?: string | null;
   qualificationType?: string | null;
@@ -384,9 +404,17 @@ export interface CandidateProfile {
   updatedAt: string;
 }
 
+export interface ProfessionCatalogEntry {
+  label: string;
+  category: string;
+  sector: CanonicalSector;
+  regulator: string | null;
+}
+
 export interface ProfessionListResponse {
   /** Merged list of well-known and community-contributed profession labels. */
   professions: string[];
+  catalogue: ProfessionCatalogEntry[];
 }
 
 export type UpsertProfileRequestRegistrationStatus =
@@ -396,6 +424,8 @@ export const UpsertProfileRequestRegistrationStatus = {
   registered: "registered",
   not_registered: "not_registered",
   in_process: "in_process",
+  not_applicable: "not_applicable",
+  unknown: "unknown",
 } as const;
 
 /**
@@ -412,8 +442,10 @@ export const UpsertProfileRequestAlertFrequency = {
 } as const;
 
 export interface UpsertProfileRequest {
-  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  /** The candidate's canonical profession label. */
   profession: string;
+  /** Current clients send this canonical sector; legacy clients may omit it and the server derives it from profession. */
+  sector?: CanonicalSector;
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;

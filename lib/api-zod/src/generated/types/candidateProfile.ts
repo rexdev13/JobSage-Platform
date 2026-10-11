@@ -7,14 +7,19 @@
  */
 import type { CandidateProfileAlertFrequency } from "./candidateProfileAlertFrequency";
 import type { CandidateProfileRegistrationStatus } from "./candidateProfileRegistrationStatus";
+import type { CanonicalSector } from "./canonicalSector";
 import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface CandidateProfile {
   id: number;
   userId: string;
-  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  /** The candidate's canonical profession label. */
   profession: string;
+  /** Canonical sector derived from the profession; null for quarantined legacy values. */
+  sector?: CanonicalSector | null;
+  /** Display label for the canonical sector, computed by the server. */
+  sectorLabel?: string | null;
   specialty?: string | null;
   qualificationCountry?: string | null;
   qualificationType?: string | null;

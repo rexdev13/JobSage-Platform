@@ -1,15 +1,8 @@
-export const STRICT_ROLE_PAGE_SECTORS = [
-  "healthcare",
-  "education",
-  "engineering",
-  "it",
-  "legal",
-  "accounting",
-  "architecture",
-  "business_development",
-] as const;
+import { CANONICAL_SECTORS, type CanonicalSector } from "@workspace/api-zod/sector-catalog";
 
-export type StrictRolePageSector = (typeof STRICT_ROLE_PAGE_SECTORS)[number];
+export const STRICT_ROLE_PAGE_SECTORS = CANONICAL_SECTORS;
+
+export type StrictRolePageSector = CanonicalSector;
 
 export type StrictRolePageSectorConfig = {
   titlePattern: RegExp;

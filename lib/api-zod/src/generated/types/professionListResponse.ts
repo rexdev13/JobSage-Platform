@@ -5,8 +5,10 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProfessionCatalogEntry } from "./professionCatalogEntry";
 
 export interface ProfessionListResponse {
   /** Merged list of well-known and community-contributed profession labels. */
   professions: string[];
+  catalogue: ProfessionCatalogEntry[];
 }

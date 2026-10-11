@@ -2,17 +2,21 @@ import { pgTable, serial, text, integer, boolean, timestamp, varchar, date } fro
 // Note: preferredRegion is a text array to support multiple UK region selections
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import type { CanonicalSector } from "@workspace/api-zod/sector-catalog";
 
 export const profilesTable = pgTable("profiles", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique(),
   profession: text("profession").notNull(),
+  sector: text("sector").$type<CanonicalSector>(),
   specialty: text("specialty").notNull(),
   qualificationCountry: text("qualification_country").notNull(),
   qualificationType: text("qualification_type").notNull(),
   qualificationYear: integer("qualification_year").notNull(),
   experienceYears: integer("experience_years").notNull(),
-  registrationStatus: varchar("registration_status", { enum: ["registered", "not_registered", "in_process"] }).notNull(),
+  registrationStatus: varchar("registration_status", {
+    enum: ["registered", "not_registered", "in_process", "not_applicable", "unknown"],
+  }).notNull(),
   licenceReady: boolean("licence_ready"),
   dbsClearanceLevel: varchar("dbs_clearance_level", {
     enum: ["unknown", "none", "basic", "standard", "enhanced"],

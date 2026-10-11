@@ -1,0 +1,31 @@
+{
+  "snapshotDate": "2026-10-11",
+  "environment": "development",
+  "table": "profiles",
+  "column": {
+    "name": "sector",
+    "type": "text",
+    "nullable": true
+  },
+  "totalProfileRows": 20,
+  "mappedRows": 19,
+  "quarantinedRows": 1,
+  "rowsByProfessionAndSector": [
+    { "profession": "doctor", "sector": "healthcare", "count": 10 },
+    { "profession": "Doctor", "sector": "healthcare", "count": 1 },
+    { "profession": "nurse", "sector": "healthcare", "count": 5 },
+    { "profession": "Nurse", "sector": "healthcare", "count": 1 },
+    { "profession": "allied_health_professional", "sector": "healthcare", "count": 1 },
+    { "profession": "IT Professional", "sector": "it", "count": 1 },
+    {
+      "profession": "student",
+      "sector": null,
+      "count": 1,
+      "resolution": "unsupported profile value; left quarantined"
+    }
+  ],
+  "rawProfessionValuesPreserved": true,
+  "migrationUpdatesOnlySector": true,
+  "productionWrites": 0,
+  "deploymentPerformed": false
+}

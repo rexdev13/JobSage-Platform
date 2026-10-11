@@ -14,4 +14,6 @@ export const CandidateProfileRegistrationStatus = {
   registered: "registered",
   not_registered: "not_registered",
   in_process: "in_process",
+  not_applicable: "not_applicable",
+  unknown: "unknown",
 } as const;

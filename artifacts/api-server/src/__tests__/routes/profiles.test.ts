@@ -84,7 +84,7 @@ const candidateSession = {
 };
 const consentRow = { id: 1, userId: "candidate-1", consentedAt: new Date() };
 const profileRow = {
-  id: 10, userId: "candidate-1", profession: "nurse", specialty: "ICU",
+  id: 10, userId: "candidate-1", profession: "nurse", sector: "healthcare", specialty: "ICU",
   qualificationCountry: "Nigeria", qualificationType: "bachelor",
   qualificationYear: 2015, experienceYears: 5,
   registrationStatus: "registered" as const, licenceReady: true,
@@ -140,6 +140,7 @@ describe("GET /profiles/me", () => {
       .set("Authorization", AUTH_HEADER);
     expect(resp.status).toBe(200);
     expect(resp.body).toHaveProperty("profession", "nurse");
+    expect(resp.body).toMatchObject({ sector: "healthcare", sectorLabel: "Healthcare" });
     expect(resp.body).toHaveProperty("completionPct");
     expect(typeof resp.body.completionPct).toBe("number");
     expect(resp.body.missingFields).toEqual(["Preferred start date", "Profile photo", "Additional notes"]);
@@ -174,6 +175,7 @@ describe("GET /profiles/me", () => {
 describe("PUT /profiles/me", () => {
   const validBody = {
     profession: "nurse",
+    sector: "healthcare",
     specialty: "ICU",
     qualificationCountry: "Nigeria",
     qualificationType: "bachelor",
@@ -226,6 +228,35 @@ describe("PUT /profiles/me", () => {
       .send(validBody);
     expect(resp.status).toBe(200);
     expect(resp.body).toHaveProperty("profession", "nurse");
+    expect(resp.body).toMatchObject({ sector: "healthcare", sectorLabel: "Healthcare" });
+    expect(conflictUpdates.at(-1)?.set).toMatchObject({ sector: "healthcare" });
+  });
+
+  it("derives and persists sector for legacy clients that omit it", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{ ...profileRow, sector: null }]);
+    profileResults.push([{ ...profileRow }]);
+    const { sector: _ignored, ...legacyBody } = validBody;
+
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send(legacyBody);
+
+    expect(resp.status).toBe(200);
+    expect(conflictUpdates.at(-1)?.set).toMatchObject({ sector: "healthcare" });
+  });
+
+  it("rejects a sector that conflicts with the canonical profession", async () => {
+    profileResults.push([consentRow]);
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send({ ...validBody, sector: "it" });
+
+    expect(resp.status).toBe(400);
+    expect(resp.body.error).toMatch(/does not match/i);
+    expect(conflictUpdates).toHaveLength(0);
   });
 
   it("preserves recorded safeguarding values when a partial profile save omits them", async () => {

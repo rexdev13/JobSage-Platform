@@ -1,0 +1,119 @@
+{
+  "snapshotDate": "2026-10-11",
+  "environment": "development",
+  "mode": "bounded no-write public-source audit",
+  "sponsorNameFileCount": 127367,
+  "developmentSponsorRegisterRows": 142999,
+  "developmentSponsorRegisterDistinctNames": 127397,
+  "exactSponsorNameSetOverlapCalculated": false,
+  "sourceRuns": [
+    {
+      "run": "initial",
+      "distinctOutputUrls": 2055,
+      "sources": {
+        "CharityJob": 37,
+        "NHS Jobs": 1149,
+        "NHS Scotland": 235,
+        "Reed": 288,
+        "Teaching Vacancies": 131,
+        "jobs.ac.uk": 215
+      }
+    },
+    {
+      "run": "corrected omitted free feeds",
+      "distinctOutputUrls": 145,
+      "overlapWithInitialApplyUrls": 0,
+      "sources": {
+        "Arbeitnow": 87,
+        "Himalayas": 20,
+        "Jobicy": 38
+      }
+    }
+  ],
+  "combinedDistinctApplyUrls": 2200,
+  "candidateVisibility": "not_measured; all rows were marked not_imported",
+  "distinctOutputUrlCountNote": "Output URL counts are deduplicated collector rows and may include multiple collectors assigned to the same source; they need not equal a feed's standalone sponsor-name match count.",
+  "freeFeeds": [
+    {
+      "sourceId": "nhs-jobs",
+      "recordsFetched": 2000,
+      "sponsorNameMatches": 959,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap",
+      "distinctOutputUrls": 1149
+    },
+    {
+      "sourceId": "teaching-vacancies",
+      "recordsFetched": 2000,
+      "sponsorNameMatches": 131,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap",
+      "distinctOutputUrls": 131
+    },
+    {
+      "sourceId": "nhs-scotland",
+      "recordsFetched": 240,
+      "sponsorNameMatches": 235,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap",
+      "distinctOutputUrls": 235
+    },
+    {
+      "sourceId": "jobs-ac-uk",
+      "recordsFetched": 250,
+      "sponsorNameMatches": 169,
+      "ambiguousMatches": 0,
+      "pagination": "complete",
+      "distinctOutputUrls": 215
+    },
+    {
+      "sourceId": "charityjob",
+      "recordsFetched": 300,
+      "sponsorNameMatches": 37,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap",
+      "distinctOutputUrls": 37
+    },
+    {
+      "sourceId": "arbeitnow",
+      "recordsFetched": 2450,
+      "sponsorNameMatches": 87,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap"
+    },
+    {
+      "sourceId": "jobicy",
+      "recordsFetched": 773,
+      "sponsorNameMatches": 38,
+      "ambiguousMatches": 0,
+      "pagination": "complete"
+    },
+    {
+      "sourceId": "himalayas",
+      "recordsFetched": 243,
+      "sponsorNameMatches": 20,
+      "ambiguousMatches": 0,
+      "pagination": "20-page run cap"
+    }
+  ],
+  "otherCollectors": {
+    "reed": {
+      "recordsDiscovered": 2240,
+      "sponsorNameMatches": 307,
+      "classified": 288,
+      "distinctOutputUrls": 288
+    },
+    "additionalBoardBackfill": {
+      "recordsDiscovered": 1981,
+      "sponsorNameMatches": 607,
+      "classified": 266,
+      "distinctOutputUrls": 236
+    }
+  },
+  "safetyNotes": [
+    "All source rows used injected in-memory persistence; the audit database URL was set to an unreachable local endpoint.",
+    "No vacancy was imported, marked live, or sent to a candidate.",
+    "A sponsor-name match does not establish employer website ownership, current vacancy status, sponsorship, a valid direct email, or candidate visibility.",
+    "Six free feeds stopped at the configured 20-page bound; only jobs.ac.uk and Jobicy completed pagination."
+  ]
+}
