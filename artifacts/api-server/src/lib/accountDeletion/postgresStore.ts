@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db, accountDeletionRequestsTable as requests, accountDeletionTasksTable as tasks,
   deletionTombstoneOutboxTable as outbox, usersTable, sessionsTable, employerProfilesTable } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { accountDeletionHash, encryptDeletionResource, decryptDeletionResource } from "./crypto";
 import { checkAcceptance, deletionDeadline, DeletionBlocked,
   type AcceptancePlan, type DeletionRequest, type DeletionStore, type DeletionTask } from "./engine";
@@ -109,6 +109,29 @@ export class PostgresDeletionStore implements DeletionStore {
       await tx.delete(outbox).where(eq(outbox.requestId, requestId));
       return true;
     });
+  }
+  /** Claim by ordered read: only one minimal pseudonymous receipt is published per worker cycle. */
+  async nextPendingTombstone() {
+    const [row] = await db.select({
+      id: requests.id,
+      accountHash: requests.accountHash,
+      requestedAt: requests.requestedAt,
+    }).from(outbox)
+      .innerJoin(requests, eq(outbox.requestId, requests.id))
+      .where(isNull(outbox.acknowledgedAt))
+      .orderBy(asc(requests.requestedAt), asc(requests.id))
+      .limit(1);
+    return row ?? null;
+  }
+  /** A remote write may succeed before this acknowledgement; retries must be safe. */
+  async acknowledgeTombstone(requestId: string, at: Date) {
+    const [updated] = await db.update(outbox).set({ acknowledgedAt: at })
+      .where(and(eq(outbox.requestId, requestId), isNull(outbox.acknowledgedAt)))
+      .returning({ requestId: outbox.requestId });
+    if (updated) return;
+    const [existing] = await db.select({ acknowledgedAt: outbox.acknowledgedAt })
+      .from(outbox).where(eq(outbox.requestId, requestId));
+    if (!existing?.acknowledgedAt) throw new DeletionBlocked("outbox_entry_missing");
   }
   async get(requestId: string): Promise<DeletionRequest> {
     const [request] = await db.select().from(requests).where(eq(requests.id, requestId));

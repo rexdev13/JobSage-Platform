@@ -1,6 +1,7 @@
 import app from "./app";
 import { createServer } from "node:http";
 import { verifyDeletionStartupBarrier } from "./lib/accountDeletion/startupBarrier";
+import { startDeletionOutboxWorker } from "./lib/accountDeletion/outboxPublisher";
 import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
@@ -69,6 +70,7 @@ async function triggerSyncIfStale(): Promise<void> {
 const server = createServer(app);
 void verifyDeletionStartupBarrier().then(() => server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  startDeletionOutboxWorker();
   logEmailConfiguration();
   void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {
