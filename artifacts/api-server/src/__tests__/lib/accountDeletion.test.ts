@@ -68,16 +68,19 @@ class Fixtures implements DeletionStore {
   async get(id: string) { return this.requests.get(id)!; }
 }
 function plan(id = "fixture-candidate", role = "candidate"): AcceptancePlan {
+  const resource = JSON.stringify({ version: 1, accountId: id });
   return { actor: { id, role, impersonating: false, reauthenticatedAt: now, confirmed: true },
     accountHash: `fixture-hash-${id}`, ownership: [],
-    tasks: [{ kind: "token_revocation", resource: id }, { kind: "active_data", resource: id },
-      { kind: "processor", resource: "fixture-controlled-processor" }, { kind: "completion_notice", resource: "fixture-notice" }] };
+    tasks: [{ kind: "token_revocation", resource }, { kind: "active_data", resource },
+      { kind: "processor", resource: JSON.stringify({ version: 1, accountId: id, provider: "fixture-controlled-processor" }) },
+      { kind: "completion_notice", resource: JSON.stringify({ version: 1, accountId: id, reference: "fixture-notice" }) }] };
 }
 function executor(store: Fixtures) {
   return { run: vi.fn(async (task: DeletionTask) => {
+    const { accountId } = JSON.parse(task.resource) as { accountId: string };
     if (task.kind === "active_data") {
-      store.ownData.delete(task.resource); store.users.delete(task.resource);
-      for (const org of store.organisations) if (org.author === task.resource) org.author = "Deleted User";
+      store.ownData.delete(accountId); store.users.delete(accountId);
+      for (const org of store.organisations) if (org.author === accountId) org.author = "Deleted User";
     }
     if (task.kind === "completion_notice") store.notices.push(task.requestId);
   }) };
@@ -85,6 +88,31 @@ function executor(store: Fixtures) {
 describe("owner-approved account deletion, isolated fixtures", () => {
   beforeEach(() => {
     vi.stubEnv("ACCOUNT_DELETION_MASTER_KEY", "fixture-only-key-not-a-production-secret-123456789");
+  });
+  it.each(["token_revocation", "active_data", "object", "processor", "device_data", "completion_notice"] as const)(
+    "rejects another account in a %s task before quarantining anyone",
+    async kind => {
+      const store = new Fixtures();
+      const input = plan();
+      input.tasks.push({ kind, resource: JSON.stringify({ version: 1, accountId: "fixture-other" }) });
+      await expect(acceptDeletion(store, input, now)).rejects.toThrow("task_account_mismatch");
+      expect(store.acceptCalls).toBe(0);
+      expect(store.users.get("fixture-candidate")?.enabled).toBe(true);
+      expect(store.users.get("fixture-other")?.enabled).toBe(true);
+    },
+  );
+  it.each([
+    "fixture-candidate",
+    "{}",
+    JSON.stringify({ version: 1, accountId: "fixture-candidate", password: "fixture-forbidden-field" }),
+    JSON.stringify({ version: 2, accountId: "fixture-candidate" }),
+    JSON.stringify({ version: 1, accountId: "fixture-candidate", reference: {} }),
+  ])("rejects malformed or unexpected resource fields without saving them", async resource => {
+    const store = new Fixtures();
+    const input = plan();
+    input.tasks[0].resource = resource;
+    await expect(acceptDeletion(store, input, now)).rejects.toThrow("resource_invalid");
+    expect(store.acceptCalls).toBe(0);
   });
   it("quarantines a candidate and revokes all local credential classes immediately", async () => {
     const store = new Fixtures();

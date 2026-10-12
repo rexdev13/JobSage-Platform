@@ -1,11 +1,6 @@
 import { DeletionBlocked, type DeletionExecutor, type DeletionTask } from "./engine";
-
-export interface CleanupResource {
-  version: 1;
-  accountId: string;
-  reference?: string;
-  provider?: string;
-}
+import { parseCleanupResource, type CleanupResource } from "./resource";
+export type { CleanupResource } from "./resource";
 /** Production adapters must be real provider/storage operations, not optimistic queue acknowledgements.
  * Independent employer/ATS copies must NEVER be represented as controlled processor jobs. */
 export interface CleanupAdapters {
@@ -20,12 +15,8 @@ export interface CleanupAdapters {
 export class AccountDeletionExecutor implements DeletionExecutor {
   constructor(private adapters: CleanupAdapters) {}
   async run(task: DeletionTask) {
-    let resource: CleanupResource;
-    try { resource = JSON.parse(task.resource) as CleanupResource; }
-    catch { throw new DeletionBlocked("resource_invalid"); }
-    if (resource.version !== 1 || typeof resource.accountId !== "string" || !resource.accountId) {
-      throw new DeletionBlocked("resource_invalid");
-    }
+    const resource = parseCleanupResource(task.resource);
+    if (!resource) throw new DeletionBlocked("resource_invalid");
     switch (task.kind) {
       case "token_revocation": await this.adapters.revokeTokens(resource, task.id); break;
       case "active_data": await this.adapters.eraseActiveData(resource, task.id); break;

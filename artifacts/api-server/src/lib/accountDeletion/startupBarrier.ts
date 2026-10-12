@@ -4,6 +4,7 @@ import { accountDeletionHash } from "./crypto";
 import { DELETION_REQUESTS_ENABLED } from "./releaseReadiness";
 import { DeletionBlocked } from "./engine";
 import { IndependentTombstoneRegistry, gcsTombstoneStorage } from "./tombstoneRegistry";
+import { configuredRegistryBuckets } from "./registryConfiguration";
 
 /** No access, mail scheduler or startup backfill may run against a restored erased account.
  * Deliberately read-only: a separate reviewed replay operation must finish before startup.
@@ -11,9 +12,7 @@ import { IndependentTombstoneRegistry, gcsTombstoneStorage } from "./tombstoneRe
  */
 export async function verifyDeletionStartupBarrier() {
   if (!DELETION_REQUESTS_ENABLED) return;
-  const appBucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
-  const registryBucket = process.env.ACCOUNT_DELETION_TOMBSTONE_BUCKET_ID ?? "";
-  if (!appBucket || !registryBucket || appBucket === registryBucket) throw new DeletionBlocked("independent_registry_not_configured");
+  const { appBucket, registryBucket } = configuredRegistryBuckets();
   // Require the dedicated pseudonym/encryption key even when the registry is currently empty.
   accountDeletionHash("startup-key-verification");
   const registry = new IndependentTombstoneRegistry(gcsTombstoneStorage(registryBucket), appBucket, registryBucket);

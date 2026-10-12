@@ -4,11 +4,12 @@ import { getTableName, type SQL } from "drizzle-orm";
 const fixture = vi.hoisted(() => ({
   existing: false, organisation: false,
   accountHash: "",
+  claimedRow: null as Record<string, unknown> | null,
   account: { id: "fixture-candidate", role: "candidate", suspendedAt: null as Date | null },
   writes: [] as Array<{ table: string; operation: string; value?: unknown; where?: unknown }>,
 }));
 vi.mock("@workspace/db", async () => {
-  const actual = await vi.importActual<typeof import("@workspace/db")>("@workspace/db");
+  const actual = await vi.importActual<typeof import("@workspace/db/schema")>("@workspace/db/schema");
   const chain = (rows: unknown[]) => {
     const value: any = { from: () => value, where: () => value, for: () => value, limit: () => value,
       then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve(rows).then(resolve) };
@@ -47,21 +48,25 @@ vi.mock("@workspace/db", async () => {
       return Promise.resolve();
     },
   });
-  const tx = { select, insert, update, delete: remove, execute: vi.fn().mockResolvedValue({ rows: [] }) };
+  const tx = { select, insert, update, delete: remove, execute: vi.fn(async (query: SQL) => {
+    const text = new PgDialect().sqlToQuery(query).sql;
+    return { rows: text.includes("SELECT * FROM") && fixture.claimedRow ? [fixture.claimedRow] : [] };
+  }) };
   return { ...actual, db: { ...tx, transaction: async (callback: (tx: any) => unknown) => callback(tx) } };
 });
 import { accountDeletionRequestsTable } from "@workspace/db";
 import { PostgresDeletionStore } from "../../lib/accountDeletion/postgresStore";
 import type { AcceptancePlan } from "../../lib/accountDeletion/engine";
-import { accountDeletionHash } from "../../lib/accountDeletion/crypto";
+import { accountDeletionHash, encryptDeletionResource } from "../../lib/accountDeletion/crypto";
 const now = new Date("2026-10-12T00:00:00Z");
 function plan(): AcceptancePlan {
   return { actor: { id: "fixture-candidate", role: "candidate", impersonating: false, confirmed: true, reauthenticatedAt: now },
-    accountHash: fixture.accountHash, ownership: [], tasks: [{ kind: "active_data", resource: "fixture-resource" }] };
+    accountHash: fixture.accountHash, ownership: [], tasks: [{ kind: "active_data",
+      resource: JSON.stringify({ version: 1, accountId: "fixture-candidate" }) }] };
 }
 describe("Postgres deletion transaction, fixture database adapter only", () => {
   beforeEach(() => {
-    fixture.existing = false; fixture.organisation = false; fixture.account.role = "candidate";
+    fixture.existing = false; fixture.organisation = false; fixture.account.role = "candidate"; fixture.claimedRow = null;
     fixture.account.suspendedAt = null; fixture.writes.length = 0;
     vi.stubEnv("ACCOUNT_DELETION_MASTER_KEY", "fixture-only-key-not-a-production-secret-123456789");
     fixture.accountHash = accountDeletionHash("fixture-candidate");
@@ -102,6 +107,33 @@ describe("Postgres deletion transaction, fixture database adapter only", () => {
   it("rejects a supplied pseudonym that belongs to another account", async () => {
     await expect(new PostgresDeletionStore().accept({ ...plan(), accountHash: accountDeletionHash("fixture-other") }, now))
       .rejects.toThrow("account_hash_mismatch");
+    expect(fixture.writes).toHaveLength(0);
+  });
+  it.each(["fixture-other", "fixture-candidate"])("revalidates persisted task ownership for %s before claiming", async accountId => {
+    fixture.existing = true;
+    const resource = JSON.stringify({ version: 1, accountId });
+    fixture.claimedRow = {
+      id: "fixture-task", attempts: 0, kind: "active_data",
+      resource_ciphertext: encryptDeletionResource(resource),
+    };
+    const claim = new PostgresDeletionStore().claim("fixture-request", now);
+    if (accountId === "fixture-other") {
+      await expect(claim).rejects.toThrow("task_account_mismatch");
+      expect(fixture.writes).toHaveLength(0);
+    } else {
+      await expect(claim).resolves.toMatchObject({ id: "fixture-task", attempts: 1, resource });
+      expect(fixture.writes).toContainEqual(expect.objectContaining({ operation: "update", table: "account_deletion_tasks" }));
+    }
+  });
+  it("rejects persisted extra fields before setting a task lease", async () => {
+    fixture.existing = true;
+    fixture.claimedRow = {
+      id: "fixture-task", attempts: 0, kind: "active_data",
+      resource_ciphertext: encryptDeletionResource(JSON.stringify({
+        version: 1, accountId: "fixture-candidate", password: "fixture-forbidden-field",
+      })),
+    };
+    await expect(new PostgresDeletionStore().claim("fixture-request", now)).rejects.toThrow("resource_invalid");
     expect(fixture.writes).toHaveLength(0);
   });
 });

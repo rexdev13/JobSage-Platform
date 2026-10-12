@@ -2,6 +2,7 @@ import { DeletionBlocked } from "./engine";
 import { DELETION_REQUESTS_ENABLED } from "./releaseReadiness";
 import { PostgresDeletionStore } from "./postgresStore";
 import { IndependentTombstoneRegistry, gcsTombstoneStorage } from "./tombstoneRegistry";
+import { configuredRegistryBuckets } from "./registryConfiguration";
 
 export interface PendingTombstone {
   id: string;
@@ -40,8 +41,7 @@ export async function publishNextDeletionTombstone(
 
 async function publishFromPostgres() {
   if (!DELETION_REQUESTS_ENABLED) return;
-  const appBucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
-  const registryBucket = process.env.ACCOUNT_DELETION_TOMBSTONE_BUCKET_ID ?? "";
+  const { appBucket, registryBucket } = configuredRegistryBuckets();
   const registry = new IndependentTombstoneRegistry(
     gcsTombstoneStorage(registryBucket),
     appBucket,

@@ -5,6 +5,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { accountDeletionHash, encryptDeletionResource, decryptDeletionResource } from "./crypto";
 import { checkAcceptance, deletionDeadline, DeletionBlocked,
   type AcceptancePlan, type DeletionRequest, type DeletionStore, type DeletionTask } from "./engine";
+import { parseCleanupResource } from "./resource";
 
 export class PostgresDeletionStore implements DeletionStore {
   async accept(plan: AcceptancePlan, now: Date): Promise<DeletionRequest> {
@@ -68,14 +69,24 @@ export class PostgresDeletionStore implements DeletionStore {
           WHEN 'completion_notice' THEN 9 ELSE 2 END, id
         LIMIT 1 FOR UPDATE SKIP LOCKED`);
       const row = selected.rows[0] as Record<string, unknown> | undefined;
-      if (!row || typeof row.resource_ciphertext !== "string") return null;
+      if (!row) return null;
+      if (typeof row.resource_ciphertext !== "string") throw new DeletionBlocked("resource_invalid");
+      let resourceText: string;
+      try { resourceText = decryptDeletionResource(row.resource_ciphertext); }
+      catch { throw new DeletionBlocked("resource_invalid"); }
+      const resource = parseCleanupResource(resourceText);
+      if (!resource) throw new DeletionBlocked("resource_invalid");
+      const [request] = await tx.select({ accountHash: requests.accountHash }).from(requests)
+        .where(eq(requests.id, requestId));
+      if (!request) throw new DeletionBlocked("request_not_found");
+      if (accountDeletionHash(resource.accountId) !== request.accountHash) throw new DeletionBlocked("task_account_mismatch");
       const id = String(row.id);
       const attempts = Number(row.attempts) + 1;
       await tx.update(tasks).set({
         state: "running", attempts, leaseUntil: new Date(now.getTime() + 300_000),
       }).where(eq(tasks.id, id));
       return { id, requestId, kind: String(row.kind) as DeletionTask["kind"], state: "running", attempts,
-        resource: decryptDeletionResource(row.resource_ciphertext) };
+        resource: resourceText };
     });
   }
 

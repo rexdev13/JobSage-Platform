@@ -36,6 +36,17 @@ describe("controlled deletion adapters and retained data", () => {
     await expect(new AccountDeletionExecutor(ports).run({ ...task("processor"), resource: "{}" })).rejects.toThrow("resource_invalid");
     expect(ports.eraseProcessor).not.toHaveBeenCalled();
   });
+  it.each([
+    { version: 1, accountId: "fixture-candidate", email: "fixture@invalid.example" },
+    { version: 1, accountId: "fixture-candidate", provider: { token: "fixture-forbidden-field" } },
+    { version: 1, accountId: "fixture-candidate", reference: "x".repeat(4097) },
+  ])("rejects unreviewed fields and malformed references before invoking any provider", async resource => {
+    const ports = adapters();
+    await expect(new AccountDeletionExecutor(ports).run({
+      ...task("processor"), resource: JSON.stringify(resource),
+    })).rejects.toThrow("resource_invalid");
+    expect(ports.eraseProcessor).not.toHaveBeenCalled();
+  });
   it("retains only explicitly allowlisted scalar summaries", () => {
     expect(retainedSummary({ amount: 100, currency: "GBP", cv: "private", profile: { phone: "private" } }, ["amount", "currency"]))
       .toEqual({ amount: 100, currency: "GBP" });

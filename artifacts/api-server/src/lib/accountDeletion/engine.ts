@@ -1,4 +1,5 @@
 import { ACCOUNT_DELETION_POLICY, addCalendarDays } from "@workspace/mobile-core";
+import { parseCleanupResource } from "./resource";
 
 export type DeletionTaskKind = "token_revocation" | "active_data" | "object" | "processor" | "device_data" | "completion_notice";
 export type DeletionTaskState = "pending" | "running" | "blocked" | "complete";
@@ -65,6 +66,11 @@ export function checkAcceptance(plan: AcceptancePlan, now: Date) {
     throw new DeletionBlocked("organisation_ownership_transfer_required");
   }
   if (!plan.tasks.some(task => task.kind === "active_data")) throw new DeletionBlocked("erasure_plan_required");
+  for (const task of plan.tasks) {
+    const resource = parseCleanupResource(task.resource);
+    if (!resource) throw new DeletionBlocked("resource_invalid");
+    if (resource.accountId !== actor.id) throw new DeletionBlocked("task_account_mismatch");
+  }
 }
 
 export async function acceptDeletion(store: DeletionStore, plan: AcceptancePlan, now = new Date()) {
