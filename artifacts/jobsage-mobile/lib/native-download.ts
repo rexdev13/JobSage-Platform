@@ -40,6 +40,13 @@ function filenameFromDisposition(header: string | null): string | null {
 }
 
 const tempFiles = new Map<string, { directory: Directory; ownerId: string }>();
+let privateExportCacheHealthy = false;
+export function cleanupPrivateExportFiles() {
+  privateExportCacheHealthy = false;
+  const directory = new Directory(Paths.cache, "jobsage-private-exports");
+  if (directory.exists) directory.delete();
+  privateExportCacheHealthy = true;
+}
 
 export function cleanupTempDownloads(ownerId?: string) {
   for (const [uri, entry] of tempFiles) {
@@ -65,14 +72,22 @@ export async function downloadAndShare(options: {
   token: string | null;
   fallbackName?: string;
   share?: boolean;
+  privateExport?: { expectedAccountId: string; password: string; confirmed: true };
 }): Promise<{ uri: string; filename: string; mimeType: string }> {
   const target = resolveFirstPartyUrl(options.url);
   if (!target) throw new DownloadError("This download is not from JOBSAGE and was blocked.");
+  if (options.privateExport && !privateExportCacheHealthy) throw new DownloadError("Private-file cleanup must finish before exporting. Restart JOBSAGE.");
   if (options.share !== false && !(await Sharing.isAvailableAsync())) throw new DownloadError("Sharing is not available on this device.");
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const ownerId = getNativeSessionUserId();
+  if (options.privateExport && (options.privateExport.expectedAccountId !== ownerId
+    || new URL(target).pathname !== "/api/privacy/export" || options.privateExport.confirmed !== true
+    || !options.privateExport.password || options.privateExport.password.length > 1024)) {
+    clearTimeout(timer);
+    throw new DownloadError("Review this export in the signed-in account.");
+  }
   let response: Response;
   try {
     if (!ownerId || !options.token || getNativeSessionToken() !== options.token) throw new DownloadError("Please sign in again to download this file.");
@@ -81,7 +96,7 @@ export async function downloadAndShare(options: {
     const challenge = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier);
     const destination = new URL(target);
     const grant = await createMobileSessionGrant({
-      challenge, audience: "web", nextPath: destination.pathname + destination.search,
+      challenge, audience: "web", nextPath: options.privateExport ? "/privacy-settings" : destination.pathname + destination.search,
     }, { signal: controller.signal, headers: { Authorization: `Bearer ${options.token}` } });
     response = await fetch(new URL("/api/auth/mobile/session-exchange", target).href, {
       method: "POST",
@@ -91,6 +106,17 @@ export async function downloadAndShare(options: {
       credentials: "include",
       signal: controller.signal,
     });
+    if (options.privateExport) {
+      if (!response.ok || !response.url || !isFirstPartyUrl(response.url)
+        || getNativeSessionUserId() !== ownerId || getNativeSessionToken() !== options.token) {
+        throw new DownloadError("Please sign in again to download this file.");
+      }
+      response = await fetch(target, {
+        method: "POST", redirect: "error", credentials: "include", signal: controller.signal,
+        headers: { "Content-Type": "application/json", "Origin": new URL(target).origin, "x-jobsage-privacy-account": ownerId! },
+        body: JSON.stringify(options.privateExport),
+      });
+    }
   } catch (e) {
     clearTimeout(timer);
     if (e instanceof DownloadError) throw e;
@@ -106,6 +132,9 @@ export async function downloadAndShare(options: {
       throw new DownloadError("Please sign in again to download this file.");
     }
     if (!response.ok) throw new DownloadError(`The download failed (${response.status}).`);
+    if (options.privateExport && !/^application\/zip(?:;|$)/i.test(response.headers.get("content-type") ?? "")) {
+      throw new DownloadError("The export response was not a ZIP archive. No file was shared.");
+    }
     if (/text\/html/i.test(response.headers.get("content-type") ?? "")) {
       throw new DownloadError("This link is not a document. Please open it in JOBSAGE.");
     }
@@ -121,18 +150,28 @@ export async function downloadAndShare(options: {
     );
     // Separate directories preserve the friendly filename without collisions.
     // Never delete another download while a chooser or attachment still uses it.
-    const directory = new Directory(Paths.cache, "jobsage-downloads", Crypto.randomUUID());
-    directory.create({ intermediates: true });
+    const directory = new Directory(Paths.cache, options.privateExport ? "jobsage-private-exports" : "jobsage-downloads", Crypto.randomUUID());
     const file = new File(directory, name);
     tempFiles.set(file.uri, { directory, ownerId });
-    file.create();
-    file.write(new Uint8Array(buffer));
-    clearTimeout(timer);
-    const mimeType = response.headers.get("content-type")?.split(";")[0] || "application/octet-stream";
-    if (options.share !== false) await Sharing.shareAsync(file.uri, {
-      mimeType, dialogTitle: name,
-    });
-    return { uri: file.uri, filename: name, mimeType };
+    try {
+      directory.create({ intermediates: true });
+      file.create();
+      file.write(new Uint8Array(buffer));
+      clearTimeout(timer);
+      const mimeType = response.headers.get("content-type")?.split(";")[0] || "application/octet-stream";
+      if (options.share !== false) await Sharing.shareAsync(file.uri, {
+        mimeType, dialogTitle: name,
+      });
+      return { uri: file.uri, filename: name, mimeType };
+    } finally {
+      if (options.privateExport) {
+        try { if (directory.exists) directory.delete(); tempFiles.delete(file.uri); }
+        catch {
+          privateExportCacheHealthy = false;
+          throw new DownloadError("JOBSAGE could not clear its temporary export copy. Restart JOBSAGE before requesting another archive.");
+        }
+      }
+    }
   } finally {
     clearTimeout(timer);
   }

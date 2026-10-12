@@ -385,6 +385,87 @@ export const useUpdatePrivacySettings = <
   return useMutation(getUpdatePrivacySettingsMutationOptions(options));
 };
 
+export const getDownloadPersonalDataUrl = () => {
+  return `/api/privacy/export`;
+};
+
+export const downloadPersonalData = async (
+  privacyVerificationInput: PrivacyVerificationInput,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadPersonalDataUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(privacyVerificationInput),
+  });
+};
+
+export const getDownloadPersonalDataMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof downloadPersonalData>>,
+    TError,
+    { data: BodyType<PrivacyVerificationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof downloadPersonalData>>,
+  TError,
+  { data: BodyType<PrivacyVerificationInput> },
+  TContext
+> => {
+  const mutationKey = ["downloadPersonalData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof downloadPersonalData>>,
+    { data: BodyType<PrivacyVerificationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return downloadPersonalData(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DownloadPersonalDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof downloadPersonalData>>
+>;
+export type DownloadPersonalDataMutationBody =
+  BodyType<PrivacyVerificationInput>;
+export type DownloadPersonalDataMutationError = ErrorType<void>;
+
+export const useDownloadPersonalData = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof downloadPersonalData>>,
+    TError,
+    { data: BodyType<PrivacyVerificationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof downloadPersonalData>>,
+  TError,
+  { data: BodyType<PrivacyVerificationInput> },
+  TContext
+> => {
+  return useMutation(getDownloadPersonalDataMutationOptions(options));
+};
+
 export const getRequestPersonalDataUrl = () => {
   return `/api/privacy/data-request`;
 };

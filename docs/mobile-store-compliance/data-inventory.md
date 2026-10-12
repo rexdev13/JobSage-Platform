@@ -2,6 +2,8 @@
 
 Status: **owner-approved retention policy recorded; ownership engineering review remains in progress. This is not a complete export manifest or completed erasure implementation.** See [approved deletion policy](approved-deletion-policy.md).
 
+The immediate ZIP now covers explicit owned account/profile/application/message/draft/privacy allowlists, including the recipient's blocked-sender preferences, plus owned uploaded originals. Its manifest states exclusions and the 12 MiB bound. Broader provider/restricted-record access still requires privacy-team fulfilment; this does not close the schema-wide ownership/erasure review below.
+
 The source inventory covers 66 table definitions and flags 134 columns for manual review. Only eleven definitions are connected through declared user foreign keys. The accompanying [machine-readable candidates](schema-ownership-candidates.json) contain schema metadata only, not user records.
 
 Sender blocks are account-owned preferences. Their exact sender keys may contain an email address and are personal data, not anonymous identifiers. Shared company labels are not an ownership selector. Account export/erasure must include these preferences explicitly; deleting a sender account is not permission to delete another recipient's block list.

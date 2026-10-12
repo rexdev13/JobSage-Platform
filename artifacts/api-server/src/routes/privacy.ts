@@ -8,6 +8,8 @@ import { requirePrivacyActor, readPrivacyAccount, verifyPrivacyReauthentication 
 import { DELETION_REQUESTS_ENABLED } from "../lib/accountDeletion/releaseReadiness";
 import { encryptDeletionResource } from "../lib/accountDeletion/crypto";
 import { sendSupportTicketNotification } from "../lib/email";
+import { buildPersonalDataArchive } from "../lib/privacyExport/service";
+import { ExportUnavailable } from "../lib/privacyExport/archive";
 
 const router = Router();
 const preferencesInput = z.object({
@@ -55,6 +57,31 @@ router.patch("/privacy/settings", requirePrivacyActor, async (req, res) => {
     await tx.insert(privacyPreferencesTable).values(value).onConflictDoUpdate({ target: privacyPreferencesTable.userId, set: value });
   });
   res.json({ success: true });
+});
+router.post("/privacy/export", requirePrivacyActor, async (req, res) => {
+  res.set({ "Cache-Control": "no-store, private", "Pragma": "no-cache", "X-Content-Type-Options": "nosniff" });
+  const parsed = actionInput.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Fresh password verification and explicit confirmation are required." }); return; }
+  if (!await rateLimitActor(req.user!.id)) { res.status(429).json({ error: "Too many attempts. Try again in 15 minutes." }); return; }
+  const before = await readPrivacyAccount(req.user!.id);
+  try {
+    await verifyPrivacyReauthentication({ ...parsed.data, signedInId: req.user!.id, impersonating: !!req.isImpersonating }, readPrivacyAccount);
+  } catch { res.status(403).json({ error: "Reauthentication failed." }); return; }
+  try {
+    const archive = await buildPersonalDataArchive(req.user!.id);
+    const after = await readPrivacyAccount(req.user!.id);
+    if (!before || !after || after.suspendedAt || after.passwordHash !== before.passwordHash || after.role !== before.role) {
+      res.status(403).json({ error: "The account changed while preparing the export. Sign in again." }); return;
+    }
+    res.set({ "Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="JOBSAGE-personal-data.zip"' });
+    res.send(archive);
+  } catch (error) {
+    if (error instanceof ExportUnavailable) {
+      res.status(/limit|exceed|Too many/i.test(error.message) ? 413 : 503).json({ error: error.message }); return;
+    }
+    req.log.warn("Private export could not be prepared; no archive delivered");
+    res.status(503).json({ error: "We could not safely prepare the archive. Try again or request a full export from the privacy team." });
+  }
 });
 router.post("/privacy/data-request", requirePrivacyActor, async (req, res) => {
   const parsed = actionInput.safeParse(req.body);

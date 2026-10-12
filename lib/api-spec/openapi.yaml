@@ -85,6 +85,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PrivacyActionResult"
+  /privacy/export:
+    post:
+      operationId: downloadPersonalData
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyVerificationInput"
+      responses:
+        "200":
+          description: Private bounded archive of account records and uploaded originals; not a complete processor or restricted-record access response
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "403": { description: Fresh password verification failed or account changed }
+        "413": { description: Immediate archive limit exceeded }
+        "429": { description: Too many attempts }
+        "503": { description: A file could not be safely included }
   /privacy/data-request:
     post:
       operationId: requestPersonalData

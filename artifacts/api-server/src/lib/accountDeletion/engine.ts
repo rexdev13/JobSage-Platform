@@ -100,7 +100,7 @@ export function deletionDeadline(requestedAt: Date) {
 /** Restore orchestrators must finish replay before resuming access, mail or scheduled work.
  * The registry must be outside the restored application's database/backup lineage. */
 export async function replayDeletionTombstones(
-  registry: { list(): Promise<DeletionRequest[]> },
+  registry: { list(): Promise<Pick<DeletionRequest, "id" | "accountHash">[]> },
   restored: { eraseByAccountHash(hash: string, requestId: string): Promise<void> },
 ) {
   const tombstones = await registry.list(); // Registry failure must fail restore closed.

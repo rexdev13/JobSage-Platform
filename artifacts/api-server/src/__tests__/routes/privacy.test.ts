@@ -10,6 +10,7 @@ const fixtures = vi.hoisted(() => ({
   execute: vi.fn(),
   compare: vi.fn(),
   mail: vi.fn(),
+  archive: vi.fn(),
   auth: true,
   impersonating: false,
 }));
@@ -44,6 +45,7 @@ vi.mock("@workspace/db", async () => {
 });
 vi.mock("bcryptjs", () => ({ default: { compare: fixtures.compare } }));
 vi.mock("../../lib/email", () => ({ sendSupportTicketNotification: fixtures.mail }));
+vi.mock("../../lib/privacyExport/service", () => ({ buildPersonalDataArchive: fixtures.archive }));
 vi.mock("../../lib/accountDeletion/crypto", () => ({
   encryptDeletionResource: () => { throw new Error("Fixture: encryption not provisioned"); },
 }));
@@ -75,9 +77,31 @@ beforeEach(() => {
   fixtures.execute.mockResolvedValue({ rows: [{ count: 1 }] });
   fixtures.deletedWhere.mockResolvedValue({});
   fixtures.mail.mockResolvedValue({ success: true });
+  fixtures.archive.mockResolvedValue(Buffer.from("fixture-private-archive"));
 });
 
 describe("account-bound privacy routes (fixtures only)", () => {
+  it("delivers a private attachment only after password verification and fresh account checks", async () => {
+    for (let i = 0; i < 5; i++) freshActor();
+    const response = await action("post", "export").send({ expectedAccountId: actor.id, password: "fixture-password", confirmed: true });
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/zip");
+    expect(response.headers["content-disposition"]).toContain('attachment; filename="JOBSAGE-personal-data.zip"');
+    expect(response.headers["cache-control"]).toContain("no-store");
+    expect(fixtures.archive).toHaveBeenCalledWith(actor.id);
+    expect(fixtures.mail).not.toHaveBeenCalled();
+  });
+  it("does not prepare a file when password verification fails", async () => {
+    freshActor(); freshActor(); freshActor();
+    fixtures.compare.mockResolvedValue(false);
+    expect((await action("post", "export").send({ expectedAccountId: actor.id, password: "wrong-password", confirmed: true })).status).toBe(403);
+    expect(fixtures.archive).not.toHaveBeenCalled();
+  });
+  it("discards prepared bytes if the account was quarantined during preparation", async () => {
+    for (let i = 0; i < 4; i++) freshActor();
+    fixtures.reads.push([{ ...actor, suspendedAt: new Date() }]);
+    expect((await action("post", "export").send({ expectedAccountId: actor.id, password: "fixture-password", confirmed: true })).status).toBe(403);
+  });
   it("requires sign-in and rejects impersonation without writes", async () => {
     fixtures.auth = false;
     expect((await request(app).get("/api/privacy/settings")).status).toBe(401);

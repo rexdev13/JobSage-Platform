@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
-import { getGetPrivacySettingsQueryKey, useClearSmartApplyDrafts, useGetPrivacySettings, useRequestPersonalData, useRevokePushDevices, useUpdatePrivacySettings } from "@workspace/api-client-react";
+import { getGetPrivacySettingsQueryKey, useClearSmartApplyDrafts, useDownloadPersonalData, useGetPrivacySettings, useRequestPersonalData, useRevokePushDevices, useUpdatePrivacySettings } from "@workspace/api-client-react";
+import { nativeWorkspaceAvailable, notifyNative } from "@/lib/nativeWorkspace";
 import { useAuth } from "@workspace/auth-web";
 import { ArrowLeft, Bell, Check, CircleAlert, Download, LockKeyhole, Megaphone, RotateCcw, Shield, Smartphone, Trash2 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -50,6 +51,10 @@ function StatusMessage({ children, kind = "success", testId }: { children: strin
 
 export default function PrivacySettingsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const accountRef = useRef(user?.id);
+  accountRef.current = user?.id;
+  const exportUrls = useRef(new Set<string>());
+  const exportAbort = useMemo(() => new AbortController(), [user?.id]);
   const queryClient = useQueryClient();
   const queryKey = getGetPrivacySettingsQueryKey();
   const settingsQuery = useGetPrivacySettings({ query: { enabled: !!user?.id, queryKey } });
@@ -59,6 +64,8 @@ export default function PrivacySettingsPage() {
   const [notifications, setNotifications] = useState<Record<string, boolean>>({});
   const [clearConfirmed, setClearConfirmed] = useState(false);
   const [revokeConfirmed, setRevokeConfirmed] = useState(false);
+  const [downloadRequested, setDownloadRequested] = useState(false);
+  const [downloadFailure, setDownloadFailure] = useState<string | null>(null);
   const exportForm = useForm<ExportFormValues>({ defaultValues: { password: "", confirmed: false } });
 
   const updateMutation = useUpdatePrivacySettings({
@@ -66,6 +73,10 @@ export default function PrivacySettingsPage() {
   });
   const exportMutation = useRequestPersonalData({
     request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
+  });
+  const downloadMutation = useDownloadPersonalData({
+    mutation: { gcTime: 0 },
+    request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" }, responseType: "blob", signal: exportAbort.signal },
   });
   const clearMutation = useClearSmartApplyDrafts({
     request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
@@ -91,13 +102,20 @@ export default function PrivacySettingsPage() {
     setNotifications({});
     setClearConfirmed(false);
     setRevokeConfirmed(false);
+    setDownloadRequested(false);
+    setDownloadFailure(null);
     exportForm.reset({ password: "", confirmed: false });
     updateMutation.reset();
     exportMutation.reset();
+    downloadMutation.reset();
     clearMutation.reset();
     revokeMutation.reset();
     void queryClient.invalidateQueries({ queryKey });
     return () => {
+      exportAbort.abort();
+      for (const url of exportUrls.current) URL.revokeObjectURL(url);
+      exportUrls.current.clear();
+      downloadMutation.reset();
       updateMutation.reset();
       exportMutation.reset();
       clearMutation.reset();
@@ -120,6 +138,41 @@ export default function PrivacySettingsPage() {
     exportMutation.mutate({
       data: { expectedAccountId: user.id, password, confirmed: true },
     }, { onSuccess: () => exportForm.reset({ password: "", confirmed: false }) });
+  });
+
+  const downloadExport = exportForm.handleSubmit(({ password, confirmed }) => {
+    if (!user?.id || !confirmed) return;
+    setDownloadRequested(false);
+    setDownloadFailure(null);
+    if (nativeWorkspaceAvailable()) {
+      notifyNative("privacy-export", { expectedAccountId: user.id, password, confirmed: true });
+      exportForm.reset({ password: "", confirmed: false });
+      setDownloadRequested(true);
+      return;
+    }
+    const requestedAccount = user.id;
+    downloadMutation.mutate({ data: { expectedAccountId: user.id, password, confirmed: true } }, {
+      onSuccess: (blob) => {
+        // Don't deliver a previous account's bytes following an auth transition.
+        if (accountRef.current !== requestedAccount) return;
+        const url = URL.createObjectURL(blob);
+        exportUrls.current.add(url);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "JOBSAGE-personal-data.zip";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => { URL.revokeObjectURL(url); exportUrls.current.delete(url); }, 60_000);
+        exportForm.reset({ password: "", confirmed: false });
+        setDownloadRequested(true);
+      },
+      onError: (error) => {
+        if (accountRef.current === requestedAccount) setDownloadFailure(error instanceof Error ? error.message : "No archive could be safely delivered. Try again or request a full export.");
+      },
+      // Release mutation-held password/Blob references instead of leaving an export in Query's cache.
+      onSettled: () => downloadMutation.reset(),
+    });
   });
 
   if (authLoading) {
@@ -219,7 +272,7 @@ export default function PrivacySettingsPage() {
             <section aria-labelledby="export-heading" className="mt-6 rounded-2xl border border-primary/20 bg-primary/[0.035] p-5 shadow-sm sm:p-7">
               <div className="flex items-start gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Download className="h-5 w-5" /></div>
-                <div><h2 id="export-heading" className="text-xl font-semibold">Request your personal-data export</h2><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">This creates an authenticated support request and gives you a receipt. It does not generate or deliver an export file.</p></div>
+                <div><h2 id="export-heading" className="text-xl font-semibold">Download or request your personal data</h2><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Download a private ZIP of saved account records and uploaded originals, up to 12 MB. Its coverage file explains exclusions, including credentials, internal staff notes, restricted records and independent provider copies. For a full access request or a larger archive, submit a privacy-team request; that option gives a receipt, not a file.</p></div>
               </div>
               <Form {...exportForm}>
                 <form onSubmit={submitExport} className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
@@ -241,9 +294,14 @@ export default function PrivacySettingsPage() {
                       {exportForm.formState.errors.confirmed && <p role="alert" data-testid="error-export-confirmation" className="text-sm text-destructive">{exportForm.formState.errors.confirmed.message}</p>}
                     </FormItem>
                   )} />
-                  <button type="submit" data-testid="button-request-export" disabled={exportMutation.isPending || exportMutation.isSuccess} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-wait disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : exportMutation.isSuccess ? "Request received" : "Request export"}</button>
+                  <div className="flex flex-col gap-2">
+                    <button type="button" data-testid="button-download-export" onClick={() => void downloadExport()} disabled={downloadMutation.isPending || exportMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{downloadMutation.isPending ? "Preparing private archive…" : "Download my archive"}</button>
+                    <button type="submit" data-testid="button-request-export" disabled={exportMutation.isPending || exportMutation.isSuccess || downloadMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : exportMutation.isSuccess ? "Request received" : "Request full export"}</button>
+                  </div>
                 </form>
               </Form>
+              {downloadRequested && <StatusMessage testId="status-export-download">Your download or device share request was started. Keep any saved copy private; independently saved copies are not erased by JOBSAGE account deletion.</StatusMessage>}
+              {downloadFailure && <StatusMessage kind="error" testId="status-export-download-error">{downloadFailure}</StatusMessage>}
               {exportMutation.isSuccess && exportMutation.data && <div role="status" data-testid="status-export-requested" className="mt-5 rounded-xl border border-primary/20 bg-card p-4"><p className="font-semibold text-foreground">Request received · {exportMutation.data.status}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{exportMutation.data.message}</p><p className="mt-2 font-mono text-xs text-muted-foreground">Receipt {exportMutation.data.ticketId}</p><p className="mt-2 text-xs font-medium text-primary">This receipt confirms a support request only. No export file has been generated or delivered.</p></div>}
               {exportMutation.isError && <StatusMessage kind="error" testId="status-export-error">We couldn’t submit the request. Please check your password and try again.</StatusMessage>}
             </section>

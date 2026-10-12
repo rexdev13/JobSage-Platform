@@ -30,6 +30,18 @@ export const UpdatePrivacySettingsResponse = zod.object({
   success: zod.boolean(),
 });
 
+export const DownloadPersonalDataHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const downloadPersonalDataBodyPasswordMax = 1024;
+
+export const DownloadPersonalDataBody = zod.object({
+  expectedAccountId: zod.string(),
+  password: zod.string().min(1).max(downloadPersonalDataBodyPasswordMax),
+  confirmed: zod.boolean(),
+});
+
 export const RequestPersonalDataHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
 });

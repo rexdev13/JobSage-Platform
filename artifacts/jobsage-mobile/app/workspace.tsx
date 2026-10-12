@@ -33,7 +33,7 @@ import { NativeApplicationBrowser } from "@/components/NativeApplicationBrowser"
 import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal } from "@/lib/external-links";
-import { DownloadError, cleanupTempDownloads, downloadAndShare } from "@/lib/native-download";
+import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
 import {
   NativeProof,
   WORKSPACE_ORIGIN,
@@ -276,6 +276,11 @@ export default function WorkspaceScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    try { cleanupPrivateExportFiles(); }
+    catch { Alert.alert("Private-file cleanup failed", "Restart JOBSAGE before downloading a personal-data archive."); }
+  }, []);
+
   const onMessage = useCallback((event: WebViewMessageEvent) => {
     if (!proof || !WORKSPACE_ORIGIN) return;
     // Only the OS-reported WebView URL is trusted; the page's claimed URL must match it.
@@ -306,6 +311,19 @@ export default function WorkspaceScreen() {
           Alert.alert("Download failed", e instanceof DownloadError ? e.message : "The file could not be downloaded."),
         );
         return;
+      case "privacy-export": {
+        if (!userRef.current || getNativeSessionUserId() !== message.expectedAccountId) {
+          Alert.alert("Export blocked", "Review this action in the signed-in account.");
+          return;
+        }
+        const target = workspaceUrl("/api/privacy/export");
+        if (!target) return;
+        void downloadAndShare({
+          url: target, filename: "JOBSAGE-personal-data.zip", token: tokenRef.current,
+          privateExport: { expectedAccountId: message.expectedAccountId, password: message.password, confirmed: true },
+        }).catch(e => Alert.alert("Export failed", e instanceof DownloadError ? e.message : "No export could be delivered."));
+        return;
+      }
       case "open-url": {
         const dest = message.destination;
         if (dest.startsWith("/") || isFirstPartyUrl(dest)) {

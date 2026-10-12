@@ -17,6 +17,6 @@ The owner deferred the legal operating entity/public contacts and iOS/Android st
 
 Completion means both uploaded specifications: the full canonical-site hybrid app with controlled native Smart Apply, and actual privacy, deletion, reporting/moderation and store-compliance features and evidence. A hybrid-workspace milestone is not completion of the request.
 
-**Why:** The owner requested both specifications, not a reduced companion app or a store checklist without working features.
+**Why:** The owner requested both specifications, not a reduced companion app or a store checklist without working features, and corrected premature stopping at an intermediate milestone.
 
-**How to apply:** Preserve canonical roles/navigation and shared extension logic. Separate implemented source, automated verification, native-device verification and owner-dependent release blockers in status reports.
+**How to apply:** Continue until both specifications are complete or an actual blocker needs owner input; do not stop at an intermediate milestone. Preserve canonical roles/navigation and shared extension logic. Separate source, automated checks, native-device evidence and owner-dependent release blockers in status reports.

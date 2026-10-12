@@ -36,6 +36,7 @@ export const workspaceMessage = z.discriminatedUnion("type", [
   z.object({ ...base, type: z.literal("application"), applicationId: z.number().int().positive() }).strict(),
   z.object({ ...base, type: z.literal("logout") }).strict(),
   z.object({ ...base, type: z.literal("download"), downloadUrl: z.string().max(4096), filename: z.string().max(150) }).strict(),
+  z.object({ ...base, type: z.literal("privacy-export"), expectedAccountId: z.string().min(1).max(150), password: z.string().min(1).max(1024), confirmed: z.literal(true) }).strict(),
   z.object({ ...base, type: z.literal("open-url"), destination: z.string().max(4096) }).strict(),
 ]);
 export type WorkspaceMessage = z.infer<typeof workspaceMessage>;

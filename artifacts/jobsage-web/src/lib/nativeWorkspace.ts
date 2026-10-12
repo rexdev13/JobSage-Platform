@@ -12,7 +12,7 @@ export function nativeWorkspaceAvailable(): boolean {
     && config.channel.length >= 20 && config.channel.length <= 100;
 }
 
-export function notifyNative(type: "ready" | "session" | "application" | "logout" | "download" | "open-url",
+export function notifyNative(type: "ready" | "session" | "application" | "logout" | "download" | "open-url" | "privacy-export",
   payload: Record<string, unknown> = {}) {
   if (!nativeWorkspaceAvailable()) return;
   window.ReactNativeWebView!.postMessage(JSON.stringify({

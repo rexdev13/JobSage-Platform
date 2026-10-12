@@ -1,4 +1,6 @@
 import app from "./app";
+import { createServer } from "node:http";
+import { verifyDeletionStartupBarrier } from "./lib/accountDeletion/startupBarrier";
 import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
@@ -64,7 +66,8 @@ async function triggerSyncIfStale(): Promise<void> {
   }
 }
 
-const server = app.listen(port, () => {
+const server = createServer(app);
+void verifyDeletionStartupBarrier().then(() => server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   logEmailConfiguration();
   void runStartupSchemaDriftCheck();
@@ -128,6 +131,9 @@ const server = app.listen(port, () => {
   runProfilePhotoAclBackfill().catch((err) => {
     console.error("[photo-acl-backfill] Startup backfill failed:", err);
   });
+})).catch(() => {
+  console.error("[startup] Account-erasure restore safety verification failed. API and schedulers were not started.");
+  process.exit(1);
 });
 
 server.once("error", (error) => {

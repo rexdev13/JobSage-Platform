@@ -41,7 +41,7 @@ Implemented in source, but **not physical-device verified**:
 Still unfinished:
 
 - Complete session/cookie ordering and native-device account-change validation, plus killed-process temporary-file lifecycle audit.
-- Complete the schema/processor/SDK data-flow and deletion audit, active-system account deletion, provider cleanup, backup tombstone replay and an actual allowlisted personal-data export with secure delivery. Passwordless users still need a supported recent-reauthentication route. Marketing preferences have no registered-account campaign sender, optional analytics have no collector, and some notification categories lack delivery integrations. Verify consent/version acceptance and final public legal pages with the owner.
+- Complete the schema/processor/SDK data-flow and deletion audit, active-system account deletion, provider cleanup and actual backup tombstone replay. The bounded account archive is now implemented; broader processor/restricted-record access requests still need privacy-team fulfilment. Passwordless users still need a supported recent-reauthentication route. Marketing preferences have no registered-account campaign sender, optional analytics have no collector, and some notification categories lack delivery integrations. Verify consent/version acceptance and final public legal pages with the owner.
 - Remaining AI/UGC experience inventory, operational moderation, objectionable-content filtering, review/escalation procedures and coverage of other content surfaces. Inbox reporting/blocking alone is not complete store-policy compliance.
 - Native push and all cold/warm deep-link scenarios; permission denial, file chooser/camera, SSO/CAPTCHA, cancellation and streaming evidence on both native platforms.
 - All role-by-role mobile parity checks and final store declarations, review access, licence/permission manifests, screenshots and release evidence.
@@ -51,6 +51,16 @@ Automated checks confirm source types, backend policy/exchange behavior and DOM 
 ## Data audit evidence
 
 [Source-only relationship inventory](schema-ownership-inventory.md) covers 66 `pgTable` definitions, including declared delete actions. Only eleven definitions are associated through the declared user-FK graph; raw IDs, JSON, arrays, shared records and external processors still need verified ownership selectors and retention handling. This inventory is not proof of complete erasure.
+
+## Private archive and restore safety
+
+Authenticated immediate export now delivers a real ZIP directly after password verification and explicit confirmation. It contains the named account-record allowlists and uploaded originals, including document, profile-photo and identity-file sources when present. The archive manifest states exclusions and the 12 MiB limit; inaccessible or unverified files fail the export instead of disappearing silently. Database-side byte/row preflight bounds record transfer before Node loads each section; source reads share a consistent database snapshot and owned immutable storage generations. Credentials, storage keys and internal notes are excluded. No persistent server-side export, public link or email attachment is created.
+
+A development-proxy browser check used two disposable accounts and one private uploaded fixture. It verified the real ZIP and original bytes, CRC, account isolation, credential exclusions, wrong-password rejection, cleared confirmation/password controls, desktop/mobile layout and explicit missing-file failure. All exact fixture rows and the uploaded object were removed. Native download/share and cleanup have source/unit coverage, not physical-device evidence.
+
+After adding byte preflight and generation pinning, a direct development postflight created one disposable account, private document and blocked-sender preference. The real database/storage archive and independent CRC/original-byte checks passed; its exact fixture rows, private object and local ZIP were removed. This was not a production operation or customer-data erasure.
+
+An independent private-bucket tombstone implementation and read-only startup restore barrier are now present. Publication is immutable/idempotent, and untrusted or unavailable registry evidence fails closed. When erasure is eventually released, the barrier runs before HTTP listening, mail, scheduled jobs or startup backfills; it does **not** perform replay. Its strict matching rule requires affected accounts to be replayed before restarting. A separate bucket, dedicated `ACCOUNT_DELETION_MASTER_KEY`, tested restore orchestration, processor erasure and backup-expiry evidence are still required. No independent bucket was provisioned, no registry was written, no customer erasure was run and the deletion release gate remains false.
 
 The inventory now also flags 134 source columns for manual ownership, container, credential or document-pointer review. [Data ownership decisions](data-inventory.md) separates candidate, employer, marketer and staff associations and lists unresolved object/provider/device work. These are review candidates, not executable deletion predicates or a complete export allowlist.
 
