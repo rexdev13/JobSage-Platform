@@ -1,0 +1,1280 @@
+Make the JOBSAGE mobile app and website ready for Apple App Store and Google Play compliance.
+
+This task covers:
+
+- Legal pages
+- Privacy disclosures
+- Account deletion
+- Data deletion
+- Data export and privacy choices
+- Terms and EULA
+- Login and registration disclosures
+- Profile/settings placement
+- Permissions
+- Store declarations
+- App-review access
+- AI-content reporting
+- Messaging/UGC safeguards
+- App metadata
+- Store submission checklists
+
+This is an implementation and evidence task, not just a written compliance review.
+
+Do not claim that store approval is guaranteed. Store policies can change and final legal text must be reviewed by qualified legal counsel before publication.
+
+==================================================
+1. AUTHORITATIVE SOURCE BOUNDARY
+==================================================
+
+Use the repository root and these authoritative packages:
+
+- artifacts/jobsage-web
+- artifacts/jobsage-mobile
+- artifacts/chrome-extension
+- artifacts/api-server
+- lib/api-client-react
+- lib/api-spec
+- lib/api-zod
+- lib/auth-web
+- lib/db
+
+Do not use or edit:
+
+- jobsage/
+- JobSage-Platform-fresh-20261008/
+
+Preserve unrelated working-tree changes.
+
+Do not:
+
+- Deploy
+- Submit to either store
+- Make production database writes
+- Delete production accounts
+- Use real user data for testing
+- Commit secrets
+- Invent legal facts
+- Claim certifications the company does not possess
+- Claim that data is not collected without verifying the code
+- Claim that data is encrypted, deleted or retained in a particular way without verifying it
+- Add unnecessary permissions
+- Add unnecessary tracking SDKs
+- Add unnecessary consent prompts
+
+==================================================
+2. USE CURRENT OFFICIAL REQUIREMENTS
+==================================================
+
+Before implementation, check the current official documentation from:
+
+APPLE
+
+- Apple App Review Guidelines
+- App Store Connect Help
+- Apple account deletion guidance
+- Apple privacy-label documentation
+- Apple privacy-manifest documentation
+- Apple Human Interface Guidelines
+- Apple Sign in with Apple requirements
+- Apple in-app purchase requirements
+- Apple export-compliance documentation
+- Apple age-rating requirements
+
+GOOGLE
+
+- Google Play Developer Program Policies
+- Google Play User Data policy
+- Google Play account-deletion requirements
+- Google Play Data Safety guidance
+- Google Play App Content requirements
+- Google Play AI-Generated Content policy
+- Google Play UGC policy
+- Google Play permissions policy
+- Google Play target API requirements
+- Google Play Families policy if applicable
+- Google Play Billing requirements if applicable
+
+Use official Apple and Google sources as the authority.
+
+Create:
+
+docs/mobile-store-compliance/policy-sources.md
+
+For every requirement record:
+
+- Requirement
+- Apple, Google or both
+- Official source URL
+- Date checked
+- Whether it applies to JOBSAGE
+- Code or console action required
+- Verification evidence
+
+Do not rely only on blogs, YouTube videos or old checklists.
+
+==================================================
+3. COMPLETE DATA-FLOW AUDIT FIRST
+==================================================
+
+Before writing privacy disclosures, inspect the actual code and create:
+
+docs/mobile-store-compliance/data-inventory.md
+
+Audit all data collected, generated, stored, transmitted or shared by:
+
+- Website
+- Mobile application
+- Chrome extension
+- Smart Apply browser
+- API
+- Database
+- File/object storage
+- Email services
+- AI providers
+- Authentication providers
+- Analytics or diagnostics SDKs
+- Push-notification providers
+- Payment providers
+- Employer integrations
+- Vacancy providers
+- Any other third-party processor
+
+Include, where applicable:
+
+- Email address
+- Name
+- Telephone number
+- Account identifiers
+- Authentication data
+- Profile photo
+- Postal address
+- Employment history
+- Education and qualifications
+- Professional registration
+- Immigration and sponsorship information
+- Residency status
+- CVs
+- Supporting documents
+- Passports or identity documents
+- Selfie/identity-verification material
+- Recommendation letters
+- Application history
+- Application URLs
+- Employer information
+- Messages
+- Feedback
+- Search activity
+- Saved/bookmarked vacancies
+- Interview dates
+- Calendar information
+- AI prompts
+- AI-generated answers
+- Remembered application answers
+- Smart Apply form-field information
+- Device identifiers
+- Push tokens
+- IP addresses
+- Diagnostic logs
+- Crash reports
+- Approximate or precise location
+- Payment information
+- Subscription status
+- Cookies
+- WebView session data
+- Any sensitive personal data
+
+For every data type record:
+
+- Where it is collected
+- Whether collection is required or optional
+- Purpose
+- Storage location
+- Retention period
+- Deletion behaviour
+- Whether linked to identity
+- Whether transmitted off-device
+- Whether shared with a processor or third party
+- Legal/policy basis requiring disclosure
+- Apple privacy-label category
+- Google Data Safety category
+- Whether user consent is required
+- Whether the user can access, correct, export or delete it
+
+Audit third-party SDK behaviour. Store declarations must include qualifying SDK collection, not only JOBSAGE’s own code.
+
+Do not guess. Mark unknown items as unresolved and identify who must confirm them.
+
+==================================================
+4. REQUIRED PUBLIC LEGAL PAGES
+==================================================
+
+Implement or complete publicly accessible HTML pages for:
+
+- Privacy Policy
+- Terms of Service
+- EULA or licence terms
+- Account and Data Deletion
+- Privacy Choices
+- Help and Support
+- Contact Information
+- Open-source licences where applicable
+
+Recommended stable routes:
+
+- /privacy
+- /terms
+- /eula
+- /account-deletion
+- /privacy-choices
+- /support
+- /licenses
+
+Requirements:
+
+- Pages must work without authentication.
+- Pages must be mobile responsive.
+- Pages must use HTTPS in production.
+- Pages must not be PDFs.
+- Pages must not require downloading a file.
+- Pages must be readable without JavaScript where reasonably possible.
+- Pages must identify JOBSAGE and the legal/business entity operating it.
+- Pages must provide a current contact email.
+- Add a postal/legal address only after the business confirms the correct address.
+- Include effective date and last-updated date.
+- Use stable URLs suitable for store-console metadata.
+- Links must not return 404, redirect loops or login pages.
+- Do not publish invented company-registration, address or representative information.
+- Clearly mark unresolved legal/business information for owner review.
+
+==================================================
+5. PRIVACY POLICY REQUIREMENTS
+==================================================
+
+Update the Privacy Policy so it accurately covers the website, mobile app, Smart Apply and extension.
+
+It must explain:
+
+- The organisation responsible for the data
+- Contact details
+- Data categories collected
+- Why each category is collected
+- Required versus optional data
+- Account and authentication processing
+- Profile processing
+- CV and document processing
+- Identity-verification processing
+- Job application tracking
+- Smart Apply form assistance
+- AI processing
+- AI prompts and generated answers
+- Remembered answers
+- Messages and communications
+- Push notifications
+- Cookies and mobile storage
+- WebView behaviour
+- Device and diagnostic information
+- Payments or subscriptions, if applicable
+- Third-party processors
+- International data transfers, if applicable
+- Retention periods or retention criteria
+- Account deletion
+- Data deletion
+- Legally required retention
+- Backup deletion timing
+- Privacy choices
+- Consent withdrawal
+- Data correction
+- Data access/export requests
+- Complaint/contact route
+- Children and minimum age
+- Security practices without overstating guarantees
+- Policy-change notification
+
+Do not say “we do not share data” if data is transmitted to hosting, AI, email, notification, identity, analytics or payment processors.
+
+Differentiate:
+
+- Processor/service-provider transfers
+- Legal disclosures
+- User-directed transfers
+- Advertising or tracking transfers
+- Sale of data
+
+Do not describe processing as anonymous if it remains linkable to a user.
+
+==================================================
+6. TERMS OF SERVICE AND EULA
+==================================================
+
+Prepare a JOBSAGE Terms of Service and EULA draft for legal review.
+
+Cover:
+
+- Eligibility to use JOBSAGE
+- Minimum age
+- Account responsibilities
+- Accurate information
+- Acceptable use
+- Job-search and career-guidance limitations
+- No guarantee of employment
+- No guarantee of sponsorship
+- No guarantee of eligibility or immigration outcomes
+- User responsibility for reviewing applications
+- Smart Apply limitations
+- AI-generated content limitations
+- User responsibility for checking generated answers
+- Prohibited automated abuse
+- Employer responsibilities
+- User-submitted documents
+- Intellectual-property ownership
+- Licence granted to operate the service
+- Third-party websites and ATS platforms
+- Subscription/payment terms if applicable
+- Cancellation and refund treatment if applicable
+- Suspension and termination
+- Account deletion
+- Data retention after termination
+- Service availability
+- Warranty disclaimers
+- Liability limitations subject to applicable law
+- Governing law only after owner/legal confirmation
+- Contact information
+- Effective date
+- Change-notification process
+
+APPLE EULA DECISION
+
+Apple supplies a standard EULA automatically unless a custom EULA is configured.
+
+Create:
+
+docs/mobile-store-compliance/apple-eula-decision.md
+
+Explain:
+
+- Whether Apple’s standard EULA is sufficient
+- Whether JOBSAGE should provide a custom EULA
+- What additional JOBSAGE Terms still apply
+- What must be entered in App Store Connect
+- What requires legal approval
+
+Do not upload a custom Apple EULA automatically.
+
+The in-app EULA/Terms page must remain accessible even if Apple’s standard EULA is used.
+
+==================================================
+7. LOGIN AND REGISTRATION PLACEMENT
+==================================================
+
+Update candidate, employer and administrative authentication screens appropriately.
+
+LOGIN SCREENS
+
+Display clear, readable links near the bottom of every login screen:
+
+- Privacy Policy
+- Terms of Service
+- Help/Support
+
+Include EULA as a separate link only if JOBSAGE adopts a separate custom EULA. Otherwise, Terms can include the relevant service terms.
+
+Do not require users to repeatedly accept the same terms every time they log in.
+
+Do not hide links behind tiny text or low-contrast colours.
+
+REGISTRATION SCREENS
+
+Before account creation, display:
+
+- Terms of Service link
+- Privacy Policy link
+- EULA link if separate
+- Minimum-age statement if applicable
+- Clear wording that creating an account signifies agreement
+
+Use an explicit unchecked acceptance control if required by the existing consent model or legal review.
+
+Do not use a pre-checked box.
+
+Do not bundle optional marketing consent with mandatory Terms acceptance.
+
+Marketing consent must be:
+
+- Separate
+- Optional
+- Unchecked by default
+- Clearly described
+- Withdrawable later
+
+Record:
+
+- Terms version
+- Privacy Policy version
+- Consent timestamp
+- Consent type
+- User/account
+- Source application
+- Withdrawal timestamp where applicable
+
+Use the existing consent/audit infrastructure where possible instead of creating duplicate consent storage.
+
+POLICY UPDATES
+
+If a material policy update requires renewed acceptance:
+
+- Show a versioned, blocking update screen after authentication
+- Explain what changed
+- Link to the full updated documents
+- Record the new acceptance
+- Do not request acceptance for immaterial copy edits unless legally necessary
+
+==================================================
+8. IN-APP LEGAL AND PRIVACY SETTINGS
+==================================================
+
+Add a clearly named section in Profile or Settings:
+
+“Privacy, Legal & Account”
+
+It must contain:
+
+- Privacy Policy
+- Terms of Service
+- EULA, if separate
+- Privacy Choices
+- Download My Data or Request My Data
+- Delete Account
+- Notification Preferences
+- App Permissions
+- Contact Support
+- Open-source Licences
+- App version and build number
+
+Do not bury Delete Account only inside Help.
+
+Delete Account must be easy to find from the account/profile settings.
+
+The user must not need to contact support merely to begin account deletion.
+
+==================================================
+9. ACCOUNT DELETION
+==================================================
+
+Implement complete account-deletion support.
+
+APPLE REQUIREMENT
+
+Users who can create accounts must be able to initiate deletion inside the app.
+
+GOOGLE REQUIREMENT
+
+Users who can create accounts must have:
+
+1. An in-app path to request account and associated-data deletion.
+2. A public web page through which they can request deletion outside the app.
+
+IN-APP FLOW
+
+Place:
+
+Profile or Settings
+→ Privacy, Legal & Account
+→ Delete Account
+
+The flow must:
+
+1. Explain that deletion affects the complete JOBSAGE account.
+2. Explain which information will be deleted.
+3. Explain any information legally retained and why.
+4. Explain backup-removal timing.
+5. Explain the effect on active applications and employer communications.
+6. Explain subscription cancellation separately if applicable.
+7. Require recent authentication or reauthentication.
+8. Use a clear destructive confirmation.
+9. Avoid dark patterns.
+10. Allow the user to cancel before final confirmation.
+11. Confirm successful request submission.
+12. State whether deletion is immediate or scheduled.
+13. Send a confirmation email without exposing sensitive data.
+14. Sign the user out and revoke active sessions at the correct point.
+15. Provide final completion confirmation if deletion is asynchronous.
+
+Do not offer only:
+
+- Account deactivation
+- Logout
+- Emailing support
+- A generic contact form
+- Removing the app
+- Deleting profile fields while retaining the account
+
+Those are not complete account deletion.
+
+PUBLIC WEB FLOW
+
+Implement:
+
+/account-deletion
+
+This page must be directly accessible without first entering the main app.
+
+It must:
+
+- Explain how deletion works
+- Identify the app and developer
+- Allow the user to authenticate and submit a deletion request
+- Provide account-verification safeguards
+- Explain data deleted
+- Explain retained data
+- Explain expected completion time
+- Provide support contact information
+- Avoid exposing whether an email address has an account
+- Rate-limit request attempts
+- Protect against CSRF and account-takeover abuse
+
+BACKEND AUDIT
+
+Before implementing destructive deletion, map all records associated with the user:
+
+- User account
+- Sessions
+- Authentication tokens
+- Profiles
+- Career profiles
+- Documents
+- Stored files/objects
+- Identity-verification material
+- Applications
+- Speculative applications
+- Drafts
+- Messages
+- Feedback
+- Recommendation letters
+- Interview/calendar records
+- Saved vacancies
+- Bookmarks
+- AI answer memory
+- Push tokens
+- Consent logs
+- Audit logs
+- Employer profiles
+- Employer jobs
+- Campaigns
+- Any billing/customer identifiers
+- Any third-party processor records
+
+For every table/object define:
+
+- Delete
+- Anonymise
+- Retain
+- Retention reason
+- Retention duration
+- Deletion mechanism
+- Failure/retry behaviour
+
+Do not perform a production deletion as part of this task.
+
+Implement and test against fixtures or an isolated development database only.
+
+Use an idempotent deletion workflow with:
+
+- Request ID
+- Status
+- Retry safety
+- Audit record without retaining unnecessary personal data
+- Failure reporting
+- Partial-failure recovery
+- Session revocation
+- Object-storage cleanup
+- Processor cleanup tasks where supported
+
+==================================================
+10. DATA ACCESS, EXPORT AND PRIVACY CHOICES
+==================================================
+
+Provide a practical privacy-choices page.
+
+Where supported, allow users to:
+
+- View their account information
+- Correct profile information
+- Export their data
+- Withdraw optional consent
+- Disable optional analytics
+- Disable optional marketing
+- Manage notification categories
+- Delete remembered Smart Apply answers
+- Delete uploaded documents
+- Delete their complete account
+
+If full automated export cannot be safely delivered yet, implement an authenticated request workflow and clearly state the response process.
+
+Never place sensitive exports at a permanently public URL.
+
+Use:
+
+- Short-lived authenticated downloads
+- Explicit reauthentication
+- Audit logging
+- Appropriate content type
+- Expiry
+- Revocation
+
+==================================================
+11. PERMISSIONS AND PROMINENT DISCLOSURES
+==================================================
+
+Audit every native permission and remove unused permissions.
+
+Possible permissions include:
+
+- Camera
+- Photo library
+- Document selection
+- Notifications
+- Location
+- Calendar
+- Microphone
+- Storage
+
+For each permission document:
+
+- Feature requiring it
+- Whether it is necessary
+- Platform
+- Store declaration
+- In-app explanation
+- Timing
+- Denial behaviour
+
+Permission rules:
+
+- Request permission only when the user activates the relevant feature.
+- Explain the purpose before the operating-system dialog where appropriate.
+- Do not request every permission at first launch.
+- The app must remain usable when an optional permission is denied.
+- Provide a Settings link when a denied permission is required later.
+- Permission wording must match actual behaviour.
+- Do not request location unless a concrete user-facing feature requires it.
+- Do not use Accessibility Service for Smart Apply.
+- Do not request broad storage access when system document pickers are sufficient.
+- Do not request tracking permission unless the app actually performs cross-app tracking.
+
+If a sensitive permission requires Google prominent disclosure, show the disclosure immediately before the permission request.
+
+A privacy-policy link does not replace a required prominent disclosure.
+
+==================================================
+12. APPLE PRIVACY REQUIREMENTS
+==================================================
+
+Prepare:
+
+docs/mobile-store-compliance/apple-privacy-labels.md
+
+Map actual data practices to Apple categories:
+
+- Data collected
+- Data linked to the user
+- Data used for tracking
+- Collection purpose
+- Third-party SDK collection
+- Optional versus required collection
+
+Do not submit the answers automatically.
+
+Add or verify:
+
+- Privacy Policy URL
+- User Privacy Choices URL
+- Support URL
+- Marketing URL if used
+- PrivacyInfo.xcprivacy
+- Required-reason API declarations
+- Third-party SDK privacy manifests
+- SDK signatures where required
+- Info.plist usage descriptions
+- Tracking-domain declarations if applicable
+
+Do not declare “Data Not Collected” unless the complete data-flow audit supports it.
+
+Do not mark data as unlinked if JOBSAGE can associate it with an account.
+
+Do not declare that data is not used for tracking without auditing every SDK.
+
+==================================================
+13. GOOGLE DATA SAFETY
+==================================================
+
+Prepare:
+
+docs/mobile-store-compliance/google-data-safety.md
+
+For each Google data category record:
+
+- Collected
+- Shared
+- Required or optional
+- Purpose
+- Ephemeral processing
+- Encryption in transit
+- Deletion availability
+- Third-party SDK involvement
+- WebView involvement
+
+Google’s declaration must include qualifying data collected by controlled JOBSAGE code inside the app’s WebView.
+
+Differentiate the controlled JOBSAGE WebView from open-web employer pages.
+
+Prepare draft answers only. Do not submit the Data Safety form.
+
+Verify that the privacy policy and Data Safety answers are consistent.
+
+==================================================
+14. SIGN-IN REQUIREMENTS
+==================================================
+
+Audit all authentication methods.
+
+If JOBSAGE uses only first-party email/password authentication, do not add Sign in with Apple merely for appearance.
+
+If JOBSAGE offers Google, Facebook, LinkedIn or another third-party login as a primary-account login on iOS, audit whether an equivalent Apple-compliant login option is required.
+
+If Sign in with Apple is added:
+
+- Implement it correctly
+- Support private relay email addresses
+- Revoke Apple tokens during account deletion
+- Handle server-to-server account-change notifications where required
+- Include it in privacy disclosures
+- Do not break existing email/password accounts
+- Provide safe account linking
+- Prevent duplicate accounts
+
+Document the decision in:
+
+docs/mobile-store-compliance/authentication-policy.md
+
+==================================================
+15. AI-GENERATED CONTENT
+==================================================
+
+JOBSAGE generates application answers and other career content using AI.
+
+Add an accessible in-app reporting mechanism wherever substantial AI-generated content is displayed.
+
+Users must be able to:
+
+- Report inappropriate or unsafe generated content
+- Optionally explain the problem
+- Identify the affected feature/output
+- Submit the report without leaving the app
+- Receive confirmation
+
+The reporting flow must not include more personal data than necessary.
+
+Connect reports to the existing feedback/moderation system where appropriate.
+
+Document:
+
+- AI provider
+- Data sent to AI
+- Retention setting where known
+- Human-review possibilities
+- Content safeguards
+- User responsibility to review answers
+- How reports are handled
+- How reported content influences moderation
+
+Do not imply that AI-generated eligibility, immigration or employment guidance is professional legal advice.
+
+==================================================
+16. MESSAGING AND USER-GENERATED CONTENT
+==================================================
+
+Audit whether inbox messages, employer communications, feedback, uploaded material or other features qualify as user-generated content.
+
+If users can communicate directly with other users, implement the safeguards required for the actual feature:
+
+- Report message/content
+- Report user
+- Block user where required
+- Moderation queue
+- Timely handling
+- Published contact route
+- Terms prohibiting objectionable content
+- Safety escalation for serious abuse
+- Audit trail
+
+Do not add irrelevant social-network features.
+
+Document the applicability decision in:
+
+docs/mobile-store-compliance/ugc-and-messaging.md
+
+==================================================
+17. PAYMENTS AND SUBSCRIPTIONS
+==================================================
+
+Audit:
+
+- Checkout routes
+- Subscription plans
+- Digital features sold
+- External payment links
+- Existing Stripe or other payment integrations
+- Whether purchases are available inside the app
+- Whether the app is reader-only
+- Whether employer services differ from candidate digital services
+
+Create:
+
+docs/mobile-store-compliance/payments-review.md
+
+Determine whether Apple In-App Purchase and Google Play Billing are required.
+
+Do not:
+
+- Hide an external purchase flow inside the WebView
+- Add external purchase links without confirming policy eligibility
+- Describe digital subscriptions as physical services
+- Implement store billing without understanding entitlement synchronization
+- Change pricing without approval
+
+If payments are not included in the first mobile release, ensure prohibited purchase prompts are not accidentally exposed in the mobile WebView.
+
+If subscriptions are included, implement:
+
+- Store-compliant purchase flow
+- Restore purchases
+- Entitlement synchronization
+- Subscription management
+- Clear pricing and billing period
+- Trial terms
+- Cancellation instructions
+- Account-deletion treatment
+- Required subscription disclosures
+- Privacy and Terms links near purchase confirmation
+
+==================================================
+18. CHILDREN, AGE AND AUDIENCE
+==================================================
+
+Determine the actual intended audience with the product owner.
+
+Do not guess.
+
+Prepare:
+
+docs/mobile-store-compliance/age-and-audience.md
+
+Cover:
+
+- Minimum age
+- Whether the app is intended for children
+- Apple age-rating questionnaire inputs
+- Google target-audience declaration
+- User-generated content
+- Messaging
+- AI-generated content
+- Employment and immigration subject matter
+- Web access through Smart Apply
+- Identity documents
+- Any age-gating requirements
+
+Do not mark the app “Made for Kids” unless that is an intentional, legally reviewed product decision.
+
+Ensure the Terms minimum age and store declarations agree.
+
+==================================================
+19. STORE METADATA AND REVIEW ACCESS
+==================================================
+
+Prepare complete drafts for both stores.
+
+APPLE
+
+Create:
+
+docs/mobile-store-compliance/apple-app-store-submission.md
+
+Include:
+
+- App name
+- Subtitle
+- Description
+- Keywords
+- Category
+- Privacy Policy URL
+- Privacy Choices URL
+- Support URL
+- Marketing URL
+- Copyright
+- Age-rating answers
+- Content-rights declaration
+- Encryption/export-compliance decision
+- App privacy answers
+- EULA decision
+- App-review contact template
+- Demo-account template
+- Review notes
+- Smart Apply explanation
+- WebView explanation
+- Account-deletion path
+- Permission explanations
+- Screenshot checklist
+- TestFlight information
+- Version-release decision
+- Digital Services Act/trader information requiring owner completion
+
+GOOGLE
+
+Create:
+
+docs/mobile-store-compliance/google-play-submission.md
+
+Include:
+
+- App name
+- Short description
+- Full description
+- App category
+- Tags
+- Contact email
+- Support website
+- Privacy Policy URL
+- Account-deletion URL
+- Data Safety answers
+- App access instructions
+- Demo-account template
+- Ads declaration
+- Target-audience declaration
+- Content-rating answers
+- AI-content applicability
+- UGC applicability
+- Permission declarations
+- Target API verification
+- Screenshot checklist
+- Feature graphic checklist
+- Testing-track plan
+- Countries/regions decision
+- Release-notes template
+
+REVIEWER ACCESS
+
+Create non-expiring reviewer-account instructions for:
+
+- Candidate
+- Employer
+- Reviewer/admin only if needed for review
+- Any role needed to inspect restricted functionality
+
+Do not place real credentials in git.
+
+Use placeholders and document where credentials must be entered securely in the store consoles.
+
+Describe:
+
+- How to log in
+- How to reach every important feature
+- How to test Smart Apply
+- How to test account deletion safely
+- How to test uploads
+- Any test data already prepared
+- Any OTP or two-factor bypass designed specifically for review
+
+Do not require reviewers to create their own account.
+
+==================================================
+20. REQUIRED IN-APP PLACEMENT MATRIX
+==================================================
+
+Implement and verify the following placement:
+
+LOGIN
+
+- Privacy Policy
+- Terms of Service
+- Help/Support
+- EULA if separate
+
+REGISTRATION
+
+- Privacy Policy
+- Terms of Service
+- EULA if separate
+- Required Terms acceptance
+- Separate optional marketing consent
+- Minimum-age statement if applicable
+
+PROFILE OR SETTINGS
+
+- Privacy, Legal & Account section
+- Privacy Policy
+- Terms
+- EULA if separate
+- Privacy Choices
+- Data export/request
+- Delete Account
+- Notification Preferences
+- App Permissions
+- Support
+- Open-source Licences
+- App version/build
+
+AI OUTPUT
+
+- Clear AI indicator where appropriate
+- Review-before-use warning
+- Report generated content
+
+MESSAGING
+
+- Report content/user
+- Block user where applicable
+- Support/escalation route
+
+PURCHASE SCREEN, IF APPLICABLE
+
+- Price and billing period
+- Renewal terms
+- Cancellation information
+- Restore purchases
+- Privacy Policy
+- Terms/EULA
+
+ABOUT OR HELP
+
+- Support contact
+- Privacy Policy
+- Terms
+- App version
+- Copyright
+- Licences
+
+PUBLIC WEBSITE
+
+- Privacy Policy
+- Terms
+- EULA if separate
+- Account deletion
+- Privacy choices
+- Support/contact
+
+Do not require a signed-in session merely to read Privacy, Terms, EULA or deletion instructions.
+
+==================================================
+21. SECURITY REQUIREMENTS
+==================================================
+
+Verify:
+
+- TLS/HTTPS
+- SecureStore for native authentication secrets
+- Session expiration
+- Session revocation
+- Logout cleanup
+- CSRF protection
+- Rate limits
+- Secure password reset
+- No account enumeration
+- No secrets in query parameters
+- No sensitive data in logs
+- No tokens in analytics
+- No permanent public document URLs
+- Upload content-type and size validation
+- Malware scanning where available
+- WebView origin restrictions
+- WebView message validation
+- Download safety
+- Least-privilege permissions
+- Dependency review
+- Third-party SDK review
+- Backup and deletion handling
+- Account-deletion abuse prevention
+
+Do not claim encryption at rest unless the actual infrastructure supports and documents it.
+
+==================================================
+22. ACCESSIBILITY REQUIREMENTS
+==================================================
+
+Legal and account-management screens must support:
+
+- Screen readers
+- Dynamic text
+- Keyboard navigation where applicable
+- Correct headings
+- Accessible link names
+- Clear destructive-action labels
+- Adequate contrast
+- Visible focus
+- Touch targets
+- Reduced motion
+- Error announcements
+- Confirmation announcements
+
+Account deletion must not rely only on colour to communicate danger.
+
+==================================================
+23. TESTING
+==================================================
+
+Add tests for:
+
+LEGAL LINKS
+
+- Privacy link on every login screen
+- Terms link on every login screen
+- Legal links on every registration screen
+- Public access without authentication
+- No broken URLs
+- Settings links
+- Version/build display
+
+CONSENT
+
+- Required consent not pre-checked
+- Optional marketing consent separate
+- Consent version recorded
+- Policy-update acceptance
+- Consent withdrawal
+
+ACCOUNT DELETION
+
+- Easy in-app discovery
+- Reauthentication
+- Confirmation
+- Cancellation
+- Invalid-session rejection
+- CSRF rejection
+- Rate limiting
+- Idempotency
+- Session revocation
+- Associated-record processing
+- Object-storage processing
+- Partial-failure retry
+- Completion notification
+- Public web request
+- Account-enumeration prevention
+- No production deletion during tests
+
+PRIVACY
+
+- Privacy choices
+- Data export authentication
+- Export expiration
+- Notification preferences
+- Permission-denial behaviour
+
+AI AND UGC
+
+- AI-output reporting
+- Report confirmation
+- Messaging report/block where applicable
+- Moderation routing
+
+STORE CONFIGURATION
+
+- iOS usage descriptions
+- Privacy manifest validation
+- Android permission inventory
+- Target SDK
+- Bundle/package identifiers
+- Deep links
+- Universal links
+- Version/build numbers
+
+Run:
+
+- pnpm run typecheck:libs
+- Mobile typecheck
+- Mobile tests
+- Affected web tests
+- Affected API tests
+- Expo doctor
+- Android configuration validation
+- iOS configuration validation
+- Link checker for all public compliance URLs
+
+Use an isolated development database for deletion tests.
+
+==================================================
+24. REQUIRED DELIVERABLES
+==================================================
+
+Create:
+
+- docs/mobile-store-compliance/policy-sources.md
+- docs/mobile-store-compliance/data-inventory.md
+- docs/mobile-store-compliance/in-app-placement-matrix.md
+- docs/mobile-store-compliance/apple-privacy-labels.md
+- docs/mobile-store-compliance/google-data-safety.md
+- docs/mobile-store-compliance/apple-eula-decision.md
+- docs/mobile-store-compliance/authentication-policy.md
+- docs/mobile-store-compliance/ugc-and-messaging.md
+- docs/mobile-store-compliance/payments-review.md
+- docs/mobile-store-compliance/age-and-audience.md
+- docs/mobile-store-compliance/apple-app-store-submission.md
+- docs/mobile-store-compliance/google-play-submission.md
+- docs/mobile-store-compliance/account-deletion-runbook.md
+- docs/mobile-store-compliance/legal-review-required.md
+
+The legal-review document must clearly list every fact or clause requiring owner or lawyer confirmation.
+
+==================================================
+25. DEFINITION OF DONE
+==================================================
+
+The work is complete only when:
+
+- Privacy Policy is publicly accessible and linked inside the app.
+- Terms are publicly accessible and linked inside the app.
+- EULA strategy is documented and implemented appropriately.
+- Login screens contain the relevant legal/support links.
+- Registration contains clear Terms and Privacy acceptance.
+- Optional marketing consent is separate.
+- Settings contains Privacy, Legal & Account.
+- In-app account deletion can be initiated.
+- Public web account deletion exists.
+- Deletion covers associated data or transparently documents lawful retention.
+- Data-export/privacy-choice handling exists.
+- Native permissions are minimal and requested contextually.
+- Apple privacy-label answers are drafted from actual data flows.
+- Google Data Safety answers are drafted from actual data flows.
+- Privacy manifests and required-reason APIs are reviewed.
+- AI-generated content can be reported in-app.
+- UGC/messaging safeguards are implemented where applicable.
+- Payment-policy applicability is resolved.
+- Age/audience declarations are prepared.
+- Store metadata and review instructions are prepared.
+- Reviewer-account instructions exist without committing credentials.
+- Tests pass.
+- No production account or data was deleted.
+- No store form was submitted.
+- No application was published.
+
+==================================================
+26. FINAL REPORT
+==================================================
+
+At the end report:
+
+1. Files changed.
+2. Legal and privacy pages added or updated.
+3. Where every legal link appears.
+4. Account-deletion flow.
+5. Data-deletion coverage by table/storage system.
+6. Retained-data exceptions requiring approval.
+7. Apple privacy-label draft summary.
+8. Google Data Safety draft summary.
+9. Native permissions and justifications.
+10. AI and UGC safeguards.
+11. Payment-policy conclusion.
+12. Authentication and Sign in with Apple conclusion.
+13. Tests with exact pass/fail counts.
+14. Store-console actions still requiring the owner.
+15. Items requiring legal review.
+16. External accounts, addresses or business facts still missing.
+17. Confirmation that nothing was deployed, submitted or deleted in production.

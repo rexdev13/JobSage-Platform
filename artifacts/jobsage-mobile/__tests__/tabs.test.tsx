@@ -1,10 +1,15 @@
 import React from "react";
+import { describe, it, expect, jest } from "@jest/globals";
 import { render } from "@testing-library/react-native";
 
 jest.mock("expo-router", () => ({
   router: { push: jest.fn(), replace: jest.fn() },
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
   Link: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: () => null,
 }));
 
 jest.mock("expo-haptics", () => ({
@@ -50,7 +55,16 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 );
 
 jest.mock("@workspace/api-client-react", () => ({
-  useGetMyAnalytics: () => ({ data: null, isLoading: false, error: null, refetch: jest.fn() }),
+  useGetMyAnalytics: () => ({
+    data: {
+      readinessScore: 42,
+      statusBreakdown: { applied: 1, shortlisted: 0, interview: 0, offer: 0 },
+    },
+    isLoading: false,
+    isError: false,
+    isRefetching: false,
+    refetch: jest.fn(),
+  }),
   useListMyApplications: () => ({ data: null, isLoading: false, error: null, refetch: jest.fn() }),
   useGetJourneyStatus: () => ({ data: null, isLoading: false, error: null, refetch: jest.fn() }),
   useGetMyProfile: () => ({ data: null, isLoading: false, error: null, refetch: jest.fn() }),
@@ -93,52 +107,50 @@ jest.mock("expo-constants", () => ({
   default: { expoConfig: { extra: {} } },
 }));
 
-jest.mock("react-native/Libraries/Animated/NativeAnimatedHelper");
-
 describe("Dashboard (index) tab", () => {
   it("renders without crashing", async () => {
     const Dashboard = require("../app/(tabs)/index").default;
-    const { getByText } = render(<Dashboard />);
-    expect(getByText(/dashboard|welcome|readiness|score/i)).toBeTruthy();
+    const { getAllByText } = await render(<Dashboard />);
+    expect(getAllByText(/dashboard|welcome|readiness|score/i).length).toBeGreaterThan(0);
   });
 });
 
 describe("Applications tab", () => {
   it("renders without crashing", async () => {
     const Applications = require("../app/(tabs)/applications").default;
-    const { getByText } = render(<Applications />);
-    expect(getByText(/application/i)).toBeTruthy();
+    const { getAllByText } = await render(<Applications />);
+    expect(getAllByText(/application/i).length).toBeGreaterThan(0);
   });
 });
 
 describe("Analytics tab", () => {
   it("renders without crashing", async () => {
     const Analytics = require("../app/(tabs)/analytics").default;
-    const { getByText } = render(<Analytics />);
-    expect(getByText(/analytic|progress|readiness/i)).toBeTruthy();
+    const { getAllByText } = await render(<Analytics />);
+    expect(getAllByText(/analytic|progress|readiness/i).length).toBeGreaterThan(0);
   });
 });
 
 describe("Path tab", () => {
   it("renders without crashing", async () => {
     const Path = require("../app/(tabs)/path").default;
-    const { getByText } = render(<Path />);
-    expect(getByText(/path|journey|stage/i)).toBeTruthy();
+    const { getAllByText } = await render(<Path />);
+    expect(getAllByText(/path|journey|stage/i).length).toBeGreaterThan(0);
   });
 });
 
 describe("Profile tab", () => {
   it("renders without crashing", async () => {
     const Profile = require("../app/(tabs)/profile").default;
-    const { getByText } = render(<Profile />);
-    expect(getByText(/profile|account|settings/i)).toBeTruthy();
+    const { getAllByText } = await render(<Profile />);
+    expect(getAllByText(/profile|account|settings/i).length).toBeGreaterThan(0);
   });
 });
 
 describe("Login screen", () => {
   it("renders without crashing", async () => {
     const Login = require("../app/login").default;
-    const { getByText } = render(<Login />);
-    expect(getByText(/sign in|log in|jobsage/i)).toBeTruthy();
+    const { getAllByText } = await render(<Login />);
+    expect(getAllByText(/sign in|log in|jobsage/i).length).toBeGreaterThan(0);
   });
 });

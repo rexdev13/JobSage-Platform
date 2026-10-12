@@ -104,4 +104,5 @@
 - [Candidate video library](candidate-video-library.md) — launch videos are staff-curated; candidates cannot upload or publish.
 - [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on candidate-facing, nuanced, and accuracy-sensitive workflows.
 - [Local Playwright route base](playwright-local-route-base.md) — direct browser tests use the local Vite route base, not automatically the preview proxy's artifact prefix.
+- [Expo test renderer compatibility](expo-test-renderer-compatibility.md) — align reconciler with React and Jest with Expo; keep pure utility mocks out of component tests.
 - [Sponsor vacancy audit inputs](sponsor-vacancy-audit-inputs.md) — merge only explicitly selected current inputs; preserve partial-source status and never treat historical outputs as fresh.

@@ -1,6 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { getCurrentAuthUser, logout as revokeSession, setAuthTokenGetter } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { clearCredential, readCredential, writeCredential } from "@/lib/credentials";
 
 interface AuthUser {
   id: string;
@@ -18,9 +19,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const TOKEN_KEY = "jobsage_auth_token";
-const USER_KEY = "jobsage_auth_user";
-
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
@@ -34,6 +32,7 @@ let _currentToken: string | null = null;
 setAuthTokenGetter(() => _currentToken);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,16 +40,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadAuth() {
       try {
-        const [storedToken, storedUser] = await Promise.all([
-          AsyncStorage.getItem(TOKEN_KEY),
-          AsyncStorage.getItem(USER_KEY),
-        ]);
-        if (storedToken && storedUser) {
+        const storedToken = await readCredential();
+        if (storedToken) {
           _currentToken = storedToken;
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser) as AuthUser);
+          const current = await getCurrentAuthUser();
+          if (current.user?.id && current.user.email) {
+            setToken(storedToken);
+            setUser({
+              id: current.user.id,
+              email: current.user.email,
+              firstName: current.user.firstName ?? null,
+              lastName: current.user.lastName ?? null,
+              role: current.user.role ?? null,
+            });
+          } else {
+            _currentToken = null;
+            await clearCredential();
+          }
         }
       } catch {
+        // A saved bearer token is not evidence of an active session. Keep it
+        // protected for a possible network retry, but don't unlock cached data.
+        _currentToken = null;
+        setToken(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -59,23 +72,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (newToken: string, newUser: AuthUser) => {
-    await Promise.all([
-      AsyncStorage.setItem(TOKEN_KEY, newToken),
-      AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser)),
-    ]);
+    await writeCredential(newToken);
+    queryClient.clear();
     _currentToken = newToken;
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = async () => {
-    await Promise.all([
-      AsyncStorage.removeItem(TOKEN_KEY),
-      AsyncStorage.removeItem(USER_KEY),
-    ]);
-    _currentToken = null;
-    setToken(null);
-    setUser(null);
+    try {
+      if (_currentToken) await revokeSession();
+    } finally {
+      _currentToken = null;
+      setToken(null);
+      setUser(null);
+      queryClient.clear();
+      await clearCredential();
+    }
   };
 
   return (

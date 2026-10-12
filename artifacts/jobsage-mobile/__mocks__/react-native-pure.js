@@ -1,3 +1,4 @@
+// Explicit mapping for pure utilities only; never auto-mock native components.
 module.exports = {
   useColorScheme: () => null,
   Platform: { OS: "ios", select: (obj) => obj.ios ?? obj.default },

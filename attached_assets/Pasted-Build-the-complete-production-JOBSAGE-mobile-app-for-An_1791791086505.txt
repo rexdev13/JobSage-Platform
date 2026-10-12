@@ -1,0 +1,1009 @@
+Build the complete production JOBSAGE mobile app for Android and iOS from the existing codebase.
+
+This is not a prototype, mockup or reduced companion app. The mobile app must provide the complete JOBSAGE website experience, the same intentional visual identity, and as much of the Smart Apply browser-extension experience as mobile platforms technically allow.
+
+==================================================
+1. SOURCE-OF-TRUTH BOUNDARY
+==================================================
+
+The authoritative project is the repository root.
+
+Use:
+
+- artifacts/jobsage-web
+- artifacts/jobsage-mobile
+- artifacts/chrome-extension
+- artifacts/api-server
+- lib/api-client-react
+- lib/api-spec
+- lib/api-zod
+- lib/auth-web
+
+Do not use or edit:
+
+- jobsage/
+- JobSage-Platform-fresh-20261008/
+
+Those are older or isolated copies and are not authoritative.
+
+Additional restrictions:
+
+- Do not make production database writes.
+- Do not deploy the API or website.
+- Do not publish or submit to either app store.
+- Do not expose or commit credentials.
+- Do not create fake APIs or mock production data.
+- Do not replace existing working website functionality.
+- Do not create placeholder pages.
+- Do not add “Coming soon” labels.
+- Do not invent, rename, remove or reorder navigation items.
+- Preserve existing business rules, route guards and permissions.
+- Preserve all user data and unrelated working-tree changes.
+
+==================================================
+2. PRODUCT GOAL
+==================================================
+
+Turn artifacts/jobsage-mobile into the full JOBSAGE application for iOS and Android.
+
+The completed app must:
+
+1. Present the complete responsive JOBSAGE website experience.
+2. Include every candidate, employer, reviewer, admin, marketing and super-admin feature available to that role.
+3. Preserve the JOBSAGE visual identity, navigation wording, data, actions and business logic.
+4. Feel intentional, polished and intuitive on a phone.
+5. Recreate the useful Chrome extension functionality inside a controlled in-app Smart Apply browser.
+6. Be buildable and submittable from Windows using Expo EAS.
+7. Continue using the existing JOBSAGE API and database.
+8. Avoid creating a second disconnected backend or duplicate business logic.
+
+The app must feel like the JOBSAGE website was deliberately adapted for mobile—not like an unrelated redesign and not like a basic website placed inside a blank wrapper.
+
+==================================================
+3. MANDATORY UI/UX RESEARCH AND SKILLS DISCOVERY
+==================================================
+
+Before changing the UI, perform a focused research phase.
+
+A. DISCOVER RELEVANT SKILLS
+
+Inspect all skills, templates, agents and capabilities available in the Replit environment.
+
+Search Replit’s skills/library/marketplace, official documentation, reputable open-source repositories and the internet for high-quality capabilities related to:
+
+- Mobile UI/UX design
+- Product design
+- Design-system auditing
+- React Native and Expo
+- Responsive web-to-mobile adaptation
+- Mobile navigation
+- Mobile accessibility
+- WebView integration
+- Native document handling
+- Micro-interactions and motion
+- Visual regression testing
+- App Store and Play Store readiness
+- Mobile security
+- Mobile end-to-end testing
+
+If the environment supports adding external skills, first inspect each skill’s:
+
+- Source and maintainer
+- Permissions
+- Dependencies
+- Files it will modify
+- Compatibility with Expo 54 and React Native 0.81
+- Security implications
+- Licence
+- Maintenance activity
+- Whether it transmits code or data externally
+
+Do not blindly install random skills or execute unreviewed remote scripts.
+
+Never give an external skill access to:
+
+- Production credentials
+- Environment secrets
+- User data
+- Database credentials
+- App Store credentials
+- Signing keys
+
+Use only trustworthy, compatible skills that materially improve this task.
+
+If no suitable external skill exists, continue using the existing code, official documentation and established mobile design principles. Do not block the project on finding a skill.
+
+B. RESEARCH STRONG MOBILE PRODUCT EXPERIENCES
+
+Use internet research, official documentation, design articles, public product demonstrations and useful YouTube walkthroughs to study excellent mobile experiences for:
+
+- Job-search applications
+- Application tracking
+- Long-form profile editing
+- Document management
+- CV upload and selection
+- Onboarding
+- Progress dashboards
+- Eligibility/readiness scores
+- Messaging and inboxes
+- Interview scheduling
+- Search and filters
+- Large multi-section navigation
+- AI writing assistants
+- In-app browsers
+- Assisted form filling
+
+Prioritise authoritative sources such as:
+
+- Apple Human Interface Guidelines
+- Material Design
+- Expo documentation
+- React Native documentation
+- React Native WebView documentation
+- WCAG accessibility guidance
+- Reputable product-design educators
+- Well-maintained open-source mobile applications
+- Demonstrations of successful job, career and productivity apps
+
+You may use YouTube to study interactions, navigation, motion and workflows, but do not copy another product’s branding, illustrations, proprietary layouts or copyrighted assets.
+
+Research should inform principles, not produce a visual clone of another application.
+
+C. RESEARCH DELIVERABLE
+
+Create:
+
+docs/jobsage-mobile-ui-research.md
+
+It must contain:
+
+1. Skills and tools evaluated.
+2. Skills selected and why.
+3. Skills rejected and why.
+4. Research sources with links.
+5. Screens or interaction patterns studied.
+6. Specific principles adopted for JOBSAGE.
+7. How those principles apply without changing JOBSAGE navigation, wording or brand.
+8. Accessibility requirements.
+9. Mobile usability risks found in the existing website.
+10. Decisions for navigation, forms, uploads, search, filters, empty states, loading states and Smart Apply.
+
+Do not start broad visual changes until this research is documented.
+
+==================================================
+4. EXPERIENCE AND DESIGN PRINCIPLES
+==================================================
+
+The experience must feel:
+
+- Calm
+- Trustworthy
+- Professional
+- Modern
+- Clear
+- Supportive
+- Focused
+- Intentionally designed
+- Easy to understand without instructions
+
+Preserve the existing JOBSAGE design language:
+
+- Logo
+- Brand colours
+- Typography character
+- Status colours
+- Card hierarchy
+- Existing navigation copy
+- Existing form labels
+- Existing user-facing terminology
+- Existing light/dark behaviour where applicable
+
+Improve mobile usability through:
+
+- Clear information hierarchy
+- Consistent spacing
+- Proper touch targets
+- Safe-area support
+- Readable type sizes
+- Clear primary actions
+- Predictable back navigation
+- Bottom sheets for contextual actions
+- Deliberate loading skeletons
+- Helpful but concise empty states
+- Inline validation
+- Persistent progress for long workflows
+- Visible upload progress
+- Accessible colour contrast
+- Screen-reader labels
+- Keyboard-safe forms
+- Reduced-motion support
+- Subtle purposeful animation
+- Haptic feedback only where it adds clarity
+
+Do not use excessive gradients, glass effects, animations or decorative cards merely to look modern.
+
+Every visual element must serve comprehension, navigation, trust or task completion.
+
+Do not change the information architecture without identifying the exact existing route and receiving approval.
+
+==================================================
+5. MOBILE ARCHITECTURE
+==================================================
+
+Use a hybrid architecture.
+
+A. JOBSAGE WORKSPACE
+
+Use artifacts/jobsage-web as the canonical product UI.
+
+Do not manually rewrite every website page as an incomplete React Native version. That would create two divergent products.
+
+Build a production React Native WebView workspace in artifacts/jobsage-mobile that loads the configured JOBSAGE production or staging origin.
+
+It must support:
+
+- Secure authentication
+- Cookie/session synchronization
+- Navigation history
+- Android hardware back button
+- Internal and external URL handling
+- File selection
+- Camera/photo selection
+- File uploads
+- Downloads
+- PDF/document viewing
+- Mail links
+- Telephone links
+- Calendar links
+- Deep links
+- Offline/network failure handling
+- Retry handling
+- Session expiry
+- Logout synchronization
+- Safe-area insets
+- Keyboard handling
+- Loading indicators
+- Theme synchronization
+- Pull-to-refresh only where it cannot damage form state
+
+Do not inject a long-lived authentication token into:
+
+- Page JavaScript
+- localStorage
+- Query parameters
+- URLs
+- Console logs
+
+If native bearer-token login cannot safely establish the website’s cookie session, implement a server-issued mobile session exchange that is:
+
+- Single use
+- Short lived
+- Bound to the authenticated user
+- Validated server-side
+- Removed after exchange
+- Protected against replay
+- Audited without logging secrets
+
+Preserve CSRF and session-security controls.
+
+B. NATIVE VALUE
+
+The application must provide meaningful native capability beyond being a website wrapper:
+
+- Secure credential storage
+- Smart Apply browser
+- Native document selection
+- Camera integration
+- Native downloads and sharing
+- Push notifications
+- Deep links
+- Network-state handling
+- Native back-button integration
+- Haptic feedback where appropriate
+- Platform-specific accessibility
+- Native app lifecycle/session handling
+
+==================================================
+6. COMPLETE WEBSITE FEATURE PARITY
+==================================================
+
+Inventory every route in:
+
+artifacts/jobsage-web/src/App.tsx
+
+Inventory every navigation item and role condition in:
+
+artifacts/jobsage-web/src/components/layout/AppSidebar.tsx
+
+Create:
+
+docs/jobsage-mobile-parity-matrix.md
+
+For every route record:
+
+- Route
+- User role
+- Screen purpose
+- Read operations
+- Write operations
+- Upload/download behaviour
+- External-link behaviour
+- Mobile status
+- Tests
+- Remaining limitations
+
+CANDIDATE FEATURES
+
+Include:
+
+- Progress Hub
+- Job Opportunities
+- Application Tracker
+- Interview Schedule
+- Messages
+- Career Path
+- Personal & Professional Profile
+- CV & Supporting Documents
+- ID Verification
+- Eligibility Status
+- Visa Sponsoring Employers
+- References
+- Help & Support
+- Feedback
+- Interview Preparation
+- Visa & Legal Guidance
+- Performance Report
+- Consent
+- Onboarding
+- Logout
+- Profile photo
+- Readiness information
+- Unread-message badge
+- Quick Help
+
+Candidate routes include:
+
+- /
+- /consent
+- /onboarding
+- /profile
+- /documents
+- /eligibility
+- /opportunities
+- /applications
+- /inbox
+- /path
+- /interview-prep
+- /sponsor-licences
+- /my-report
+- /regulatory-guidance
+- /calendar
+- /recommendations
+- /identity
+- /feedback
+- /help
+
+EMPLOYER FEATURES
+
+Include:
+
+- Employer registration
+- Employer onboarding
+- Employer dashboard
+- Organisation profile
+- Create job
+- View job
+- Edit job
+- Talent search
+- Campaigns
+- Help
+- Feedback
+
+Employer routes include:
+
+- /employer/register
+- /employer/onboarding
+- /employer/dashboard
+- /employer/profile
+- /employer/jobs/new
+- /employer/jobs/:id
+- /employer/jobs/:id/edit
+- /employer/talent-search
+- /employer/campaigns
+
+REVIEWER AND ADMIN FEATURES
+
+Include:
+
+- Review Queue
+- Employer operations
+- Ruleset Management
+- Role Management
+- Audit Logs
+- User Management
+- Waitlist Leads
+- Calendar
+
+Operational routes include:
+
+- /review-queue
+- /admin/rulesets
+- /admin/roles
+- /admin/audit
+- /admin/users
+- /admin/leads
+- /admin/calendar
+
+MARKETING AND SUPER-ADMIN FEATURES
+
+Include:
+
+- Marketing navigation
+- Lead access
+- Calendar access
+- Booking management
+- Super Admin
+- Sync Management
+- Sponsor Data Import
+- Impersonation
+- Existing read-only impersonation protections
+
+Routes include:
+
+- /admin/super
+- /admin/sync
+- /admin/sponsor-import
+- /impersonate
+- /book/:slug
+
+PUBLIC FEATURES
+
+Include:
+
+- Landing page
+- Candidate registration
+- Employer registration
+- Login
+- Admin login
+- Forgot password
+- Reset password
+- Get Started
+- Help/support
+- Booking
+- Privacy
+- Terms
+- Extension privacy
+- Release notes
+
+Public routes include:
+
+- /
+- /login
+- /admin/login
+- /register
+- /employer/register
+- /forgot-password
+- /reset-password
+- /get-started
+- /help
+- /support
+- /book/:slug
+- /privacy
+- /terms
+- /extension-privacy
+- /release-notes
+
+Preserve exact role guards and redirects from App.tsx.
+
+Preserve exact navigation names and order from AppSidebar.tsx.
+
+Never invent missing routes or destination behaviour.
+
+==================================================
+7. SMART APPLY IN-APP BROWSER
+==================================================
+
+Mobile Chrome does not support normal Chrome extensions. Recreate Smart Apply inside a JOBSAGE-controlled in-app application browser.
+
+When a user selects Apply from a JOBSAGE vacancy:
+
+1. Validate the vacancy and destination.
+2. Save/register the outbound application.
+3. Open the employer or ATS site inside the Smart Apply browser.
+4. Preserve the trusted vacancy context through redirects.
+5. Show a JOBSAGE assistant bottom sheet or side sheet.
+6. Allow normal employer-site login, SSO, CAPTCHA and manual input.
+7. Keep the user in control of every final submission.
+
+Do not activate Smart Apply because a random URL contains ref=jobsage.
+
+Only activate it from a trusted, authenticated JOBSAGE application event.
+
+EXISTING WORK TO PRESERVE
+
+Inspect:
+
+- artifacts/jobsage-web/src/components/MobileAssistedWorkspaceHost.tsx
+- artifacts/jobsage-web/src/lib/assistedApplication.ts
+- artifacts/jobsage-web/src/lib/desktopApplicationReturn.ts
+- artifacts/jobsage-web/src/lib/trackedOutbound.ts
+
+When JOBSAGE is running inside the native app, supported application links should open in the native Smart Apply browser rather than the external system browser.
+
+==================================================
+8. SHARED SMART APPLY CORE
+==================================================
+
+Extract reusable browser-independent logic from artifacts/chrome-extension.
+
+Create a shared package such as:
+
+lib/smart-apply-core
+
+Reuse and adapt behaviour from:
+
+- scraper.ts
+- prefill.ts
+- questionDetector.ts
+- trackerDetector.ts
+- cvAttachment.ts
+- answerLibrary.ts
+- answerMemory.ts
+- fieldWriteProvenance.ts
+- pageWarnings.ts
+- trackingContext.ts
+- navigationRecords.ts
+- trustedOrigin.ts
+- keyedAsyncQueue.ts
+
+Do not import chrome.* APIs into the mobile bundle.
+
+Create platform adapters for:
+
+- Chrome storage versus secure mobile storage
+- Chrome runtime messages versus WebView postMessage
+- Cookie authentication versus mobile API authentication
+- Chrome navigation events versus WebView navigation events
+- Chrome downloads versus native file storage
+- Extension sidebar versus React Native assistant UI
+- Clipboard
+- File selection
+- File sharing
+- Page lifecycle
+- Redirect history
+
+The Chrome extension must continue working after extraction.
+
+==================================================
+9. SMART APPLY FEATURE PARITY
+==================================================
+
+The in-app Smart Apply browser must provide:
+
+- Application-page detection
+- Job-title extraction
+- Employer extraction
+- Job-description context
+- NHS Jobs selectors
+- Trac selectors
+- Workday selectors
+- Safe generic selectors
+- Dynamic-form observation
+- Visible-question detection
+- Required/unanswered state
+- Character and word-limit detection
+- Safe candidate-details prefill
+- Structured profile/CV answers
+- AI-generated application answers
+- Streaming answer display where supported
+- Insert answer
+- Copy answer
+- Clear answer
+- Safe answer-memory opt-in
+- Edit remembered answer
+- Delete remembered answer
+- Clear page answers
+- Delete the complete answer library with confirmation
+- Obtain the current JOBSAGE CV
+- Attach a CV to compatible file inputs where supported
+- Native save/select fallback where automatic attachment is unavailable
+- Application logging
+- Redirect tracking
+- Submission-confirmation detection
+- Manual logging fallback
+- Clear success and failure states
+
+Never automatically press the employer’s final Submit button.
+
+Do not fill:
+
+- Passwords
+- Usernames
+- Date of birth
+- National Insurance number
+- Passport number
+- Financial information
+- Ambiguous name fields
+- Equality and diversity answers
+- Criminal-record declarations
+- Sensitive answers without explicit user action
+
+Do not mark an application as submitted because:
+
+- A submit button was clicked
+- A form disappeared
+- Generic “success” text appeared
+- Navigation occurred without confirmation evidence
+
+Reuse the strict confirmation logic from trackerDetector.ts and the existing:
+
+/api/applications/confirm-submission
+
+endpoint.
+
+==================================================
+10. WEBVIEW SECURITY
+==================================================
+
+Define and validate a strict WebView-to-native message schema.
+
+Validate:
+
+- Message type
+- Source origin
+- URL protocol
+- Vacancy identifier
+- Application identifier
+- User ownership
+- Timestamp
+- Expiry
+- Navigation ownership
+- Allowed action
+- Payload shape and size
+
+Requirements:
+
+- Only allow HTTPS employer destinations.
+- Block javascript:, data: and unsafe custom URLs.
+- Never execute arbitrary JavaScript received from a webpage.
+- Never expose access tokens to employer pages.
+- Never expose profile data unless needed for a user-requested fill action.
+- Do not log CV contents, generated answers or sensitive profile fields.
+- Apply origin allowlists to first-party privileged messages.
+- Treat employer pages as untrusted content.
+- Prevent employer pages from impersonating JOBSAGE bridge messages.
+
+==================================================
+11. NATIVE UI FOR SMART APPLY
+==================================================
+
+The Smart Apply assistant should feel like part of JOBSAGE.
+
+Use the UI/UX research to create an intentional native interaction:
+
+- Compact launcher while browsing
+- Expandable bottom sheet on phones
+- Clear job and employer context
+- Visible answered/unanswered question status
+- One obvious primary action
+- Progress feedback while prefilling
+- Clear list of fields filled
+- Clear list of fields deliberately left blank
+- Clear required-field warnings
+- Easy movement between detected questions
+- Accessible generated-answer editor
+- Insert and copy actions
+- CV status and fallback instructions
+- Application logging action
+- Submission-confirmation action
+- Non-destructive close/minimise behaviour
+
+The assistant must not cover the employer’s essential form controls.
+
+Support:
+
+- Keyboard
+- Screen readers
+- Dynamic text
+- Reduced motion
+- Light/dark modes where appropriate
+- Orientation changes where supported
+- Small and large phone screens
+
+==================================================
+12. PRODUCTIONISE THE EXPO APP
+==================================================
+
+Productionise artifacts/jobsage-mobile.
+
+Add only required packages, likely including:
+
+- react-native-webview
+- expo-secure-store
+- expo-document-picker
+- expo-file-system
+- expo-sharing
+- expo-notifications
+- expo-device
+- expo-application
+- expo-network
+- expo-build-properties only if required
+
+Move authentication secrets out of AsyncStorage and into SecureStore.
+
+Add:
+
+- ios.bundleIdentifier
+- android.package
+- ios.buildNumber
+- android.versionCode
+- Correct JOBSAGE URL scheme
+- Universal links
+- Android app links
+- App icon
+- Android adaptive icon
+- Splash screen
+- Privacy permission descriptions
+- Notification permission handling
+- Production website origin
+- Production API origin
+- Development environment
+- Preview environment
+- Production environment
+
+Create eas.json with:
+
+- development profile
+- preview/internal profile
+- production/store profile
+- Remote app-version management
+- Automatic build-number increments
+- Android AAB production output
+- iOS store distribution
+- Submission placeholders containing no secrets
+
+Keep all signing keys, store credentials and secrets outside git.
+
+==================================================
+13. PUSH NOTIFICATIONS
+==================================================
+
+Add the foundation for useful, non-spammy push notifications.
+
+Appropriate events include:
+
+- New inbox message
+- Interview invitation
+- Interview reminder
+- Application status change
+- Eligibility decision
+- Document-review result
+- Employer contact
+- Important journey deadline
+
+Requirements:
+
+- Explicit user permission
+- Per-category preference controls
+- Deep link to the correct app destination
+- No sensitive content on the lock screen by default
+- Token registration and revocation
+- Logout cleanup
+- Duplicate-notification protection
+
+Do not invent notification events unsupported by the existing backend. Report missing backend capability instead.
+
+==================================================
+14. STORE QUALITY AND COMPLIANCE
+==================================================
+
+Prepare but do not publish:
+
+- Apple privacy-information checklist
+- Google Play Data Safety checklist
+- App-review notes
+- Reviewer test-account instructions template
+- App Store screenshot checklist
+- Google Play screenshot checklist
+- App description draft
+- Permission justifications
+- Smart Apply privacy explanation
+- In-app browser explanation
+- Account deletion verification
+- Support and privacy URLs
+
+The app must provide enough native utility to be more than a repackaged website:
+
+- Smart Apply browser
+- Secure authentication
+- Native document handling
+- Push notifications
+- Deep links
+- Native sharing
+- Network handling
+- Native back navigation
+- Mobile accessibility
+
+==================================================
+15. TESTING AND VALIDATION
+==================================================
+
+First repair the existing mobile TypeScript and Jest configuration.
+
+The current mobile typecheck includes tests, but Jest globals and asynchronous render usage are misconfigured.
+
+Require these checks:
+
+- pnpm run typecheck:libs
+- pnpm --filter @workspace/jobsage-mobile run typecheck
+- Mobile pure tests
+- Mobile render/component tests
+- Use --runInBand if Windows blocks Jest workers
+- Focused web tests affected by changes
+- Focused extension tests affected by extraction
+- API tests affected by authentication/session exchange
+- Expo doctor
+- Android production prebuild/config validation
+- iOS production prebuild/config validation
+
+Add tests covering:
+
+AUTHENTICATION
+
+- Login
+- Session exchange
+- Session expiry
+- Logout
+- Secure storage
+- Native/web session synchronization
+- Replay rejection
+
+ROLES
+
+- Candidate route access
+- Employer route access
+- Reviewer route access
+- Admin route access
+- Marketing route access
+- Super-admin route access
+- Rejected unauthorised access
+- Existing redirect behaviour
+- Read-only impersonation
+
+WEBVIEW
+
+- Trusted first-party messages
+- Rejection of untrusted origins
+- Unsafe URL rejection
+- Android back navigation
+- Deep links
+- Downloads
+- Uploads
+- Session expiry
+- Network retry
+
+SMART APPLY
+
+- Trusted JOBSAGE activation
+- Random ref=jobsage rejection
+- Redirect retention
+- NHS Jobs detection and prefill
+- Trac detection and prefill
+- Workday detection and prefill
+- Generic application forms
+- Sensitive-field refusal
+- Required-field reporting
+- Answer generation
+- Answer insertion
+- Answer-memory opt-in
+- Answer editing and deletion
+- Complete memory deletion
+- CV attachment
+- Manual CV fallback
+- Confirmed submission
+- False-positive prevention
+- Manual application logging
+
+ACCESSIBILITY
+
+- Screen-reader labels
+- Keyboard navigation where relevant
+- Touch-target sizes
+- Contrast
+- Dynamic text
+- Reduced motion
+- Focus movement in dialogs and sheets
+
+Perform physical-device validation where possible.
+
+Report device, operating-system and ATS combinations that remain untested.
+
+==================================================
+16. IMPLEMENTATION ORDER
+==================================================
+
+Follow this order:
+
+1. Inspect the current repository and preserve unrelated changes.
+2. Inventory available Replit skills and tools.
+3. Research strong mobile UI/UX patterns.
+4. Write docs/jobsage-mobile-ui-research.md.
+5. Create the route and feature parity matrix.
+6. Repair mobile tests and TypeScript configuration.
+7. Configure secure authentication and environments.
+8. Build the authenticated full-site workspace.
+9. Validate every public and protected route by role.
+10. Add file, camera, download, sharing and deep-link handling.
+11. Extract the shared Smart Apply core.
+12. Keep the Chrome extension working.
+13. Implement the native Smart Apply browser.
+14. Implement the native Smart Apply assistant UI.
+15. Connect application tracking and strict confirmation.
+16. Add notifications and native polish.
+17. Add accessibility improvements.
+18. Add EAS and store configuration.
+19. Run the full validation suite.
+20. Produce a final parity and readiness report.
+
+Do not stop after:
+
+- Research
+- Planning
+- Scaffolding
+- Navigation
+- Visual mockups
+- A WebView proof of concept
+- One or two completed screens
+
+Continue until the definition of done is met or a genuine external-account/device blocker is reached.
+
+==================================================
+17. DEFINITION OF DONE
+==================================================
+
+The project is complete only when:
+
+- Every existing website feature permitted for each role is reachable in the app.
+- Navigation labels and ordering match the authoritative website.
+- Candidate, employer, reviewer, admin, marketing and super-admin permissions remain correct.
+- No screen uses dummy data.
+- No action is a placeholder.
+- The responsive experience visibly matches JOBSAGE.
+- Mobile interactions feel intentional and polished.
+- Smart Apply works inside the in-app browser for validated fixtures.
+- NHS Jobs, Trac and Workday are explicitly covered.
+- Safe profile details can be filled.
+- Questions can be detected and answered.
+- Answer memory is user-controlled.
+- CV upload has an automatic or tested native fallback.
+- Applications are tracked without false submission confirmations.
+- The Chrome extension continues to pass focused tests.
+- Mobile typecheck passes.
+- Mobile tests pass.
+- Affected web and API tests pass.
+- Android configuration is valid for EAS.
+- iOS configuration is valid for EAS.
+- No production deployment or database write occurred.
+- No app-store submission occurred.
+
+==================================================
+18. FINAL REPORT
+==================================================
+
+At completion, provide:
+
+1. Files changed.
+2. Skills and research sources used.
+3. How the research influenced the UX.
+4. Route-by-route parity matrix.
+5. Role-by-role feature matrix.
+6. Smart Apply feature matrix.
+7. Accessibility validation.
+8. Security validation.
+9. Test commands and exact pass/fail counts.
+10. Android configuration result.
+11. iOS configuration result.
+12. Remaining device, ATS, store-account or external-service limitations.
+13. Exact commands for creating EAS preview builds.
+14. Exact manual click path for installing the preview on Android and through TestFlight.
+15. Confirmation that no deployment, production database write or store submission occurred.
