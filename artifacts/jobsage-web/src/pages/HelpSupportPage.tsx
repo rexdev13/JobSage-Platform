@@ -5,6 +5,7 @@ import { useCreateSupportTicket } from "@workspace/api-client-react";
 import type { SupportTicketInput } from "@workspace/api-client-react";
 import { Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
+import { nativeWorkspaceAvailable } from "@/lib/nativeWorkspace";
 import {
   ArrowRight,
   CheckCircle2,
@@ -141,11 +142,26 @@ export default function HelpSupportPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const nativeApp = nativeWorkspaceAvailable();
   const filteredGroups = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return GROUPS;
-    return GROUPS.map((group) => ({ ...group, items: group.items.filter((faq) => `${faq.question} ${faq.answer}`.toLowerCase().includes(needle)) })).filter((group) => group.items.length > 0);
-  }, [query]);
+    const eligibleGroups = nativeApp
+      ? GROUPS.map((group) => ({
+          ...group,
+          items: group.items.filter((faq) => !(
+            (group.id === "readiness" && faq.question === "What is the difference between a booster pack and Pro?")
+            || (group.id === "account" && (
+              faq.question === "How do I upgrade my Readiness Checks?"
+              || faq.question === "What are the billing terms?"
+            ))
+          )),
+        }))
+      : GROUPS;
+    if (!needle) return eligibleGroups;
+    return eligibleGroups
+      .map((group) => ({ ...group, items: group.items.filter((faq) => `${faq.question} ${faq.answer}`.toLowerCase().includes(needle)) }))
+      .filter((group) => group.items.length > 0);
+  }, [query, nativeApp]);
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));

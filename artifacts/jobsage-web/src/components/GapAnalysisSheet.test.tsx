@@ -73,6 +73,8 @@ describe("GapAnalysisSheet readiness claims", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    Reflect.deleteProperty(window, "ReactNativeWebView");
+    Reflect.deleteProperty(window, "__JOBSAGE_NATIVE__");
   });
 
   it("acknowledges an ordinary gap, persists it, and routes structured gaps to the profile", async () => {
@@ -241,9 +243,9 @@ describe("GapAnalysisSheet readiness claims", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderSheet();
-    fireEvent.click(await screen.findByTestId("button-toggle-readiness-upgrades"));
-
-    expect(await screen.findByTestId("readiness-purchases-unavailable-in-app")).toBeTruthy();
+    await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
+    expect(screen.queryByTestId("button-toggle-readiness-upgrades")).toBeNull();
+    expect(screen.queryByTestId("readiness-purchases-unavailable-in-app")).toBeNull();
     expect(screen.queryByText("Check Booster Pack")).toBeNull();
     expect(screen.queryByText("JobSage Pro")).toBeNull();
     expect(screen.queryByText("£4.99")).toBeNull();

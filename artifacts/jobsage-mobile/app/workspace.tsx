@@ -17,6 +17,7 @@ import {
   Alert,
   AppState,
   BackHandler,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -371,7 +372,26 @@ export default function WorkspaceScreen() {
       ) : null}
 
       <View style={{ flex: 1 }}>
-        {source && !loadError ? (
+        {Platform.OS === "web" ? (
+          <View style={[StyleSheet.absoluteFill, s.center, { backgroundColor: colors.background }]} testID="workspace-web-preview-fallback">
+            <Feather name="smartphone" size={28} color={colors.accent} />
+            <Text style={[s.errTitle, { marginTop: 16 }]}>Native workspace required</Text>
+            <Text style={s.errBody}>
+              This browser-based Expo preview does not run the native WebView used by the JOBSAGE workspace.
+            </Text>
+            <Pressable
+              style={s.primary}
+              onPress={() => {
+                const loginUrl = workspaceUrl("/login");
+                if (loginUrl) void Linking.openURL(loginUrl);
+              }}
+              accessibilityRole="link"
+              accessibilityLabel="Open JOBSAGE sign in in your browser"
+            >
+              <Text style={s.primaryText}>Open JOBSAGE in a browser</Text>
+            </Pressable>
+          </View>
+        ) : source && !loadError ? (
           <WebView
             key={webKey}
             ref={webRef}

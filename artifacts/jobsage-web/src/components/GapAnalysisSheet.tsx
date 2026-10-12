@@ -8,6 +8,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { nativeWorkspaceAvailable } from "@/lib/nativeWorkspace";
 import { Button } from "@/components/ui-enhanced";
 import { AIContentReport } from "@/components/AIContentReport";
 import { ReadinessUpgradeOptions } from "@/components/ReadinessUpgradeOptions";
@@ -148,6 +149,7 @@ export function GapAnalysisSheet({
     () => unresolvedReadinessGaps(data?.gaps ?? [], acknowledgedKeys),
     [data?.gaps, acknowledgedKeys],
   );
+  const canShowPurchaseOptions = !nativeWorkspaceAvailable();
 
   async function acknowledgeGap(gap: string) {
     const claimKey = normalizeReadinessClaim(gap);
@@ -229,22 +231,24 @@ export function GapAnalysisSheet({
                   {usage.used}/{usage.limit} this month
                 </span>
               )}
-              <button
-                type="button"
-                aria-expanded={showUpgradeOptions}
-                aria-controls="readiness-upgrade-options"
-                data-testid="button-toggle-readiness-upgrades"
-                onClick={() => setShowUpgradeOptions((current) => !current)}
-                className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {showUpgradeOptions ? "Hide options" : "Get more checks"}
-              </button>
+              {canShowPurchaseOptions && (
+                <button
+                  type="button"
+                  aria-expanded={showUpgradeOptions}
+                  aria-controls="readiness-upgrade-options"
+                  data-testid="button-toggle-readiness-upgrades"
+                  onClick={() => setShowUpgradeOptions((current) => !current)}
+                  className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showUpgradeOptions ? "Hide options" : "Get more checks"}
+                </button>
+              )}
             </div>
           </div>
         </SheetHeader>
 
         <div className="py-5 space-y-6">
-          {showUpgradeOptions && (
+          {canShowPurchaseOptions && showUpgradeOptions && (
             <section
               id="readiness-upgrade-options"
               aria-labelledby="readiness-upgrade-title"

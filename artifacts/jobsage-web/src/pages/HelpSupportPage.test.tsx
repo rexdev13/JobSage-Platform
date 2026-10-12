@@ -36,6 +36,8 @@ describe("HelpSupportPage", () => {
   afterEach(() => {
     cleanup();
     window.history.replaceState(null, "", "/");
+    Reflect.deleteProperty(window, "ReactNativeWebView");
+    Reflect.deleteProperty(window, "__JOBSAGE_NATIVE__");
     vi.clearAllMocks();
   });
 
@@ -86,5 +88,26 @@ describe("HelpSupportPage", () => {
       },
     }));
     expect((await screen.findByTestId("status-support-success")).textContent).toContain("JSG-123");
+  });
+
+  it("hides web upgrade instructions and prices in the native app while retaining billing support", () => {
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage: vi.fn() },
+    });
+    Object.defineProperty(window, "__JOBSAGE_NATIVE__", {
+      configurable: true,
+      value: { version: 1, channel: "a".repeat(24), challenge: "b".repeat(64) },
+    });
+
+    renderHelpPage();
+
+    expect(screen.queryByRole("button", { name: "What is the difference between a booster pack and Pro?" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "How do I upgrade my Readiness Checks?" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "What are the billing terms?" })).toBeNull();
+    expect(screen.queryByText("£4.99")).toBeNull();
+    expect(screen.queryByText("£15.99")).toBeNull();
+    expect(screen.getByRole("button", { name: "How do I cancel Pro?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Where can I find receipts?" })).toBeTruthy();
   });
 });

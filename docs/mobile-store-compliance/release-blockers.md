@@ -8,6 +8,7 @@ Owner decisions updated 12 October 2026. This document is not store approval.
 - Registration requires an explicit age self-attestation, checked by the server. No birth date is collected for this gate, and it is not represented as identity-verified age.
 - Continue implementation without inventing the legal operator or store identities.
 - [Complete deletion/retention policy](approved-deletion-policy.md): 30-calendar-day active deletion, encrypted backups at most 90 days, limited restricted lawful retention, shared-organisation safeguards and no real customer deletion during implementation/testing.
+- Native payment purchase is not implemented. Production checkout stays fail-closed, and native purchase cards, web-purchase instructions and displayed web prices are suppressed. This is a presentation safeguard, not StoreKit/Play Billing support.
 
 ## Remind the owner before release
 
@@ -16,6 +17,8 @@ Owner decisions updated 12 October 2026. This document is not store approval.
 3. **Qualified legal review:** confirm operator, jurisdiction, processor/transfer contracts, implementation of the approved retention/backup/deletion rules and final legal text. Financial retention requires the actual company financial-year end.
 4. **Store ownership and signing:** no credentials or signing keys in repository; no store form submission, deployment or production writes are authorised.
 5. **Device evidence:** physical iOS and Android, supported OS versions, uploads, cookies, employer SSO/CAPTCHA, deep-link associations and push-provider configuration must be validated.
+6. **Billing decision:** owner/legal must choose native StoreKit/Play Billing or no mobile sales. Until a reviewed decision and verified entitlement design exist, keep mobile upgrades unavailable; do not add external payment links.
+7. **EULA and submission facts:** owner/counsel must choose the Apple EULA and approve final categories, ratings, privacy/data-safety declarations, production URLs, screenshots, reviewer access and listing claims.
 
 ## Engineering not yet complete
 
