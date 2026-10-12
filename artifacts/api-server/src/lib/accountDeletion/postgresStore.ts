@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { db, accountDeletionRequestsTable as requests, accountDeletionTasksTable as tasks,
-  deletionTombstoneOutboxTable as outbox, usersTable, sessionsTable, employerProfilesTable } from "@workspace/db";
+  deletionTombstoneOutboxTable as outbox, usersTable, employerProfilesTable } from "@workspace/db";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { accountDeletionHash, encryptDeletionResource, decryptDeletionResource } from "./crypto";
 import { checkAcceptance, deletionDeadline, DeletionBlocked,
   type AcceptancePlan, type DeletionRequest, type DeletionStore, type DeletionTask } from "./engine";
 import { parseCleanupResource } from "./resource";
+import { requireDeletionRelease } from "./writeGate";
+import { revokeLocalCredentials } from "./localCredentials";
 
 export class PostgresDeletionStore implements DeletionStore {
   async accept(plan: AcceptancePlan, now: Date): Promise<DeletionRequest> {
+    requireDeletionRelease();
     checkAcceptance(plan, now);
     if (plan.accountHash !== accountDeletionHash(plan.actor.id)) throw new DeletionBlocked("account_hash_mismatch");
     return db.transaction(async tx => {
@@ -35,20 +38,13 @@ export class PostgresDeletionStore implements DeletionStore {
       await tx.insert(outbox).values({ requestId: id });
       // Quarantine first, atomically with all local credential revocation. Workers must check
       // suspendedAt immediately before dispatch; already-in-flight remote deliveries cannot be recalled.
-      await tx.update(usersTable).set({
-        suspendedAt: now, passwordHash: null, passwordResetToken: null, passwordResetTokenExpires: null,
-        emailVerifyToken: null, emailVerifyTokenExpires: null, googleBookingEnabled: false,
-      }).where(eq(usersTable.id, account.id));
-      await tx.delete(sessionsTable).where(sql`
-        ${sessionsTable.sess}->'user'->>'id' = ${account.id}
-        OR ${sessionsTable.sess}->>'userId' = ${account.id}
-        OR ${sessionsTable.sess}->>'adminId' = ${account.id}
-        OR ${sessionsTable.sess}->>'impersonatingUserId' = ${account.id}`);
+      await revokeLocalCredentials(tx, account.id, now);
       return { ...request, deadline: deletionDeadline(request.requestedAt) };
     });
   }
 
   async claim(requestId: string, now: Date): Promise<DeletionTask | null> {
+    requireDeletionRelease();
     return db.transaction(async tx => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`deletion-work:${requestId}`}))`);
       const selected = await tx.execute(sql`
@@ -91,10 +87,12 @@ export class PostgresDeletionStore implements DeletionStore {
   }
 
   async taskComplete(task: DeletionTask) {
+    requireDeletionRelease();
     await db.update(tasks).set({ state: "complete", resourceCiphertext: null, failureCode: null, leaseUntil: null })
       .where(and(eq(tasks.id, task.id), eq(tasks.attempts, task.attempts), eq(tasks.state, "running")));
   }
   async taskBlocked(task: DeletionTask, code: string, retryAt: Date) {
+    requireDeletionRelease();
     await db.transaction(async tx => {
       const changed = await tx.update(tasks).set({ state: "blocked", failureCode: code, retryAt, leaseUntil: null })
         .where(and(eq(tasks.id, task.id), eq(tasks.attempts, task.attempts), eq(tasks.state, "running"))).returning({ id: tasks.id });
@@ -104,6 +102,7 @@ export class PostgresDeletionStore implements DeletionStore {
     });
   }
   async completeIfReady(requestId: string, now: Date) {
+    requireDeletionRelease();
     return db.transaction(async tx => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`deletion-work:${requestId}`}))`);
       const [request] = await tx.select().from(requests).where(eq(requests.id, requestId));
@@ -136,6 +135,7 @@ export class PostgresDeletionStore implements DeletionStore {
   }
   /** A remote write may succeed before this acknowledgement; retries must be safe. */
   async acknowledgeTombstone(requestId: string, at: Date) {
+    requireDeletionRelease();
     const [updated] = await db.update(outbox).set({ acknowledgedAt: at })
       .where(and(eq(outbox.requestId, requestId), isNull(outbox.acknowledgedAt)))
       .returning({ requestId: outbox.requestId });

@@ -5,6 +5,7 @@ const cleanupResource = z.object({
   accountId: z.string().min(1).max(150),
   reference: z.string().min(1).max(4096).optional(),
   provider: z.string().min(1).max(100).optional(),
+  generation: z.string().regex(/^[0-9]+$/).max(40).optional(),
 }).strict();
 
 export type CleanupResource = z.infer<typeof cleanupResource>;

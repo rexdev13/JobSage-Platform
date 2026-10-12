@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PgDialect, getTableConfig } from "drizzle-orm/pg-core";
 import { getTableName, type SQL } from "drizzle-orm";
 const fixture = vi.hoisted(() => ({
-  existing: false, organisation: false,
+  existing: false, organisation: false, enabled: true,
   accountHash: "",
   claimedRow: null as Record<string, unknown> | null,
   account: { id: "fixture-candidate", role: "candidate", suspendedAt: null as Date | null },
   writes: [] as Array<{ table: string; operation: string; value?: unknown; where?: unknown }>,
+}));
+vi.mock("../../lib/accountDeletion/releaseReadiness", () => ({
+  get DELETION_REQUESTS_ENABLED() { return fixture.enabled; },
 }));
 vi.mock("@workspace/db", async () => {
   const actual = await vi.importActual<typeof import("@workspace/db/schema")>("@workspace/db/schema");
@@ -50,6 +53,13 @@ vi.mock("@workspace/db", async () => {
   });
   const tx = { select, insert, update, delete: remove, execute: vi.fn(async (query: SQL) => {
     const text = new PgDialect().sqlToQuery(query).sql;
+    if (text.includes("SELECT t.request_id")) return { rows: fixture.claimedRow ? [{
+      request_id: "fixture-request", resource_ciphertext: fixture.claimedRow.resource_ciphertext,
+      account_hash: fixture.accountHash,
+    }] : [] };
+    if (text.includes("SELECT id, role, suspended_at")) return { rows: [{
+      id: fixture.account.id, role: fixture.account.role, suspended_at: fixture.account.suspendedAt,
+    }] };
     return { rows: text.includes("SELECT * FROM") && fixture.claimedRow ? [fixture.claimedRow] : [] };
   }) };
   return { ...actual, db: { ...tx, transaction: async (callback: (tx: any) => unknown) => callback(tx) } };
@@ -58,6 +68,7 @@ import { accountDeletionRequestsTable } from "@workspace/db";
 import { PostgresDeletionStore } from "../../lib/accountDeletion/postgresStore";
 import type { AcceptancePlan } from "../../lib/accountDeletion/engine";
 import { accountDeletionHash, encryptDeletionResource } from "../../lib/accountDeletion/crypto";
+import { revokeClaimedLocalCredentials } from "../../lib/accountDeletion/localCredentials";
 const now = new Date("2026-10-12T00:00:00Z");
 function plan(): AcceptancePlan {
   return { actor: { id: "fixture-candidate", role: "candidate", impersonating: false, confirmed: true, reauthenticatedAt: now },
@@ -66,7 +77,7 @@ function plan(): AcceptancePlan {
 }
 describe("Postgres deletion transaction, fixture database adapter only", () => {
   beforeEach(() => {
-    fixture.existing = false; fixture.organisation = false; fixture.account.role = "candidate"; fixture.claimedRow = null;
+    fixture.existing = false; fixture.organisation = false; fixture.enabled = true; fixture.account.role = "candidate"; fixture.claimedRow = null;
     fixture.account.suspendedAt = null; fixture.writes.length = 0;
     vi.stubEnv("ACCOUNT_DELETION_MASTER_KEY", "fixture-only-key-not-a-production-secret-123456789");
     fixture.accountHash = accountDeletionHash("fixture-candidate");
@@ -81,6 +92,12 @@ describe("Postgres deletion transaction, fixture database adapter only", () => {
     const compiled = new PgDialect().sqlToQuery(revocation.where as SQL);
     for (const key of ["user", "userId", "adminId", "impersonatingUserId"]) expect(compiled.sql).toContain(key);
     expect(compiled.params).toEqual(["fixture-candidate", "fixture-candidate", "fixture-candidate", "fixture-candidate"]);
+    const push = fixture.writes.find(op => op.table === "push_devices" && op.operation === "delete")!;
+    expect(new PgDialect().sqlToQuery(push.where as SQL).params).toEqual(["fixture-candidate"]);
+    const preferences = fixture.writes.find(op => op.table === "privacy_preferences" && op.operation === "update")!;
+    expect(preferences.value).toMatchObject({ marketing: false, optionalAnalytics: false,
+      notifications: { messages: false, interviews: false, applications: false, eligibility: false, documents: false, jobAlerts: false } });
+    expect(new PgDialect().sqlToQuery(preferences.where as SQL).params).toEqual(["fixture-candidate"]);
     const job = fixture.writes.find(op => op.table === "account_deletion_tasks")!;
     expect(JSON.stringify(job.value)).not.toContain("fixture-resource");
     expect(fixture.writes.some(op => op.table === "deletion_tombstone_outbox")).toBe(true);
@@ -123,6 +140,33 @@ describe("Postgres deletion transaction, fixture database adapter only", () => {
     } else {
       await expect(claim).resolves.toMatchObject({ id: "fixture-task", attempts: 1, resource });
       expect(fixture.writes).toContainEqual(expect.objectContaining({ operation: "update", table: "account_deletion_tasks" }));
+    }
+  });
+  it("blocks every direct store mutation while the real release gate is closed", async () => {
+    fixture.enabled = false;
+    const store = new PostgresDeletionStore();
+    const task = { id: "fixture-task", requestId: "fixture-request", kind: "active_data" as const,
+      state: "running" as const, attempts: 1, resource: plan().tasks[0].resource };
+    for (const operation of [
+      () => store.accept(plan(), now), () => store.claim("fixture-request", now),
+      () => store.taskComplete(task), () => store.taskBlocked(task, "fixture_failure", now),
+      () => store.completeIfReady("fixture-request", now), () => store.acknowledgeTombstone("fixture-request", now),
+      () => revokeClaimedLocalCredentials({ version: 1, accountId: "fixture-candidate" }, "fixture-task"),
+    ]) await expect(operation()).rejects.toThrow("deletion_release_blocked");
+    expect(fixture.writes).toEqual([]);
+  });
+  it("repeats concrete local revocation only for a quarantined, claim-bound account", async () => {
+    const resource = { version: 1 as const, accountId: "fixture-candidate" };
+    fixture.claimedRow = { resource_ciphertext: encryptDeletionResource(JSON.stringify(resource)) };
+    await expect(revokeClaimedLocalCredentials(resource, "fixture-task")).rejects.toThrow("account_not_quarantined");
+    expect(fixture.writes).toEqual([]);
+    fixture.account.suspendedAt = now;
+    await revokeClaimedLocalCredentials(resource, "fixture-task");
+    await revokeClaimedLocalCredentials(resource, "fixture-task");
+    expect(fixture.writes.filter(op => op.table === "user_sessions" && op.operation === "delete")).toHaveLength(2);
+    expect(fixture.writes.filter(op => op.table === "push_devices" && op.operation === "delete")).toHaveLength(2);
+    for (const op of fixture.writes) {
+      expect(new PgDialect().sqlToQuery(op.where as SQL).params.every(value => value === "fixture-candidate")).toBe(true);
     }
   });
   it("rejects persisted extra fields before setting a task lease", async () => {

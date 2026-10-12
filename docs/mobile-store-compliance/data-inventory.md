@@ -38,6 +38,14 @@ These are review groups, not executable delete predicates. Exact joins, field al
 
 ## Non-database scope
 
+### Implemented candidate selector partition
+
+`artifacts/api-server/src/lib/accountDeletion/candidateData.ts` now defines 32 account-bound count selectors, including remediation/review children selected through their candidate-owned parent. These are count-only preflight selectors; neither that preflight nor the existing source relationship inventory claims complete account coverage.
+
+Its separately gated transactional erasure helper covers 16 non-shared candidate-derived tables only. It deliberately does not remove the primary account, document/identity/profile file pointers, applications, recommendations, complaint/feedback threads, consent evidence, staff-authored cases, employer organisations or public catalogues. The helper returns `completeAccountErasure: false`; do not use it alone as the full active-data adapter. Complete legal-hold/retention manifests and additional owned/shared selectors are still required.
+
+`objectCleanup.ts` supplies exact owned-generation preparation/erasure, while `localCredentials.ts` supplies immediate and retryable local credential revocation. Both destructive paths require the closed release gate to be opened in reviewed code; adapters additionally bind execution to an unexpired durable encrypted task, request account hash and account quarantine. These source/fixture checks are not evidence that all processor/device/storage-version cleanup has run.
+
 | Store/processor | Remaining evidence needed |
 | --- | --- |
 | App Storage and native temporary files | Owned-object inventory, retryable object cleanup, killed-process cache cleanup, file-picker/share copies and explicit backup limits. |
