@@ -20,6 +20,10 @@ export interface SupportTicketItem {
   /** @nullable */
   userId: string | null;
   isContentReport: boolean;
+  /** @nullable */
+  reportedMessageId: number | null;
+  /** @nullable */
+  appealOfTicketId: number | null;
   status: SupportTicketItemStatus;
   severity: SupportTicketItemSeverity;
   /** @nullable */

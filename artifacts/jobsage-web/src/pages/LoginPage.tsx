@@ -68,7 +68,7 @@ export default function LoginPage() {
       }
 
       const requestedNext = new URLSearchParams(window.location.search).get("next");
-      const next = requestedNext === "/account-deletion" || requestedNext === "/privacy-settings"
+      const next = requestedNext === "/account-deletion" || requestedNext === "/privacy-settings" || requestedNext === "/get-started"
         ? requestedNext
         : "/";
       const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");

@@ -52,7 +52,7 @@ export function MessageSafetyActions({ message }: { message: CandidateMessage })
   useEffect(() => { setConfirm(false); }, [user?.id, message.id]);
   const canBlock = message.messageType !== "support" && !message.supportTicketId && (!!message.senderEmployerProfileId || !!message.senderEmail);
   return <div className="mt-3 flex flex-wrap items-center gap-4">
-    <AIContentReport kind="message" label="Report message" content={message.messageText} context={`Inbox message ${message.id}: ${message.subject}`} />
+    <AIContentReport kind="message" messageId={message.id} label="Report message" content={message.messageText} context={`Inbox message ${message.id}: ${message.subject}`} />
     {canBlock && <button type="button" className="text-xs underline text-muted-foreground" disabled={busy || !user?.id} onClick={() => setConfirm(true)}>Block sender</button>}
     <Dialog open={confirm} onOpenChange={setConfirm}>
       <DialogContent className="z-[80]">

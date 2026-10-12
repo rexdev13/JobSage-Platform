@@ -1538,6 +1538,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /support/ticket/{ticketId}/appeal:
+    post:
+      tags: [Support]
+      operationId: appealContentReport
+      summary: Ask for another review of the signed-in user's content report
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^JS-[A-F0-9]{10}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportTicketAppealInput"
+      responses:
+        "201":
+          description: Appeal saved as a linked content-report ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketResult"
+        "400":
+          description: Invalid appeal request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: The referenced report is not available to this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: The account report limit was reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/super/support-tickets:
     get:
       tags: [Support]
@@ -9823,6 +9873,18 @@ components:
           type: string
           minLength: 10
           maxLength: 5000
+        reportedMessageId:
+          type: integer
+          minimum: 1
+
+    SupportTicketAppealInput:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 10
+          maxLength: 1000
 
     SupportTicketResult:
       type: object
@@ -9864,6 +9926,8 @@ components:
         - message
         - userId
         - isContentReport
+        - reportedMessageId
+        - appealOfTicketId
         - status
         - severity
         - assignedModeratorId
@@ -9894,6 +9958,10 @@ components:
           type: ["string", "null"]
         isContentReport:
           type: boolean
+        reportedMessageId:
+          type: ["integer", "null"]
+        appealOfTicketId:
+          type: ["integer", "null"]
         status:
           type: string
           enum: [new, in_review, attended, resolved]

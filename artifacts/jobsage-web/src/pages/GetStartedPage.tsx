@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui-enhanced";
+import { AIContentReport } from "@/components/AIContentReport";
 import {
   MessageCircle,
   ClipboardList,
@@ -347,6 +348,15 @@ function ChatUI({
               } ${msg.streaming ? "animate-pulse" : ""}`}
             >
               {msg.content || (msg.streaming ? "…" : "")}
+              {msg.role === "assistant" && !msg.streaming && msg.content.trim() && (
+                <div className="mt-2 border-t border-border/50 pt-1">
+                  <AIContentReport
+                    content={msg.content}
+                    context={`JOBSAGE AI career chat answer ${i + 1}`}
+                    loginNext="/get-started"
+                  />
+                </div>
+              )}
             </div>
           </div>
         ))}

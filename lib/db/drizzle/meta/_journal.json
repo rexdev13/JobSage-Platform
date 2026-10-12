@@ -176,6 +176,13 @@
       "when": 1791849600000,
       "tag": "0046_support_ticket_moderation_triage",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791849600001,
+      "tag": "0047_support_report_references_and_appeals",
+      "breakpoints": true
     }
   ]
 }

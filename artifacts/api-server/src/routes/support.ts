@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import {
   CreateSupportTicketBody,
+  AppealContentReportBody,
+  AppealContentReportParams,
   GetAdminSupportTicketParams,
   GetAdminSupportTicketResponse,
   ListAdminSupportTicketsQueryParams,
@@ -73,17 +75,39 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     return;
   }
 
+  const { reportedMessageId, ...requestTicketData } = parsed.data;
   const isAIReport = req.get("x-jobsage-ai-report") === "1";
   const isMessageReport = req.get("x-jobsage-message-report") === "1";
+  if (isAIReport && isMessageReport) {
+    res.status(400).json({ error: "Choose one content-report type." });
+    return;
+  }
   const isContentReport = isAIReport || isMessageReport;
   if (isContentReport && (!req.user || req.isImpersonating
     || req.get("x-jobsage-report-user") !== req.user.id)) {
     res.status(403).json({ error: "Sign in with the reporting account before sending this report." });
     return;
   }
+  if ((isMessageReport && !reportedMessageId) || (!isMessageReport && reportedMessageId !== undefined)) {
+    res.status(400).json({ error: "A message report must identify exactly one inbox message." });
+    return;
+  }
+  if (isMessageReport) {
+    const [reportedMessage] = await db
+      .select({ id: candidateMessagesTable.id })
+      .from(candidateMessagesTable)
+      .where(and(
+        eq(candidateMessagesTable.id, reportedMessageId!),
+        eq(candidateMessagesTable.recipientUserId, req.user!.id),
+      ));
+    if (!reportedMessage) {
+      res.status(404).json({ error: "That inbox message is not available to this account." });
+      return;
+    }
+  }
   // Tagged reports bind contact details to the authenticated actor. Public
   // support submissions retain their existing alternative-contact behavior.
-  let ticketData = parsed.data;
+  let ticketData = requestTicketData;
   if (isContentReport) {
     const [actor] = await db.select({
       email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName,
@@ -104,6 +128,8 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     ...ticketData,
     userId: req.user?.id ?? null,
     isContentReport,
+    reportedMessageId: isMessageReport ? reportedMessageId! : null,
+    appealOfTicketId: null,
   };
   if (isContentReport) {
     const inserted = await db.transaction(async (tx) => {
@@ -153,6 +179,92 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     success: true,
     ticketId,
   }));
+});
+
+router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> => {
+  const params = AppealContentReportParams.safeParse(req.params);
+  const body = AppealContentReportBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: !params.success ? params.error.message : body.error.message });
+    return;
+  }
+  if (!req.user || req.isImpersonating || req.get("x-jobsage-report-user") !== req.user.id) {
+    res.status(403).json({ error: "Sign in with the reporting account before requesting another review." });
+    return;
+  }
+
+  const [actor] = await db.select({
+    email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName,
+  }).from(usersTable).where(eq(usersTable.id, req.user.id));
+  if (!actor?.email) {
+    res.status(403).json({ error: "The reporting account is unavailable." });
+    return;
+  }
+
+  const appealTicketId = `JS-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+  const saved = await db.transaction(async (tx) => {
+    const [original] = await tx.select().from(supportTicketsTable).where(and(
+      eq(supportTicketsTable.ticketId, params.data.ticketId),
+      eq(supportTicketsTable.userId, req.user!.id),
+      eq(supportTicketsTable.isContentReport, true),
+    )).for("update");
+    if (!original) return { kind: "not_found" as const };
+
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`content-report:${req.user!.id}`}))`);
+    const countResult = await tx.execute(sql`SELECT count(*)::int AS count
+      FROM support_tickets
+      WHERE user_id = ${req.user!.id}
+        AND is_content_report = true
+        AND created_at >= now() - interval '24 hours'`);
+    const count = Number(countResult.rows[0]?.count ?? 0);
+    if (!Number.isSafeInteger(count) || count < 0) throw new Error("content_report_limit_check_failed");
+    if (count >= CONTENT_REPORTS_PER_DAY) return { kind: "rate_limited" as const };
+
+    await tx.insert(supportTicketsTable).values({
+      ticketId: appealTicketId,
+      name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
+      email: actor.email,
+      category: "Other",
+      subject: `Appeal of content report ${original.ticketId}`,
+      message: `The reporter requested another review of their content report.\n\n${body.data.message.trim()}`,
+      userId: req.user!.id,
+      isContentReport: true,
+      reportedMessageId: original.reportedMessageId,
+      appealOfTicketId: original.id,
+    });
+    return { kind: "saved" as const };
+  });
+
+  if (saved.kind === "not_found") {
+    res.status(404).json({ error: "That report is not available to this account." });
+    return;
+  }
+  if (saved.kind === "rate_limited") {
+    res.status(429).json({ error: "You have reached the content-report limit. Try again later." });
+    return;
+  }
+
+  const delivery = await sendSupportTicketNotification({
+    ticketId: appealTicketId,
+    name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
+    email: actor.email,
+    category: "Other",
+    subject: "Content report appeal",
+    message: "A content-report appeal was saved. Review its details in the JOBSAGE support queue.",
+  });
+  if (!delivery.success) {
+    req.log.error(
+      { ticketId: appealTicketId, error: delivery.error },
+      "Content-report appeal was saved but its email notification could not be delivered",
+    );
+  }
+  const recorded = await writeAuditEvent(req.user.id, "candidate_content_report_appeal", appealTicketId, {
+    appealOfTicketId: params.data.ticketId,
+  });
+  if (!recorded) {
+    req.log.error({ ticketId: appealTicketId }, "Content-report appeal was saved but its audit event could not be recorded");
+  }
+  res.status(201).json(SupportTicketResultSchema.parse({ success: true, ticketId: appealTicketId }));
 });
 
 router.get(
@@ -235,6 +347,10 @@ router.patch(
       .where(eq(supportTicketsTable.id, params.data.id));
     if (!currentTicket) {
       res.status(404).json({ error: "Support ticket not found." });
+      return;
+    }
+    if (body.data.status === "resolved" && currentTicket.isContentReport && currentTicket.status !== "resolved") {
+      res.status(400).json({ error: "Send a reply to the reporter before resolving a content report." });
       return;
     }
 

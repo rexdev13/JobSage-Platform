@@ -3134,6 +3134,16 @@ export interface SupportTicketInput {
    * @maxLength 5000
    */
   message: string;
+  /** @minimum 1 */
+  reportedMessageId?: number;
+}
+
+export interface SupportTicketAppealInput {
+  /**
+   * @minLength 10
+   * @maxLength 1000
+   */
+  message: string;
 }
 
 export interface SupportTicketResult {
@@ -3223,6 +3233,10 @@ export interface SupportTicketItem {
   /** @nullable */
   userId: string | null;
   isContentReport: boolean;
+  /** @nullable */
+  reportedMessageId: number | null;
+  /** @nullable */
+  appealOfTicketId: number | null;
   status: SupportTicketItemStatus;
   severity: SupportTicketItemSeverity;
   /** @nullable */

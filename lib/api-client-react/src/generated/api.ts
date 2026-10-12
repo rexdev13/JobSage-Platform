@@ -203,6 +203,7 @@ import type {
   SuperAdminStats,
   SuperAdminUserFull,
   SuperAdminUserListResponse,
+  SupportTicketAppealInput,
   SupportTicketDetail,
   SupportTicketInput,
   SupportTicketItem,
@@ -5038,6 +5039,94 @@ export const useCreateSupportTicket = <
   TContext
 > => {
   return useMutation(getCreateSupportTicketMutationOptions(options));
+};
+
+/**
+ * @summary Ask for another review of the signed-in user's content report
+ */
+export const getAppealContentReportUrl = (ticketId: string) => {
+  return `/api/support/ticket/${ticketId}/appeal`;
+};
+
+export const appealContentReport = async (
+  ticketId: string,
+  supportTicketAppealInput: SupportTicketAppealInput,
+  options?: RequestInit,
+): Promise<SupportTicketResult> => {
+  return customFetch<SupportTicketResult>(getAppealContentReportUrl(ticketId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(supportTicketAppealInput),
+  });
+};
+
+export const getAppealContentReportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof appealContentReport>>,
+    TError,
+    { ticketId: string; data: BodyType<SupportTicketAppealInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof appealContentReport>>,
+  TError,
+  { ticketId: string; data: BodyType<SupportTicketAppealInput> },
+  TContext
+> => {
+  const mutationKey = ["appealContentReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof appealContentReport>>,
+    { ticketId: string; data: BodyType<SupportTicketAppealInput> }
+  > = (props) => {
+    const { ticketId, data } = props ?? {};
+
+    return appealContentReport(ticketId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AppealContentReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof appealContentReport>>
+>;
+export type AppealContentReportMutationBody =
+  BodyType<SupportTicketAppealInput>;
+export type AppealContentReportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Ask for another review of the signed-in user's content report
+ */
+export const useAppealContentReport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof appealContentReport>>,
+    TError,
+    { ticketId: string; data: BodyType<SupportTicketAppealInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof appealContentReport>>,
+  TError,
+  { ticketId: string; data: BodyType<SupportTicketAppealInput> },
+  TContext
+> => {
+  return useMutation(getAppealContentReportMutationOptions(options));
 };
 
 /**

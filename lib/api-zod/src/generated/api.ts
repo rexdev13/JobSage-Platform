@@ -1717,6 +1717,28 @@ export const CreateSupportTicketBody = zod.object({
     .string()
     .min(createSupportTicketBodyMessageMin)
     .max(createSupportTicketBodyMessageMax),
+  reportedMessageId: zod.number().min(1).optional(),
+});
+
+/**
+ * @summary Ask for another review of the signed-in user's content report
+ */
+export const appealContentReportPathTicketIdRegExp = new RegExp(
+  "^JS-[A-F0-9]{10}$",
+);
+
+export const AppealContentReportParams = zod.object({
+  ticketId: zod.coerce.string().regex(appealContentReportPathTicketIdRegExp),
+});
+
+export const appealContentReportBodyMessageMin = 10;
+export const appealContentReportBodyMessageMax = 1000;
+
+export const AppealContentReportBody = zod.object({
+  message: zod
+    .string()
+    .min(appealContentReportBodyMessageMin)
+    .max(appealContentReportBodyMessageMax),
 });
 
 /**
@@ -1773,6 +1795,8 @@ export const ListAdminSupportTicketsResponseItem = zod.object({
   message: zod.string(),
   userId: zod.string().nullable(),
   isContentReport: zod.boolean(),
+  reportedMessageId: zod.number().nullable(),
+  appealOfTicketId: zod.number().nullable(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
   severity: zod.enum(["low", "normal", "high", "urgent"]),
   assignedModeratorId: zod.string().nullable(),
@@ -1812,6 +1836,8 @@ export const GetAdminSupportTicketResponse = zod.object({
     message: zod.string(),
     userId: zod.string().nullable(),
     isContentReport: zod.boolean(),
+    reportedMessageId: zod.number().nullable(),
+    appealOfTicketId: zod.number().nullable(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
     severity: zod.enum(["low", "normal", "high", "urgent"]),
     assignedModeratorId: zod.string().nullable(),
@@ -1883,6 +1909,8 @@ export const UpdateAdminSupportTicketResponse = zod.object({
   message: zod.string(),
   userId: zod.string().nullable(),
   isContentReport: zod.boolean(),
+  reportedMessageId: zod.number().nullable(),
+  appealOfTicketId: zod.number().nullable(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
   severity: zod.enum(["low", "normal", "high", "urgent"]),
   assignedModeratorId: zod.string().nullable(),
@@ -1927,6 +1955,8 @@ export const ReplyToAdminSupportTicketResponse = zod.object({
     message: zod.string(),
     userId: zod.string().nullable(),
     isContentReport: zod.boolean(),
+    reportedMessageId: zod.number().nullable(),
+    appealOfTicketId: zod.number().nullable(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
     severity: zod.enum(["low", "normal", "high", "urgent"]),
     assignedModeratorId: zod.string().nullable(),

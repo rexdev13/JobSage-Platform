@@ -384,6 +384,7 @@ export * from "./superAdminUserFullLatestDecision";
 export * from "./superAdminUserFullProfile";
 export * from "./superAdminUserFullUser";
 export * from "./superAdminUserListResponse";
+export * from "./supportTicketAppealInput";
 export * from "./supportTicketDetail";
 export * from "./supportTicketEvent";
 export * from "./supportTicketEventDetails";

@@ -28,6 +28,8 @@ export const supportTicketsTable = pgTable(
     message: text("message").notNull(),
     userId: varchar("user_id").references(() => usersTable.id, { onDelete: "set null" }),
     isContentReport: boolean("is_content_report").notNull().default(false),
+    reportedMessageId: integer("reported_message_id"),
+    appealOfTicketId: integer("appeal_of_ticket_id"),
     status: varchar("status", { enum: supportTicketStatuses }).notNull().default("new"),
     severity: varchar("severity", { enum: supportTicketSeverities }).notNull().default("normal"),
     assignedModeratorId: varchar("assigned_moderator_id").references(() => usersTable.id, { onDelete: "set null" }),
@@ -46,6 +48,8 @@ export const supportTicketsTable = pgTable(
     index("support_tickets_status_created_at_idx").on(table.status, table.createdAt),
     index("support_tickets_user_id_idx").on(table.userId),
     index("support_tickets_moderation_queue_idx").on(table.isContentReport, table.status, table.severity, table.createdAt),
+    index("support_tickets_reported_message_id_idx").on(table.reportedMessageId),
+    index("support_tickets_appeal_of_ticket_id_idx").on(table.appealOfTicketId),
     check("support_tickets_severity_check", sql`${table.severity} IN ('low', 'normal', 'high', 'urgent')`),
   ],
 );

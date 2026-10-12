@@ -26,4 +26,6 @@ export interface SupportTicketInput {
    * @maxLength 5000
    */
   message: string;
+  /** @minimum 1 */
+  reportedMessageId?: number;
 }
