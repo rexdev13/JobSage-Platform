@@ -80,6 +80,156 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
 
+  /auth/mobile/session-grant:
+    post:
+      tags: [Auth]
+      operationId: createMobileSessionGrant
+      summary: Issue an authenticated single-use mobile session exchange
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionGrantRequest'
+      responses:
+        '200':
+          description: One-time exchange issued. Expires in sixty seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileSessionGrant'
+        '401':
+          description: Session required.
+        '403':
+          description: Impersonation or origin rejected.
+  /auth/mobile/session-redeem:
+    post:
+      tags: [Auth]
+      operationId: redeemMobileSessionGrant
+      summary: Redeem a website-authorized grant using native-held proof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionRedeemRequest'
+      responses:
+        '200':
+          description: Native session restored. Never call from page JavaScript.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileSessionRedeemed'
+        '401':
+          description: Invalid, expired, revoked or replayed grant.
+  /auth/mobile/session-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileWebSession
+      summary: Establish HttpOnly WebView cookie from a native-issued grant
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MobileSessionRedeemRequest'
+      responses:
+        '303':
+          description: Cookie established; redirect to validated internal route.
+        '401':
+          description: Invalid, expired, revoked or replayed grant.
+  /mobile/applications/{id}/context:
+    get:
+      tags: [Applications]
+      operationId: getMobileApplicationContext
+      summary: Resolve an owned tracked application's native destination
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Authenticated application context.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileApplicationContext'
+        '404':
+          description: No owned application.
+        '409':
+          description: Application has no safe native destination.
+  /smart-apply/assistant:
+    post:
+      tags: [Applications]
+      operationId: generateNativeSmartApplyAnswer
+      summary: Generate a candidate-reviewed application answer using the existing assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, questionText]
+              properties:
+                roleId: { type: integer, minimum: 1 }
+                message: { type: string, maxLength: 12000 }
+                questionText: { type: string, maxLength: 3000 }
+                questionId: { type: string, maxLength: 200 }
+                jobTitle: { type: string, maxLength: 500 }
+                employer: { type: string, maxLength: 500 }
+                jobDescription: { type: string, maxLength: 12000 }
+                wordLimit: { type: integer, minimum: 1 }
+                maxLength: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: SSE data frames containing text, done or error.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '422':
+          description: Sensitive or personal declaration is candidate-owned.
+  /smart-apply/structured-prefill:
+    post:
+      tags: [Applications]
+      operationId: getNativeStructuredPrefill
+      summary: Resolve exact reviewed profile and CV facts for detected structured fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fields]
+              properties:
+                fields:
+                  type: array
+                  maxItems: 40
+                  items:
+                    type: object
+                    required: [id, label, controlType, options]
+                    properties:
+                      id: { type: string }
+                      label: { type: string }
+                      controlType: { type: string, enum: [text, textarea, number, date, select, radio] }
+                      options: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Exact safe facts; unmatched or sensitive fields remain blank.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [values]
+                properties:
+                  values:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, value]
+                      properties:
+                        id: { type: string }
+                        value: { type: string }
   /auth/register:
     post:
       tags: [Auth]
@@ -2714,6 +2864,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/UnreadCountResponse"
 
+  /candidate/messages/{id}/block-sender:
+    post:
+      operationId: blockMessageSender
+      tags: [CandidatePortal]
+      summary: Block the sender of an owned inbox message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Sender blocked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+        "400":
+          description: Sender cannot be blocked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "404":
+          description: Owned message not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  /candidate/message-sender-blocks:
+    get:
+      operationId: listMessageSenderBlocks
+      tags: [CandidatePortal]
+      summary: List the current account's sender blocks
+      responses:
+        "200":
+          description: Sender blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MessageSenderBlock" }
+
+  /candidate/message-sender-blocks/{id}:
+    delete:
+      operationId: removeMessageSenderBlock
+      tags: [CandidatePortal]
+      summary: Unblock a sender for the current account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Sender unblocked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+        "404":
+          description: Owned block not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
   /candidate/messages/{id}/read:
     patch:
       operationId: markMessageRead
@@ -5020,10 +5233,51 @@ components:
           type: string
           description: Session token for mobile clients to use as a Bearer token. Only returned on login.
 
+    MobileSessionGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge, audience]
+      properties:
+        challenge: { type: string, pattern: '^[a-f0-9]{64}$' }
+        audience: { type: string, enum: [native, web] }
+        nextPath: { type: string, maxLength: 2048, default: '/' }
+    MobileSessionGrant:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string }
+        expiresAt: { type: string, format: date-time }
+    MobileSessionRedeemRequest:
+      type: object
+      additionalProperties: false
+      required: [code, verifier]
+      properties:
+        code: { type: string, pattern: '^[a-f0-9]{64}$' }
+        verifier: { type: string, minLength: 32, maxLength: 128 }
+    MobileSessionRedeemed:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user: { $ref: '#/components/schemas/AuthUser' }
+    MobileApplicationContext:
+      type: object
+      required: [id, applicationUrl, jobTitle, companyName, roleId, status]
+      properties:
+        id: { type: integer }
+        applicationUrl: { type: string }
+        jobTitle: { type: string, nullable: true }
+        companyName: { type: string, nullable: true }
+        roleId: { type: integer }
+        status: { type: string }
     RegisterRequest:
       type: object
-      required: [email, password]
+      required: [email, password, ageConfirmed]
       properties:
+        ageConfirmed:
+          type: boolean
+          const: true
+          description: Candidate explicitly confirms they are at least 18. No birth date is collected.
         email:
           type: string
           format: email
@@ -8480,6 +8734,7 @@ components:
           type: integer
 
     CandidateMessage:
+      description: An owned candidate inbox message
       type: object
       required: [id, recipientUserId, messageText, subject, isRead, messageType, createdAt]
       properties:
@@ -8488,6 +8743,8 @@ components:
         senderEmployerProfileId:
           type: integer
           nullable: true
+        senderEmail:
+          type: ["string", "null"]
         recipientUserId:
           type: string
         vacancyId:
@@ -9089,6 +9346,14 @@ components:
       properties:
         roleId:
           type: integer
+
+    MessageSenderBlock:
+      type: object
+      required: [id, senderLabel, createdAt]
+      properties:
+        id: { type: integer }
+        senderLabel: { type: string }
+        createdAt: { type: string, format: date-time }
 
     OkResponse:
       type: object

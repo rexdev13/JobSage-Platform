@@ -7,6 +7,8 @@
  */
 
 export interface RegisterRequest {
+  /** Candidate explicitly confirms they are at least 18. No birth date is collected. */
+  ageConfirmed: true;
   email: string;
   /** @minLength 8 */
   password: string;

@@ -15,9 +15,11 @@ export default function EmployerRegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   function validate() {
     const e: Record<string, string> = {};
+    if (!ageConfirmed) e.age = "You must confirm that you are 18 or older.";
     if (!form.firstName.trim()) e.firstName = "First name is required.";
     if (!form.lastName.trim()) e.lastName = "Last name is required.";
     if (!form.email.trim() || !form.email.includes("@")) e.email = "Valid email is required.";
@@ -42,6 +44,7 @@ export default function EmployerRegisterPage() {
           lastName: form.lastName.trim(),
           email: form.email.trim(),
           password: form.password,
+          ageConfirmed,
         }),
       });
 
@@ -166,6 +169,13 @@ export default function EmployerRegisterPage() {
               </p>
             </div>
 
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <input type="checkbox" checked={ageConfirmed}
+                onChange={event => setAgeConfirmed(event.target.checked)}
+                required className="h-5 w-5 accent-primary" />
+              I am 18 or older.
+            </label>
+            {errors.age && <p role="alert" className="text-xs text-destructive">{errors.age}</p>}
             <div className="text-xs text-muted-foreground leading-relaxed pt-1">
               By creating an employer account, you agree to our{" "}
               <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and{" "}

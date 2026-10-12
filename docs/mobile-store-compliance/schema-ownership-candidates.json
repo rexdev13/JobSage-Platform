@@ -1,0 +1,1507 @@
+{
+  "scope": "SOURCE_ONLY_NOT_AN_ERASURE_OR_EXPORT_POLICY",
+  "generatedAt": "2026-10-12T11:28:14.488Z",
+  "databaseAccessed": false,
+  "limits": [
+    "Name/type heuristics are not exhaustive",
+    "Actual constraints unverified",
+    "Retention and shared ownership unresolved"
+  ],
+  "tables": [
+    {
+      "definition": "jobAlertVacancyDeliveriesTable",
+      "table": "job_alert_vacancy_deliveries",
+      "source": "lib/db/src/schema/alertDeliveries.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "applicationsTable",
+      "table": "applications",
+      "source": "lib/db/src/schema/applications.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "cvDocumentId",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "jobsageEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "auditEventsTable",
+      "table": "audit_events",
+      "source": "lib/db/src/schema/audit.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "actor",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "details",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sessionsTable",
+      "table": "user_sessions",
+      "source": "lib/db/src/schema/auth.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "sess",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "usersTable",
+      "table": "users",
+      "source": "lib/db/src/schema/auth.ts",
+      "declaredUserGraph": true,
+      "references": [],
+      "review": [
+        {
+          "column": "email",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "firstName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "lastName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "profileImageUrl",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "googleCalendarRefreshToken",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "googleCalendarAccountEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "passwordHash",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "emailVerified",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "emailVerifyToken",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership",
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "emailVerifyTokenExpires",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership",
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "passwordResetToken",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "passwordResetTokenExpires",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "jobsageEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "candidateBadgesTable",
+      "table": "candidate_badges",
+      "source": "lib/db/src/schema/badges.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "candidateMatchScoresTable",
+      "table": "candidate_match_scores",
+      "source": "lib/db/src/schema/candidateMatchScores.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "matchDismissalsTable",
+      "table": "match_dismissals",
+      "source": "lib/db/src/schema/candidateMatchScores.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "candidateMessagesTable",
+      "table": "candidate_messages",
+      "source": "lib/db/src/schema/candidateMessages.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "supportTicketId",
+          "target": "supportTicketsTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "senderEmployerProfileId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "recipientUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "senderEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "careerProfilesTable",
+      "table": "career_profiles",
+      "source": "lib/db/src/schema/careerProfiles.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "aiCvSourceDocumentId",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "consentLogsTable",
+      "table": "consent_logs",
+      "source": "lib/db/src/schema/consent.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "ipHash",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "cvEnhancementUsageTable",
+      "table": "cv_enhancement_usage",
+      "source": "lib/db/src/schema/cvEnhancementUsage.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "documentsTable",
+      "table": "documents",
+      "source": "lib/db/src/schema/documents.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "storageKey",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "parsedData",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "employerProfilesTable",
+      "table": "employer_profiles",
+      "source": "lib/db/src/schema/employer.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "contactEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "contactPhone",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "jobListingsTable",
+      "table": "job_listings",
+      "source": "lib/db/src/schema/employer.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "employerProfileId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "targetProfessions",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "targetRegions",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "employerDescriptionFeedbackTable",
+      "table": "employer_description_feedback",
+      "source": "lib/db/src/schema/employerDescriptionFeedback.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "employerUserId",
+          "target": "usersTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "employerUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "feedbackTable",
+      "table": "feedback",
+      "source": "lib/db/src/schema/feedback.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "userId",
+          "target": "usersTable",
+          "action": "\"set null\""
+        },
+        {
+          "column": "reviewedBy",
+          "target": "usersTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "email",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "userAgent",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "reviewedBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "feedbackRepliesTable",
+      "table": "feedback_replies",
+      "source": "lib/db/src/schema/feedbackReplies.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "feedbackId",
+          "target": "feedbackTable",
+          "action": "\"cascade\""
+        },
+        {
+          "column": "candidateMessageId",
+          "target": "candidateMessagesTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "adminUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "adminDisplayName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "headhuntCampaignsTable",
+      "table": "headhunt_campaigns",
+      "source": "lib/db/src/schema/headhuntCampaigns.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "employerProfileId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "filters",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "identityVerificationsTable",
+      "table": "identity_verifications",
+      "source": "lib/db/src/schema/identityVerifications.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "passportKey",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "selfieKey",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "learningVideosTable",
+      "table": "learning_videos",
+      "source": "lib/db/src/schema/learningVideos.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "createdBy",
+          "target": "usersTable",
+          "action": "\"restrict\""
+        },
+        {
+          "column": "updatedBy",
+          "target": "usersTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "storageKey",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "reviewedBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "createdBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "updatedBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "marketerEventsTable",
+      "table": "marketer_events",
+      "source": "lib/db/src/schema/marketerEvents.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "marketingUserId",
+          "target": "usersTable",
+          "action": "\"cascade\""
+        },
+        {
+          "column": "leadId",
+          "target": "socialLeadsTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "marketingUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "externalInviteeEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "messageSenderBlocksTable",
+      "table": "message_sender_blocks",
+      "source": "lib/db/src/schema/messageSenderBlocks.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "userId",
+          "target": "usersTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "nhsVacancyOutageBackoffsTable",
+      "table": "nhs_vacancy_outage_backoffs",
+      "source": "lib/db/src/schema/nhsVacancyOutageBackoffs.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "probeToken",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "profilesTable",
+      "table": "profiles",
+      "source": "lib/db/src/schema/profiles.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "preferredRegion",
+          "reasons": [
+            "array container — inspect element ownership and shared values"
+          ]
+        },
+        {
+          "column": "languages",
+          "reasons": [
+            "array container — inspect element ownership and shared values"
+          ]
+        },
+        {
+          "column": "phone",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "jobsageEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "candidateReadinessClaimsTable",
+      "table": "candidate_readiness_claims",
+      "source": "lib/db/src/schema/readinessClaims.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "recommendationLettersTable",
+      "table": "recommendation_letters",
+      "source": "lib/db/src/schema/recommendationLetters.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "candidateUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "employerUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "remediationPlansTable",
+      "table": "remediation_plans",
+      "source": "lib/db/src/schema/remediation.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "decisionRecordId",
+          "target": "decisionRecordsTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "orderedStepIds",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "remediationStepsTable",
+      "table": "remediation_steps",
+      "source": "lib/db/src/schema/remediation.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "planId",
+          "target": "remediationPlansTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": []
+    },
+    {
+      "definition": "reviewCasesTable",
+      "table": "review_cases",
+      "source": "lib/db/src/schema/review.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "decisionRecordId",
+          "target": "decisionRecordsTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "reviewedBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "reviewAnnotationsTable",
+      "table": "review_annotations",
+      "source": "lib/db/src/schema/review.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "caseId",
+          "target": "reviewCasesTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": []
+    },
+    {
+      "definition": "rolesTable",
+      "table": "roles",
+      "source": "lib/db/src/schema/roles.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "targetRegions",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "contactEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "contactPhone",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "roleGapAnalysesTable",
+      "table": "role_gap_analyses",
+      "source": "lib/db/src/schema/roles.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "matchedRequirements",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "gaps",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "optimizationSteps",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "rulesetsTable",
+      "table": "rulesets",
+      "source": "lib/db/src/schema/rulesets.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "createdBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "rulesetRulesTable",
+      "table": "ruleset_rules",
+      "source": "lib/db/src/schema/rulesets.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "rulesetId",
+          "target": "rulesetsTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "conditions",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "pathways",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "decisionRecordsTable",
+      "table": "decision_records",
+      "source": "lib/db/src/schema/rulesets.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "rulesetId",
+          "target": "rulesetsTable",
+          "action": "NO ACTION (no explicit onDelete)"
+        }
+      ],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "reasonCodes",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "pathways",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "smartApplyDraftsTable",
+      "table": "smart_apply_drafts",
+      "source": "lib/db/src/schema/smartApplyDrafts.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "answers",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "socialLeadsTable",
+      "table": "social_leads",
+      "source": "lib/db/src/schema/socialLeads.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "marketingUserId",
+          "target": "usersTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "firstName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "lastName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "email",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "phone",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "ipHash",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "convertedUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "marketingUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "speculativeApplicationsTable",
+      "table": "speculative_applications",
+      "source": "lib/db/src/schema/speculativeApplications.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "cvDocumentId",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "coverLetterDocumentId",
+          "reasons": [
+            "possible document/object pointer — resolve ownership and copies before deleting references"
+          ]
+        },
+        {
+          "column": "emailSent",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "emailSentAt",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "emailRecipient",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "jobsageEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "speculativeApplicationDeliveryAttemptsTable",
+      "table": "speculative_application_delivery_attempts",
+      "source": "lib/db/src/schema/speculativeApplications.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceUrlMigrationStagingTable",
+      "table": "sponsor_licence_url_migration_staging",
+      "source": "lib/db/src/schema/sponsorLicenceUrlMigrationStaging.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "identitySnapshot",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "candidateSnapshot",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "productionCandidates",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceWebsiteEnrichmentAuditsTable",
+      "table": "sponsor_licence_website_enrichment_audits",
+      "source": "lib/db/src/schema/sponsorLicenceWebsiteEnrichmentAudits.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "classifications",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "candidateResults",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "searchQueries",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicencesTable",
+      "table": "sponsor_licences",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "contactEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "contactPhone",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceIdentityCrosswalkTable",
+      "table": "sponsor_licence_identity_crosswalk",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "targetSponsorLicenceId",
+          "target": "sponsorLicencesTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "identitySnapshot",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceSyncLogTable",
+      "table": "sponsor_licence_sync_log",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    },
+    {
+      "definition": "vacancySyncLogTable",
+      "table": "vacancy_sync_log",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "metrics",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceVacancyChecksTable",
+      "table": "sponsor_licence_vacancy_checks",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "vacancyList",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceCompanySiteChecksTable",
+      "table": "sponsor_licence_company_site_checks",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "crawlLeaseToken",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        },
+        {
+          "column": "crawlState",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceContactEnrichmentsTable",
+      "table": "sponsor_licence_contact_enrichments",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "contactEmail",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "contactWebSearchUsageTable",
+      "table": "contact_web_search_usage",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    },
+    {
+      "definition": "companySiteHostStatesTable",
+      "table": "company_site_host_states",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "requestLeaseToken",
+          "reasons": [
+            "credential-like field — never presume exportable; verify purpose"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceVacanciesTable",
+      "table": "sponsor_licence_vacancies",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "targetRegions",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "companyVacancyEvidence",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "sourceMetadata",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceBookmarksTable",
+      "table": "sponsor_licence_bookmarks",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceVacancyScoresTable",
+      "table": "sponsor_licence_vacancy_scores",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "missingRequirements",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "sponsorLicenceGapAnalysesTable",
+      "table": "sponsor_licence_gap_analyses",
+      "source": "lib/db/src/schema/sponsorLicences.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "matchedRequirements",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "gaps",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        },
+        {
+          "column": "optimizationSteps",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "supportTicketsTable",
+      "table": "support_tickets",
+      "source": "lib/db/src/schema/supportTickets.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "userId",
+          "target": "usersTable",
+          "action": "\"set null\""
+        },
+        {
+          "column": "reviewedBy",
+          "target": "usersTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "email",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        },
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "reviewedBy",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "supportTicketRepliesTable",
+      "table": "support_ticket_replies",
+      "source": "lib/db/src/schema/supportTickets.ts",
+      "declaredUserGraph": true,
+      "references": [
+        {
+          "column": "ticketId",
+          "target": "supportTicketsTable",
+          "action": "\"cascade\""
+        },
+        {
+          "column": "candidateMessageId",
+          "target": "candidateMessagesTable",
+          "action": "\"set null\""
+        }
+      ],
+      "review": [
+        {
+          "column": "adminUserId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        },
+        {
+          "column": "adminDisplayName",
+          "reasons": [
+            "possible direct personal/contact metadata — not necessarily exclusive ownership"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "vacancyAiUsageTable",
+      "table": "vacancy_ai_usage",
+      "source": "lib/db/src/schema/vacancyAiUsage.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    },
+    {
+      "definition": "vacancyFavoritesTable",
+      "table": "vacancy_favorites",
+      "source": "lib/db/src/schema/vacancyFavorites.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": [
+        {
+          "column": "userId",
+          "reasons": [
+            "possible account/actor/indirect ownership selector — verify writes and role semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "vacancySourceStatesTable",
+      "table": "vacancy_source_states",
+      "source": "lib/db/src/schema/vacancySources.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    },
+    {
+      "definition": "vacancySourceObservationsTable",
+      "table": "vacancy_source_observations",
+      "source": "lib/db/src/schema/vacancySources.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "vacancyId",
+          "target": "sponsorLicenceVacanciesTable",
+          "action": "\"cascade\""
+        }
+      ],
+      "review": [
+        {
+          "column": "sourceMetadata",
+          "reasons": [
+            "JSON container — inspect nested identities, personal data and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "definition": "vacancySourceListingAuditsTable",
+      "table": "vacancy_source_listing_audits",
+      "source": "lib/db/src/schema/vacancySources.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    }
+  ]
+}

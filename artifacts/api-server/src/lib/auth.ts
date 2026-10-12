@@ -35,6 +35,10 @@ export async function getSession(sid: string): Promise<SessionData | null> {
     return null;
   }
 
+  // Exchange records share the existing expiry-indexed store but must never
+  // authenticate as ordinary sessions, even if someone knows their record key.
+  if (row.sess && typeof row.sess === "object" && "kind" in row.sess
+    && row.sess.kind === "mobile-exchange") return null;
   return row.sess as unknown as SessionData;
 }
 

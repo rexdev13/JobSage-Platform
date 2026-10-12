@@ -212,7 +212,54 @@ export interface AuthUserEnvelope {
   token?: string;
 }
 
+export type MobileSessionGrantRequestAudience =
+  (typeof MobileSessionGrantRequestAudience)[keyof typeof MobileSessionGrantRequestAudience];
+
+export const MobileSessionGrantRequestAudience = {
+  native: "native",
+  web: "web",
+} as const;
+
+export interface MobileSessionGrantRequest {
+  /** @pattern ^[a-f0-9]{64}$ */
+  challenge: string;
+  audience: MobileSessionGrantRequestAudience;
+  /** @maxLength 2048 */
+  nextPath?: string;
+}
+
+export interface MobileSessionGrant {
+  code: string;
+  expiresAt: string;
+}
+
+export interface MobileSessionRedeemRequest {
+  /** @pattern ^[a-f0-9]{64}$ */
+  code: string;
+  /**
+   * @minLength 32
+   * @maxLength 128
+   */
+  verifier: string;
+}
+
+export interface MobileSessionRedeemed {
+  token: string;
+  user: AuthUser;
+}
+
+export interface MobileApplicationContext {
+  id: number;
+  applicationUrl: string;
+  jobTitle: string | null;
+  companyName: string | null;
+  roleId: number;
+  status: string;
+}
+
 export interface RegisterRequest {
+  /** Candidate explicitly confirms they are at least 18. No birth date is collected. */
+  ageConfirmed: true;
   email: string;
   /** @minLength 8 */
   password: string;
@@ -2421,9 +2468,14 @@ export const CandidateMessageMessageType = {
   support: "support",
 } as const;
 
+/**
+ * An owned candidate inbox message
+ */
 export interface CandidateMessage {
   id: number;
   senderEmployerProfileId?: number | null;
+  /** @nullable */
+  senderEmail?: string | null;
   recipientUserId: string;
   vacancyId?: number | null;
   applicationId?: number | null;
@@ -2751,6 +2803,12 @@ export interface CandidateMatchList {
 
 export interface DismissMatchRequest {
   roleId: number;
+}
+
+export interface MessageSenderBlock {
+  id: number;
+  senderLabel: string;
+  createdAt: string;
 }
 
 export interface OkResponse {
@@ -3296,6 +3354,60 @@ export interface LearningVideoUploadUrl {
   storageKey: string;
   maxBytes: number;
 }
+
+export type GenerateNativeSmartApplyAnswerBody = {
+  /** @minimum 1 */
+  roleId?: number;
+  /** @maxLength 12000 */
+  message: string;
+  /** @maxLength 3000 */
+  questionText: string;
+  /** @maxLength 200 */
+  questionId?: string;
+  /** @maxLength 500 */
+  jobTitle?: string;
+  /** @maxLength 500 */
+  employer?: string;
+  /** @maxLength 12000 */
+  jobDescription?: string;
+  /** @minimum 1 */
+  wordLimit?: number;
+  /** @minimum 1 */
+  maxLength?: number;
+};
+
+export type GetNativeStructuredPrefillBodyFieldsItemControlType =
+  (typeof GetNativeStructuredPrefillBodyFieldsItemControlType)[keyof typeof GetNativeStructuredPrefillBodyFieldsItemControlType];
+
+export const GetNativeStructuredPrefillBodyFieldsItemControlType = {
+  text: "text",
+  textarea: "textarea",
+  number: "number",
+  date: "date",
+  select: "select",
+  radio: "radio",
+} as const;
+
+export type GetNativeStructuredPrefillBodyFieldsItem = {
+  id: string;
+  label: string;
+  controlType: GetNativeStructuredPrefillBodyFieldsItemControlType;
+  options: string[];
+};
+
+export type GetNativeStructuredPrefillBody = {
+  /** @maxItems 40 */
+  fields: GetNativeStructuredPrefillBodyFieldsItem[];
+};
+
+export type GetNativeStructuredPrefill200ValuesItem = {
+  id: string;
+  value: string;
+};
+
+export type GetNativeStructuredPrefill200 = {
+  values: GetNativeStructuredPrefill200ValuesItem[];
+};
 
 export type VerifyEmailParams = {
   /**

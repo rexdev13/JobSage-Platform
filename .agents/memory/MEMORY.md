@@ -105,4 +105,6 @@
 - [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on candidate-facing, nuanced, and accuracy-sensitive workflows.
 - [Local Playwright route base](playwright-local-route-base.md) — direct browser tests use the local Vite route base, not automatically the preview proxy's artifact prefix.
 - [Expo test renderer compatibility](expo-test-renderer-compatibility.md) — align reconciler with React and Jest with Expo; keep pure utility mocks out of component tests.
+- [Mobile product release facts](mobile-product-scope.md) — audience is 18+; legal operator and store identifiers are deferred owner decisions, not facts to invent.
 - [Sponsor vacancy audit inputs](sponsor-vacancy-audit-inputs.md) — merge only explicitly selected current inputs; preserve partial-source status and never treat historical outputs as fresh.
+- [Native reauthentication](native-reauthentication.md) — a newly exchanged capability is not proof of recent user reauthentication for account erasure.

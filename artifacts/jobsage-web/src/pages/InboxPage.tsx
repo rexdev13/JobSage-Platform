@@ -1,4 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "@workspace/auth-web";
+import { ManageBlockedSenders, MessageSafetyActions } from "@/components/MessageSafetyControls";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   useGetCandidateMessages,
@@ -60,8 +62,12 @@ function formatDate(iso: string) {
 export default function InboxPage() {
   const qc = useQueryClient();
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
-
-  const { data, isLoading } = useGetCandidateMessages();
+  const { user } = useAuth();
+  useEffect(() => { setSelectedThread(null); }, [user?.id]);
+  const { data, isLoading, isError } = useGetCandidateMessages({
+    query: { queryKey: [...getGetCandidateMessagesQueryKey(), user?.id], enabled: !!user?.id },
+    request: { headers: { "X-Jobsage-Expected-Account": user?.id ?? "" } },
+  });
   const messages: CandidateMessage[] = data?.messages ?? [];
   const threads = useMemo(() => buildThreads(messages), [messages]);
   const totalUnread = messages.filter((m) => !m.isRead).length;
@@ -104,6 +110,7 @@ export default function InboxPage() {
         <div className={cn("flex h-16 shrink-0 items-center border-b border-border px-4 md:px-6", selectedThread && "hidden md:flex")}>
           <Inbox className="w-5 h-5 text-primary mr-2" />
           <h1 className="text-lg font-display font-bold text-foreground">Messages</h1>
+          <ManageBlockedSenders />
           {totalUnread > 0 && (
             <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-primary-foreground">
               {totalUnread}
@@ -119,6 +126,10 @@ export default function InboxPage() {
           )}>
             {isLoading ? (
               <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">Loading…</div>
+            ) : isError ? (
+              <div role="alert" className="p-4 text-sm text-muted-foreground">
+                Could not load your inbox. Check your sign-in and connection, then reload.
+              </div>
             ) : threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground px-6 text-center">
                 <Inbox className="w-10 h-10 opacity-30" />
@@ -322,6 +333,7 @@ export default function InboxPage() {
                         </div>
                         <h4 className="text-sm font-semibold text-foreground mb-2">{msg.subject}</h4>
                         <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{msg.messageText}</p>
+                        <MessageSafetyActions message={msg} />
                       </div>
                     );
                   })}

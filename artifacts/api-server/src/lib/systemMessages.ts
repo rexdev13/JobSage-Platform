@@ -1,4 +1,5 @@
 import { db, candidateMessagesTable } from "@workspace/db";
+import { isMessageSenderBlocked } from "./messageSenderBlocks";
 
 const STAGE_SUBJECT: Record<string, string> = {
   applied: "Application received",
@@ -25,6 +26,7 @@ export async function createSystemMessage({
   stage,
   roleTitle,
   companyName,
+  senderEmployerProfileId,
 }: {
   recipientUserId: string;
   applicationId?: number;
@@ -32,13 +34,15 @@ export async function createSystemMessage({
   stage: string;
   roleTitle: string;
   companyName: string;
+  senderEmployerProfileId?: number;
 }): Promise<void> {
+  if (senderEmployerProfileId && await isMessageSenderBlocked(recipientUserId, { senderEmployerProfileId })) return;
   const subject = STAGE_SUBJECT[stage] ?? "Application update";
   const bodyFn = STAGE_BODY[stage] ?? ((_r: string, _c: string) => `Your application status has been updated to: ${stage}.`);
   const messageText = bodyFn(roleTitle, companyName);
 
   await db.insert(candidateMessagesTable).values({
-    senderEmployerProfileId: null,
+    senderEmployerProfileId: senderEmployerProfileId ?? null,
     recipientUserId,
     applicationId: applicationId ?? null,
     vacancyId: vacancyId ?? null,

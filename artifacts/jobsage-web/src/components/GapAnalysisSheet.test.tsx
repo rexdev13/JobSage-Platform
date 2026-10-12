@@ -4,6 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
+vi.mock("@workspace/auth-web", () => ({
+  useAuth: () => ({ user: { id: "candidate-readiness-fixture" } }),
+}));
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),

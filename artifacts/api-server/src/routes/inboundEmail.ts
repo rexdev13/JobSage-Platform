@@ -569,6 +569,12 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     console.error("[inbound-email] Error matching application:", err);
   }
 
+  // Respect an exact address block before storage, tracker changes or notifications.
+  const { isMessageSenderBlocked } = await import("../lib/messageSenderBlocks");
+  if (await isMessageSenderBlocked(candidateUserId, { senderEmail: sender.email })) {
+    res.json({ received: true, ignored: "sender_blocked" }); return;
+  }
+
   // --- 9. Insert inbox message ------------------------------------------
   let insertedMessageId: number | null = null;
   try {

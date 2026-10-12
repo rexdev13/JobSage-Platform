@@ -42,7 +42,7 @@ export default function LoginScreen() {
             role: data.user.role ?? null,
           });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          router.replace("/(tabs)");
+          router.replace("/workspace");
         }
       },
       onError: (err: unknown) => {

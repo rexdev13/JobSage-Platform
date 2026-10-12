@@ -15,10 +15,11 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@workspace/smart-apply-core": "workspace:*",
+    "jsdom": "^29.1.1",
     "typescript": "^5.4.5",
     "vite": "catalog:",
-    "vitest": "^4.1.10",
-    "jsdom": "^29.1.1"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "react": "catalog:",

@@ -213,6 +213,53 @@ describe("support ticket routes", () => {
     });
   });
 
+  it("binds AI reports to fresh account contact details and excludes draft text from email", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
+      .send({ ...ticketInput, name: "Forged contact", email: "other@example.test", message: "Private answer excerpt fixture." });
+    expect(response.status).toBe(201);
+    expect(insertedValues[0]).toMatchObject({
+      userId: "candidate-1", email: "reporter@example.test", name: "Reporter Fixture",
+      category: "Other", subject: "AI content report",
+      message: "Private answer excerpt fixture.",
+    });
+    expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private answer excerpt");
+  });
+
+  it("rejects a report after the requesting account changes", async () => {
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "previous-account")
+      .send(ticketInput);
+    expect(response.status).toBe(403);
+    expect(insertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+  it("saves an actor-bound message report without copying its excerpt into notification mail", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-Message-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
+      .send({ ...ticketInput, message: "Private message excerpt fixture." });
+    expect(response.status).toBe(201);
+    expect(insertedValues[0]).toMatchObject({ userId: "candidate-1", subject: "Message content report", email: "reporter@example.test" });
+    expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private message excerpt");
+  });
+
+  it("does not accept anonymous tagged AI reports", async () => {
+    const response = await request(buildApp()).post("/support/ticket")
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1").send(ticketInput);
+    expect(response.status).toBe(403);
+    expect(insertedValues).toHaveLength(0);
+  });
+
+  it("does not save an AI report for a deleted account", async () => {
+    dbResults.push([]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1").send(ticketInput);
+    expect(response.status).toBe(403);
+    expect(insertedValues).toHaveLength(0);
+  });
+
   it("keeps a saved ticket successful when its notification email fails", async () => {
     sendSupportTicketNotificationMock.mockResolvedValue({ success: false, error: "Provider unavailable" });
 

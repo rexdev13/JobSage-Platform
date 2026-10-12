@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   async function handleResendVerification() {
     setResendLoading(true);
@@ -38,6 +39,10 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!ageConfirmed) {
+      setError("You must confirm that you are 18 or older to create an account.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -53,7 +58,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, firstName, lastName }),
+        body: JSON.stringify({ email, password, firstName, lastName, ageConfirmed }),
       });
 
       const data = await res.json() as { error?: string };
@@ -271,6 +276,12 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input type="checkbox" checked={ageConfirmed}
+                  onChange={event => setAgeConfirmed(event.target.checked)}
+                  required className="h-5 w-5 accent-primary" />
+                I am 18 or older.
+              </label>
               <div className="pt-2 text-xs text-muted-foreground leading-relaxed">
                 By creating an account, you agree to our{" "}
                 <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and{" "}

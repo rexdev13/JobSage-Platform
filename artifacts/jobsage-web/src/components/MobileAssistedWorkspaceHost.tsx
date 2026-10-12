@@ -13,6 +13,7 @@ import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2, Sparkles, X }
 import { useToast } from "@/hooks/use-toast";
 import { refreshApplicationQueries } from "@/lib/applicationQueryRefresh";
 import { readDesktopApplicationState } from "@/lib/desktopApplicationReturn";
+import { nativeWorkspaceAvailable } from "@/lib/nativeWorkspace";
 import {
   ASSISTED_APPLICATION_EVENT,
   beginAssistedApplication,
@@ -178,6 +179,12 @@ export function MobileAssistedWorkspaceHost() {
     function onEvent(e: Event) {
       const d = (e as CustomEvent<AssistedApplicationEvent>).detail;
       if (!d) return;
+      if (nativeWorkspaceAvailable() && d.phase !== "error") {
+        armed.current = false;
+        setOpen(false);
+        if (d.phase === "ready") void refreshApplicationQueries(queryClient);
+        return;
+      }
       if (d.source === "desktop-outbound") return;
       const prev = evRef.current;
       if (d.phase !== "saving" && prev && prev.applicationUrl !== d.applicationUrl) return;

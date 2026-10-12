@@ -2,7 +2,7 @@ import { describe, it, expect } from "@jest/globals";
 import path from "path";
 import fs from "fs";
 
-const TABS_DIR = path.resolve(__dirname, "../app/(tabs)");
+const TABS_DIR = path.resolve(__dirname, "../app/companion");
 const APP_DIR = path.resolve(__dirname, "../app");
 
 function tabFile(name: string) {

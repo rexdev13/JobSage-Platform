@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AIContentReport } from "@/components/AIContentReport";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
   listMatchedRoles,
@@ -219,6 +220,7 @@ function BestMatchesStrip({
               </div>
 
               <p className="text-xs text-muted-foreground italic leading-snug">&ldquo;{match.aiExplanation}&rdquo;</p>
+              {match.aiExplanation && <AIContentReport content={[match.aiExplanation, match.matchReason].filter(Boolean).join("\n")} context={`AI job match: ${match.title} at ${match.employer}`} label="Report this match explanation" />}
               {match.matchReason && (
                 <p className="text-xs text-primary/80 font-medium leading-snug">{match.matchReason}</p>
               )}

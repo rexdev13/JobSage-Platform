@@ -20,6 +20,8 @@ const mockReceivingProvider = vi.hoisted(() => {
 });
 
 vi.mock("../../lib/resendReceiving", () => mockReceivingProvider);
+const blockedSenderMock = vi.hoisted(() => vi.fn().mockResolvedValue(false));
+vi.mock("../../lib/messageSenderBlocks", () => ({ isMessageSenderBlocked: blockedSenderMock }));
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -154,6 +156,7 @@ async function buildApp() {
 describe("POST /webhooks/inbound-email", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    blockedSenderMock.mockResolvedValue(false);
     insertedMessages.length = 0;
     updatedStatuses.length = 0;
     process.env.INBOUND_EMAIL_WEBHOOK_SECRET = TEST_SECRET;
@@ -308,6 +311,24 @@ describe("POST /webhooks/inbound-email", () => {
       companyName: "Sarah Recruiter",
       externalMessageId: "<new-msg-id@acme.com>",
     });
+  });
+  it("acknowledges a blocked address without saving, advancing the tracker, or notifying the candidate", async () => {
+    const app = await buildApp();
+    blockedSenderMock.mockResolvedValue(true);
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([{ id: "user-1", email: "candidate@example.test", firstName: "Fixture" }]))
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const body = JSON.stringify({ type: "email.inbound_received", data: {
+      from: "Blocked fixture <blocked@example.test>", to: ["jane.smith.abc@mail.jobsage.co.uk"],
+      subject: "Fixture reply", text: "Fixture body", messageId: "<blocked-fixture@example.test>",
+    } });
+    const response = await request(app).post("/webhooks/inbound-email")
+      .set("Content-Type", "application/json").set(buildSvixHeaders(body)).send(body);
+    expect(response.status).toBe(200);
+    expect(response.body.ignored).toBe("sender_blocked");
+    expect(insertedMessages).toHaveLength(0);
+    expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it("classifies an interview reply and updates application status", async () => {

@@ -9,6 +9,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui-enhanced";
+import { AIContentReport } from "@/components/AIContentReport";
 import { ReadinessUpgradeOptions } from "@/components/ReadinessUpgradeOptions";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ExternalLink, CheckCircle2, XCircle, Lightbulb, Loader2, AlertTriangle, Sparkles, UserRoundCog } from "lucide-react";
@@ -307,6 +308,15 @@ export function GapAnalysisSheet({
           {/* ── Results ── */}
           {data && !isLoading && (
             <>
+              <AIContentReport
+                content={[
+                  "What you bring", ...data.matchedRequirements,
+                  "Gaps to address", ...data.gaps,
+                  "Suggested steps", ...data.optimizationSteps,
+                ].join("\n")}
+                context={`Readiness Check: ${vacancyTitle} at ${companyName}`}
+                label="Report this readiness analysis"
+              />
               {/* Section 1: What You Bring */}
               <section>
                 <div className="flex items-center gap-2 mb-3">

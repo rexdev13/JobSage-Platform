@@ -10,6 +10,7 @@ import {
   headhuntCampaignsTable,
   candidateMessagesTable,
   documentsTable,
+  messageSenderBlocksTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, ilike, gte, isNotNull, isNull, count } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
@@ -19,8 +20,16 @@ import { queueLinkVerification } from "../lib/linkVerification";
 import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
 import { createSystemMessage } from "../lib/systemMessages";
 import { DBS_CLEARANCE_LEVELS, SAFEGUARDING_TRAINING_LEVELS } from "../lib/safeguarding";
+import { isMessageSenderBlocked, messageSenderKey, visibleMessageSender } from "../lib/messageSenderBlocks";
 
 const router: IRouter = Router();
+router.use("/candidate", (req, res, next) => {
+  const expected = req.get("x-jobsage-expected-account");
+  if (expected && expected !== req.user?.id) {
+    res.status(403).json({ error: "The account changed. Reopen this action." }); return;
+  }
+  next();
+});
 
 function requireEmployer() {
   return requireRole("employer", "admin");
@@ -616,6 +625,7 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
       stage,
       roleTitle: job.title ?? `Job #${jobId}`,
       companyName: empProfile.companyName,
+      senderEmployerProfileId: empProfile.id,
     }).catch((err: unknown) => {
       console.error("[inbox] Failed to create system message:", err);
     });
@@ -634,6 +644,9 @@ router.post("/employer/candidates/:userId/viewed", requireEmployer(), async (req
 
   const [candidate] = await db.select({ id: profilesTable.userId, boostProfile: profilesTable.boostProfile }).from(profilesTable).where(eq(profilesTable.userId, candidateUserId));
   if (!candidate?.boostProfile) { res.json({ ok: true }); return; }
+  if (await isMessageSenderBlocked(candidateUserId, { senderEmployerProfileId: empProfile.id })) {
+    res.json({ ok: true }); return;
+  }
 
   await db.insert(candidateMessagesTable).values({
     senderEmployerProfileId: empProfile.id,
@@ -1022,6 +1035,9 @@ router.post("/employer/contact-candidate", requireEmployer(), async (req, res): 
   }
 
   const effectiveSubject = subject?.trim() || `Message from ${empProfile.companyName}`;
+  if (await isMessageSenderBlocked(recipient.id, { senderEmployerProfileId: empProfile.id })) {
+    res.status(403).json({ error: "This candidate is not accepting this message. It was not sent." }); return;
+  }
 
   const [message] = await db
     .insert(candidateMessagesTable)
@@ -1076,6 +1092,7 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
       and(
         eq(candidateMessagesTable.recipientUserId, userId),
         isNull(candidateMessagesTable.archivedAt),
+        visibleMessageSender(userId),
       ),
     )
     .orderBy(asc(candidateMessagesTable.isRead), desc(candidateMessagesTable.createdAt));
@@ -1139,9 +1156,51 @@ router.get("/candidate/messages/unread-count", requireAuthenticated, async (req,
         eq(candidateMessagesTable.recipientUserId, userId),
         eq(candidateMessagesTable.isRead, false),
         isNull(candidateMessagesTable.archivedAt),
+        visibleMessageSender(userId),
       ),
     );
   res.json({ unreadCount: result[0]?.count ?? 0 });
+});
+
+router.post("/candidate/messages/:id/block-sender", requireAuthenticated, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) { res.status(400).json({ error: "Invalid message ID." }); return; }
+  if (req.isImpersonating || (req.get("x-jobsage-expected-account") && req.get("x-jobsage-expected-account") !== req.user!.id)) {
+    res.status(403).json({ error: "Use the account that opened this action." }); return;
+  }
+  const [message] = await db.select().from(candidateMessagesTable)
+    .where(and(eq(candidateMessagesTable.id, id), eq(candidateMessagesTable.recipientUserId, req.user!.id)));
+  if (!message) { res.status(404).json({ error: "Message not found." }); return; }
+  const key = messageSenderKey(message);
+  if (!key || message.messageType === "support" || message.supportTicketId) {
+    res.status(400).json({ error: "JOBSAGE operational messages cannot be blocked. You can report a concern instead." }); return;
+  }
+  const [senderProfile] = message.senderEmployerProfileId && !message.companyName
+    ? await db.select({ companyName: employerProfilesTable.companyName }).from(employerProfilesTable)
+      .where(eq(employerProfilesTable.id, message.senderEmployerProfileId))
+    : [];
+  await db.insert(messageSenderBlocksTable).values({
+    userId: req.user!.id, senderKey: key,
+    senderLabel: (message.companyName || senderProfile?.companyName || (key.startsWith("email:") ? message.senderEmail : "Employer account") || "Sender").slice(0, 200),
+  }).onConflictDoNothing();
+  res.json({ ok: true });
+});
+router.get("/candidate/message-sender-blocks", requireAuthenticated, async (req, res): Promise<void> => {
+  res.json(await db.select({
+    id: messageSenderBlocksTable.id, senderLabel: messageSenderBlocksTable.senderLabel, createdAt: messageSenderBlocksTable.createdAt,
+  }).from(messageSenderBlocksTable).where(eq(messageSenderBlocksTable.userId, req.user!.id)).orderBy(desc(messageSenderBlocksTable.createdAt)));
+});
+router.delete("/candidate/message-sender-blocks/:id", requireAuthenticated, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) { res.status(400).json({ error: "Invalid block ID." }); return; }
+  if (req.isImpersonating || (req.get("x-jobsage-expected-account") && req.get("x-jobsage-expected-account") !== req.user!.id)) {
+    res.status(403).json({ error: "Use the account that opened this action." }); return;
+  }
+  const [removed] = await db.delete(messageSenderBlocksTable)
+    .where(and(eq(messageSenderBlocksTable.id, id), eq(messageSenderBlocksTable.userId, req.user!.id)))
+    .returning({ id: messageSenderBlocksTable.id });
+  if (!removed) { res.status(404).json({ error: "Block not found." }); return; }
+  res.json({ ok: true });
 });
 
 export default router;

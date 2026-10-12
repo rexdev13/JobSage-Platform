@@ -3,9 +3,11 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { authResults, setMock } = vi.hoisted(() => ({
+const { authResults, setMock, deleteSessionMock, clearSessionMock } = vi.hoisted(() => ({
   authResults: [] as any[],
   setMock: vi.fn(),
+  deleteSessionMock: vi.fn().mockResolvedValue(undefined),
+  clearSessionMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -44,9 +46,9 @@ vi.mock("../../lib/auth", async () => {
   return {
     ...actual,
     createSession: vi.fn().mockResolvedValue("test-session-id"),
-    deleteSession: vi.fn().mockResolvedValue(undefined),
+    deleteSession: deleteSessionMock,
     getSession: vi.fn().mockResolvedValue(null),
-    clearSession: vi.fn().mockResolvedValue(undefined),
+    clearSession: clearSessionMock,
   };
 });
 
@@ -85,24 +87,30 @@ function buildApp() {
 }
 
 describe("POST /auth/register", () => {
+  it.each([undefined, false, "true", 18])("requires an explicit 18+ boolean confirmation (%j)", async ageConfirmed => {
+    const res = await request(buildApp()).post("/auth/register")
+      .send({ email: "adult@example.com", password: "securepass1", ageConfirmed });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("age_confirmation_required");
+  });
   beforeEach(() => { authResults.length = 0; vi.clearAllMocks(); });
 
   it("returns 400 when email is missing", async () => {
     const app = buildApp();
-    const res = await request(app).post("/auth/register").send({ password: "password123" });
+    const res = await request(app).post("/auth/register").send({ password: "password123", ageConfirmed: true });
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("email");
   });
 
   it("returns 400 when email is invalid", async () => {
     const app = buildApp();
-    const res = await request(app).post("/auth/register").send({ email: "not-an-email", password: "password123" });
+    const res = await request(app).post("/auth/register").send({ email: "not-an-email", password: "password123", ageConfirmed: true });
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when password is too short", async () => {
     const app = buildApp();
-    const res = await request(app).post("/auth/register").send({ email: "test@example.com", password: "short" });
+    const res = await request(app).post("/auth/register").send({ email: "test@example.com", password: "short", ageConfirmed: true });
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("8 characters");
   });
@@ -110,7 +118,7 @@ describe("POST /auth/register", () => {
   it("returns 409 when email already exists", async () => {
     authResults.push([{ id: "existing-user", emailVerified: true }]);
     const app = buildApp();
-    const res = await request(app).post("/auth/register").send({ email: "existing@example.com", password: "password123" });
+    const res = await request(app).post("/auth/register").send({ email: "existing@example.com", password: "password123", ageConfirmed: true });
     expect(res.status).toBe(409);
     expect(res.body.error).toContain("already exists");
   });
@@ -123,7 +131,7 @@ describe("POST /auth/register", () => {
     const app = buildApp();
     const res = await request(app)
       .post("/auth/register")
-      .send({ email: "new@example.com", password: "securepass1", firstName: "John", lastName: "Smith" });
+      .send({ email: "new@example.com", password: "securepass1", firstName: "John", lastName: "Smith", ageConfirmed: true });
     expect(res.status).toBe(201);
     expect(res.body.message).toContain("check your email");
     expect(setMock).toHaveBeenCalledWith({
@@ -301,6 +309,25 @@ describe("GET /auth/user", () => {
 });
 
 describe("POST /auth/logout", () => {
+  it("revokes only the bearer session without clearing a concurrent browser cookie", async () => {
+    deleteSessionMock.mockClear(); clearSessionMock.mockClear();
+    const { SESSION_COOKIE } = await import("../../lib/auth");
+    const res = await request(buildApp()).post("/auth/logout")
+      .set("Authorization", "Bearer native-session-fixture")
+      .set("Cookie", `${SESSION_COOKIE}=new-browser-session-fixture`);
+    expect(res.status).toBe(200);
+    expect(deleteSessionMock).toHaveBeenCalledWith("native-session-fixture");
+    expect(clearSessionMock).not.toHaveBeenCalled();
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+  it("retains ordinary cookie logout behavior", async () => {
+    deleteSessionMock.mockClear(); clearSessionMock.mockClear();
+    const { SESSION_COOKIE } = await import("../../lib/auth");
+    const res = await request(buildApp()).post("/auth/logout").set("Cookie", `${SESSION_COOKIE}=browser-session-fixture`);
+    expect(res.status).toBe(200);
+    expect(clearSessionMock).toHaveBeenCalledWith(expect.anything(), "browser-session-fixture");
+    expect(deleteSessionMock).not.toHaveBeenCalled();
+  });
   it("returns success", async () => {
     const app = buildApp();
     const res = await request(app).post("/auth/logout");

@@ -91,6 +91,10 @@ router.get("/auth/user", (req: Request, res: Response) => {
 });
 
 router.post("/auth/register", async (req: Request, res: Response) => {
+  if (req.body?.ageConfirmed !== true) {
+    res.status(400).json({ error: "You must confirm that you are 18 or older to create an account.", code: "age_confirmation_required" });
+    return;
+  }
   const { email, password, firstName, lastName } = req.body as {
     email?: string;
     password?: string;
@@ -168,6 +172,10 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 });
 
 router.post("/auth/employer-register", async (req: Request, res: Response) => {
+  if (req.body?.ageConfirmed !== true) {
+    res.status(400).json({ error: "You must confirm that you are 18 or older to create an account.", code: "age_confirmation_required" });
+    return;
+  }
   const { email, password, firstName, lastName } = req.body as {
     email?: string;
     password?: string;
@@ -353,7 +361,13 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
 router.post("/auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
-  await clearSession(res, sid);
+  // Bearer clients revoke a captured capability. A delayed native/extension
+  // response must not emit Set-Cookie that clears a newer website session.
+  if (req.headers.authorization?.startsWith("Bearer ")) {
+    if (sid) await deleteSession(sid);
+  } else {
+    await clearSession(res, sid);
+  }
   res.json({ success: true });
 });
 

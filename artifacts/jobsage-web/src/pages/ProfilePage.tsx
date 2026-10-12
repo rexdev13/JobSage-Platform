@@ -18,6 +18,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AIContentReport } from "@/components/AIContentReport";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
 import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
@@ -1364,6 +1365,7 @@ function CareerProfileDraftReview({
             className="min-h-[420px] w-full resize-y rounded-xl border border-border bg-muted/20 p-4 font-mono text-sm leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
             aria-label="Edit AI CV Maker factual draft"
           />
+          <AIContentReport content={editedContent} context={`AI CV Maker draft: ${cp.focusArea}`} label="Report this CV draft" />
 
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
             <input

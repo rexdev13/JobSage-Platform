@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bot, X, Send, Sparkles, ChevronDown, Loader2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
+import { AIContentReport } from "@/components/AIContentReport";
 
 interface Message {
   role: "assistant" | "user";
@@ -306,6 +307,10 @@ export function SmartApplyAssistant({
                 </button>
               </div>
             )}
+
+            {lastAssistantMsg && !streaming && <div className="px-3">
+              <AIContentReport content={lastAssistantMsg} context={`Smart Apply: ${roleTitle}`} />
+            </div>}
 
             {/* Input */}
             <div className="px-3 pb-3 pt-1 shrink-0 border-t border-border">

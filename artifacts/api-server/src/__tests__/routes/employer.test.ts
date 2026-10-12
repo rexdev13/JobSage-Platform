@@ -3,17 +3,22 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { empResults } = vi.hoisted(() => ({ empResults: [] as any[] }));
+const { empResults, blockWrites, predicates, blockedMock } = vi.hoisted(() => ({
+  empResults: [] as any[], blockWrites: [] as any[], predicates: [] as any[],
+  blockedMock: vi.fn().mockResolvedValue(false),
+}));
 
-vi.mock("@workspace/db", () => {
+vi.mock("@workspace/db", async () => {
+  const schema = await vi.importActual<typeof import("@workspace/db/schema")>("@workspace/db/schema");
   function makeChain(): any {
     const chain: any = {
       from() { return chain; },
-      where() { return chain; },
+      where(value: any) { predicates.push(value); return chain; },
       orderBy() { return chain; },
       limit() { return chain; },
       offset() { return chain; },
-      values() { return chain; },
+      values(value: any) { blockWrites.push(value); return chain; },
+      onConflictDoNothing() { return chain; },
       set() { return chain; },
       onConflictDoUpdate() { return chain; },
       then(resolve: any, reject?: any) {
@@ -25,6 +30,7 @@ vi.mock("@workspace/db", () => {
     return chain;
   }
   return {
+    ...schema,
     db: {
       select: () => makeChain(),
       insert: () => makeChain(),
@@ -39,6 +45,10 @@ vi.mock("@workspace/db", () => {
     auditEventsTable: {},
     sessionsTable: {},
   };
+});
+vi.mock("../../lib/messageSenderBlocks", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/messageSenderBlocks")>("../../lib/messageSenderBlocks");
+  return { ...actual, isMessageSenderBlocked: blockedMock };
 });
 
 const mockGetSession = vi.fn().mockResolvedValue({
@@ -80,6 +90,60 @@ const employerSession = {
 const candidateSession = {
   user: { id: "cand-1", email: "cand@test.com", role: "candidate", firstName: "Jane", lastName: "Doe", profileImageUrl: null },
 };
+
+describe("Owned candidate sender safety", () => {
+  beforeEach(() => {
+    empResults.length = 0; blockWrites.length = 0; predicates.length = 0;
+    blockedMock.mockReset().mockResolvedValue(false);
+    mockGetSession.mockResolvedValue(candidateSession);
+  });
+  it("creates an exact email block from an owned message, not a client-supplied sender", async () => {
+    empResults.push([{ id: 70, recipientUserId: "cand-1", senderEmail: "Sender@Example.test", companyName: "Fixture sender", messageType: "employer_reply" }]);
+    const response = await request(buildApp()).post("/candidate/messages/70/block-sender").set("Authorization", CAND_AUTH)
+      .set("X-Jobsage-Expected-Account", "cand-1").send({ senderEmail: "forged@example.test", userId: "other-account" });
+    expect(response.status).toBe(200);
+    expect(blockWrites[0]).toMatchObject({ userId: "cand-1", senderKey: "email:sender@example.test", senderLabel: "Fixture sender" });
+  });
+  it("does not block the sender of an unavailable or foreign message", async () => {
+    empResults.push([]);
+    const response = await request(buildApp()).post("/candidate/messages/71/block-sender").set("Authorization", CAND_AUTH);
+    expect(response.status).toBe(404);
+    expect(blockWrites).toHaveLength(0);
+  });
+  it("rejects a changed account before reading the stored message", async () => {
+    const response = await request(buildApp()).post("/candidate/messages/70/block-sender").set("Authorization", CAND_AUTH)
+      .set("X-Jobsage-Expected-Account", "previous-account");
+    expect(response.status).toBe(403);
+    expect(predicates).toHaveLength(0);
+    expect(blockWrites).toHaveLength(0);
+  });
+  it("protects platform support messages from blocking", async () => {
+    empResults.push([{ id: 70, messageType: "support", senderEmail: "support@example.test" }]);
+    const response = await request(buildApp()).post("/candidate/messages/70/block-sender").set("Authorization", CAND_AUTH);
+    expect(response.status).toBe(400);
+    expect(blockWrites).toHaveLength(0);
+  });
+  it("cannot unblock an unavailable or foreign block", async () => {
+    empResults.push([]);
+    const response = await request(buildApp()).delete("/candidate/message-sender-blocks/90").set("Authorization", CAND_AUTH);
+    expect(response.status).toBe(404);
+  });
+  it("unblocks an owned preference", async () => {
+    empResults.push([{ id: 90 }]);
+    const response = await request(buildApp()).delete("/candidate/message-sender-blocks/90").set("Authorization", CAND_AUTH)
+      .set("X-Jobsage-Expected-Account", "cand-1");
+    expect(response.status).toBe(200);
+  });
+  it("rejects a blocked employer's contact request without inserting a message", async () => {
+    mockGetSession.mockResolvedValue(employerSession);
+    empResults.push([{ id: 12, companyName: "Fixture employer" }], [{ id: "cand-1", role: "candidate", email: "candidate@example.test" }]);
+    blockedMock.mockResolvedValue(true);
+    const response = await request(buildApp()).post("/employer/contact-candidate").set("Authorization", EMP_AUTH)
+      .send({ recipientUserId: "cand-1", messageText: "Fixture message" });
+    expect(response.status).toBe(403);
+    expect(blockWrites).toHaveLength(0);
+  });
+});
 
 // ─── RBAC enforcement ──────────────────────────────────────────────
 describe("Employer routes RBAC", () => {

@@ -109,7 +109,7 @@ jest.mock("expo-constants", () => ({
 
 describe("Dashboard (index) tab", () => {
   it("renders without crashing", async () => {
-    const Dashboard = require("../app/(tabs)/index").default;
+    const Dashboard = require("../app/companion/index").default;
     const { getAllByText } = await render(<Dashboard />);
     expect(getAllByText(/dashboard|welcome|readiness|score/i).length).toBeGreaterThan(0);
   });
@@ -117,7 +117,7 @@ describe("Dashboard (index) tab", () => {
 
 describe("Applications tab", () => {
   it("renders without crashing", async () => {
-    const Applications = require("../app/(tabs)/applications").default;
+    const Applications = require("../app/companion/applications").default;
     const { getAllByText } = await render(<Applications />);
     expect(getAllByText(/application/i).length).toBeGreaterThan(0);
   });
@@ -125,7 +125,7 @@ describe("Applications tab", () => {
 
 describe("Analytics tab", () => {
   it("renders without crashing", async () => {
-    const Analytics = require("../app/(tabs)/analytics").default;
+    const Analytics = require("../app/companion/analytics").default;
     const { getAllByText } = await render(<Analytics />);
     expect(getAllByText(/analytic|progress|readiness/i).length).toBeGreaterThan(0);
   });
@@ -133,7 +133,7 @@ describe("Analytics tab", () => {
 
 describe("Path tab", () => {
   it("renders without crashing", async () => {
-    const Path = require("../app/(tabs)/path").default;
+    const Path = require("../app/companion/path").default;
     const { getAllByText } = await render(<Path />);
     expect(getAllByText(/path|journey|stage/i).length).toBeGreaterThan(0);
   });
@@ -141,7 +141,7 @@ describe("Path tab", () => {
 
 describe("Profile tab", () => {
   it("renders without crashing", async () => {
-    const Profile = require("../app/(tabs)/profile").default;
+    const Profile = require("../app/companion/profile").default;
     const { getAllByText } = await render(<Profile />);
     expect(getAllByText(/profile|account|settings/i).length).toBeGreaterThan(0);
   });

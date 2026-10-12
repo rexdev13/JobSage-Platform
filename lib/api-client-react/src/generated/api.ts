@@ -81,8 +81,11 @@ import type {
   GenerateCoverLetterRequest,
   GenerateJobDescriptionPreviewRequest,
   GenerateJobDescriptionResponse,
+  GenerateNativeSmartApplyAnswerBody,
   GetInterviewPrepQuestionsParams,
   GetMyMatchesParams,
+  GetNativeStructuredPrefill200,
+  GetNativeStructuredPrefillBody,
   GetSuperAdminDocumentParams,
   GetSuperAdminStatsParams,
   GetSuperAdminUsersParams,
@@ -124,6 +127,12 @@ import type {
   MarketingCalendlyUrlResponse,
   MatchedRoleList,
   MessageEnvelope,
+  MessageSenderBlock,
+  MobileApplicationContext,
+  MobileSessionGrant,
+  MobileSessionGrantRequest,
+  MobileSessionRedeemRequest,
+  MobileSessionRedeemed,
   MyLeadPerformance,
   OkResponse,
   ProfessionListResponse,
@@ -371,6 +380,543 @@ export function useGetCurrentAuthUser<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Issue an authenticated single-use mobile session exchange
+ */
+export const getCreateMobileSessionGrantUrl = () => {
+  return `/api/auth/mobile/session-grant`;
+};
+
+export const createMobileSessionGrant = async (
+  mobileSessionGrantRequest: MobileSessionGrantRequest,
+  options?: RequestInit,
+): Promise<MobileSessionGrant> => {
+  return customFetch<MobileSessionGrant>(getCreateMobileSessionGrantUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mobileSessionGrantRequest),
+  });
+};
+
+export const getCreateMobileSessionGrantMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMobileSessionGrant>>,
+    TError,
+    { data: BodyType<MobileSessionGrantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMobileSessionGrant>>,
+  TError,
+  { data: BodyType<MobileSessionGrantRequest> },
+  TContext
+> => {
+  const mutationKey = ["createMobileSessionGrant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMobileSessionGrant>>,
+    { data: BodyType<MobileSessionGrantRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMobileSessionGrant(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMobileSessionGrantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMobileSessionGrant>>
+>;
+export type CreateMobileSessionGrantMutationBody =
+  BodyType<MobileSessionGrantRequest>;
+export type CreateMobileSessionGrantMutationError = ErrorType<void>;
+
+/**
+ * @summary Issue an authenticated single-use mobile session exchange
+ */
+export const useCreateMobileSessionGrant = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMobileSessionGrant>>,
+    TError,
+    { data: BodyType<MobileSessionGrantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMobileSessionGrant>>,
+  TError,
+  { data: BodyType<MobileSessionGrantRequest> },
+  TContext
+> => {
+  return useMutation(getCreateMobileSessionGrantMutationOptions(options));
+};
+
+/**
+ * @summary Redeem a website-authorized grant using native-held proof
+ */
+export const getRedeemMobileSessionGrantUrl = () => {
+  return `/api/auth/mobile/session-redeem`;
+};
+
+export const redeemMobileSessionGrant = async (
+  mobileSessionRedeemRequest: MobileSessionRedeemRequest,
+  options?: RequestInit,
+): Promise<MobileSessionRedeemed> => {
+  return customFetch<MobileSessionRedeemed>(getRedeemMobileSessionGrantUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mobileSessionRedeemRequest),
+  });
+};
+
+export const getRedeemMobileSessionGrantMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemMobileSessionGrant>>,
+    TError,
+    { data: BodyType<MobileSessionRedeemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof redeemMobileSessionGrant>>,
+  TError,
+  { data: BodyType<MobileSessionRedeemRequest> },
+  TContext
+> => {
+  const mutationKey = ["redeemMobileSessionGrant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof redeemMobileSessionGrant>>,
+    { data: BodyType<MobileSessionRedeemRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return redeemMobileSessionGrant(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RedeemMobileSessionGrantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof redeemMobileSessionGrant>>
+>;
+export type RedeemMobileSessionGrantMutationBody =
+  BodyType<MobileSessionRedeemRequest>;
+export type RedeemMobileSessionGrantMutationError = ErrorType<void>;
+
+/**
+ * @summary Redeem a website-authorized grant using native-held proof
+ */
+export const useRedeemMobileSessionGrant = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof redeemMobileSessionGrant>>,
+    TError,
+    { data: BodyType<MobileSessionRedeemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof redeemMobileSessionGrant>>,
+  TError,
+  { data: BodyType<MobileSessionRedeemRequest> },
+  TContext
+> => {
+  return useMutation(getRedeemMobileSessionGrantMutationOptions(options));
+};
+
+/**
+ * @summary Establish HttpOnly WebView cookie from a native-issued grant
+ */
+export const getExchangeMobileWebSessionUrl = () => {
+  return `/api/auth/mobile/session-exchange`;
+};
+
+export const exchangeMobileWebSession = async (
+  mobileSessionRedeemRequest: MobileSessionRedeemRequest,
+  options?: RequestInit,
+): Promise<unknown> => {
+  const formUrlEncoded = new URLSearchParams();
+  formUrlEncoded.append(`code`, mobileSessionRedeemRequest.code);
+  formUrlEncoded.append(`verifier`, mobileSessionRedeemRequest.verifier);
+
+  return customFetch<unknown>(getExchangeMobileWebSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...options?.headers,
+    },
+    body: formUrlEncoded,
+  });
+};
+
+export const getExchangeMobileWebSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeMobileWebSession>>,
+    TError,
+    { data: BodyType<MobileSessionRedeemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof exchangeMobileWebSession>>,
+  TError,
+  { data: BodyType<MobileSessionRedeemRequest> },
+  TContext
+> => {
+  const mutationKey = ["exchangeMobileWebSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof exchangeMobileWebSession>>,
+    { data: BodyType<MobileSessionRedeemRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return exchangeMobileWebSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExchangeMobileWebSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exchangeMobileWebSession>>
+>;
+export type ExchangeMobileWebSessionMutationBody =
+  BodyType<MobileSessionRedeemRequest>;
+export type ExchangeMobileWebSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Establish HttpOnly WebView cookie from a native-issued grant
+ */
+export const useExchangeMobileWebSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeMobileWebSession>>,
+    TError,
+    { data: BodyType<MobileSessionRedeemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof exchangeMobileWebSession>>,
+  TError,
+  { data: BodyType<MobileSessionRedeemRequest> },
+  TContext
+> => {
+  return useMutation(getExchangeMobileWebSessionMutationOptions(options));
+};
+
+/**
+ * @summary Resolve an owned tracked application's native destination
+ */
+export const getGetMobileApplicationContextUrl = (id: number) => {
+  return `/api/mobile/applications/${id}/context`;
+};
+
+export const getMobileApplicationContext = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MobileApplicationContext> => {
+  return customFetch<MobileApplicationContext>(
+    getGetMobileApplicationContextUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMobileApplicationContextQueryKey = (id: number) => {
+  return [`/api/mobile/applications/${id}/context`] as const;
+};
+
+export const getGetMobileApplicationContextQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMobileApplicationContext>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMobileApplicationContext>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMobileApplicationContextQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMobileApplicationContext>>
+  > = ({ signal }) =>
+    getMobileApplicationContext(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMobileApplicationContext>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMobileApplicationContextQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMobileApplicationContext>>
+>;
+export type GetMobileApplicationContextQueryError = ErrorType<void>;
+
+/**
+ * @summary Resolve an owned tracked application's native destination
+ */
+
+export function useGetMobileApplicationContext<
+  TData = Awaited<ReturnType<typeof getMobileApplicationContext>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMobileApplicationContext>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMobileApplicationContextQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate a candidate-reviewed application answer using the existing assistant
+ */
+export const getGenerateNativeSmartApplyAnswerUrl = () => {
+  return `/api/smart-apply/assistant`;
+};
+
+export const generateNativeSmartApplyAnswer = async (
+  generateNativeSmartApplyAnswerBody: GenerateNativeSmartApplyAnswerBody,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getGenerateNativeSmartApplyAnswerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateNativeSmartApplyAnswerBody),
+  });
+};
+
+export const getGenerateNativeSmartApplyAnswerMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>,
+    TError,
+    { data: BodyType<GenerateNativeSmartApplyAnswerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>,
+  TError,
+  { data: BodyType<GenerateNativeSmartApplyAnswerBody> },
+  TContext
+> => {
+  const mutationKey = ["generateNativeSmartApplyAnswer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>,
+    { data: BodyType<GenerateNativeSmartApplyAnswerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateNativeSmartApplyAnswer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateNativeSmartApplyAnswerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>
+>;
+export type GenerateNativeSmartApplyAnswerMutationBody =
+  BodyType<GenerateNativeSmartApplyAnswerBody>;
+export type GenerateNativeSmartApplyAnswerMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate a candidate-reviewed application answer using the existing assistant
+ */
+export const useGenerateNativeSmartApplyAnswer = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>,
+    TError,
+    { data: BodyType<GenerateNativeSmartApplyAnswerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateNativeSmartApplyAnswer>>,
+  TError,
+  { data: BodyType<GenerateNativeSmartApplyAnswerBody> },
+  TContext
+> => {
+  return useMutation(getGenerateNativeSmartApplyAnswerMutationOptions(options));
+};
+
+/**
+ * @summary Resolve exact reviewed profile and CV facts for detected structured fields
+ */
+export const getGetNativeStructuredPrefillUrl = () => {
+  return `/api/smart-apply/structured-prefill`;
+};
+
+export const getNativeStructuredPrefill = async (
+  getNativeStructuredPrefillBody: GetNativeStructuredPrefillBody,
+  options?: RequestInit,
+): Promise<GetNativeStructuredPrefill200> => {
+  return customFetch<GetNativeStructuredPrefill200>(
+    getGetNativeStructuredPrefillUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(getNativeStructuredPrefillBody),
+    },
+  );
+};
+
+export const getGetNativeStructuredPrefillMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getNativeStructuredPrefill>>,
+    TError,
+    { data: BodyType<GetNativeStructuredPrefillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getNativeStructuredPrefill>>,
+  TError,
+  { data: BodyType<GetNativeStructuredPrefillBody> },
+  TContext
+> => {
+  const mutationKey = ["getNativeStructuredPrefill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getNativeStructuredPrefill>>,
+    { data: BodyType<GetNativeStructuredPrefillBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getNativeStructuredPrefill(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetNativeStructuredPrefillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getNativeStructuredPrefill>>
+>;
+export type GetNativeStructuredPrefillMutationBody =
+  BodyType<GetNativeStructuredPrefillBody>;
+export type GetNativeStructuredPrefillMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Resolve exact reviewed profile and CV facts for detected structured fields
+ */
+export const useGetNativeStructuredPrefill = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getNativeStructuredPrefill>>,
+    TError,
+    { data: BodyType<GetNativeStructuredPrefillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getNativeStructuredPrefill>>,
+  TError,
+  { data: BodyType<GetNativeStructuredPrefillBody> },
+  TContext
+> => {
+  return useMutation(getGetNativeStructuredPrefillMutationOptions(options));
+};
 
 /**
  * @summary Register a new account with email and password
@@ -8224,6 +8770,250 @@ export function useGetInboxUnreadCount<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Block the sender of an owned inbox message
+ */
+export const getBlockMessageSenderUrl = (id: number) => {
+  return `/api/candidate/messages/${id}/block-sender`;
+};
+
+export const blockMessageSender = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getBlockMessageSenderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getBlockMessageSenderMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof blockMessageSender>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof blockMessageSender>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["blockMessageSender"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof blockMessageSender>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return blockMessageSender(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BlockMessageSenderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof blockMessageSender>>
+>;
+
+export type BlockMessageSenderMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Block the sender of an owned inbox message
+ */
+export const useBlockMessageSender = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof blockMessageSender>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof blockMessageSender>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getBlockMessageSenderMutationOptions(options));
+};
+
+/**
+ * @summary List the current account's sender blocks
+ */
+export const getListMessageSenderBlocksUrl = () => {
+  return `/api/candidate/message-sender-blocks`;
+};
+
+export const listMessageSenderBlocks = async (
+  options?: RequestInit,
+): Promise<MessageSenderBlock[]> => {
+  return customFetch<MessageSenderBlock[]>(getListMessageSenderBlocksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMessageSenderBlocksQueryKey = () => {
+  return [`/api/candidate/message-sender-blocks`] as const;
+};
+
+export const getListMessageSenderBlocksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMessageSenderBlocks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMessageSenderBlocks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMessageSenderBlocksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMessageSenderBlocks>>
+  > = ({ signal }) => listMessageSenderBlocks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMessageSenderBlocks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMessageSenderBlocksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMessageSenderBlocks>>
+>;
+export type ListMessageSenderBlocksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the current account's sender blocks
+ */
+
+export function useListMessageSenderBlocks<
+  TData = Awaited<ReturnType<typeof listMessageSenderBlocks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMessageSenderBlocks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMessageSenderBlocksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Unblock a sender for the current account
+ */
+export const getRemoveMessageSenderBlockUrl = (id: number) => {
+  return `/api/candidate/message-sender-blocks/${id}`;
+};
+
+export const removeMessageSenderBlock = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getRemoveMessageSenderBlockUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveMessageSenderBlockMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMessageSenderBlock>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMessageSenderBlock>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["removeMessageSenderBlock"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMessageSenderBlock>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return removeMessageSenderBlock(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMessageSenderBlockMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMessageSenderBlock>>
+>;
+
+export type RemoveMessageSenderBlockMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Unblock a sender for the current account
+ */
+export const useRemoveMessageSenderBlock = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMessageSenderBlock>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeMessageSenderBlock>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRemoveMessageSenderBlockMutationOptions(options));
+};
 
 /**
  * @summary Mark a candidate message as read

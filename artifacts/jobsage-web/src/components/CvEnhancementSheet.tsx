@@ -7,6 +7,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui-enhanced";
+import { AIContentReport } from "@/components/AIContentReport";
 import { useToast } from "@/hooks/use-toast";
 import {
   Sparkles,
@@ -427,6 +428,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                   You can edit the text above before saving.
                 </p>
               )}
+              <AIContentReport content={editedContent} context="AI CV enhancement review" label="Report this enhanced CV draft" />
 
               {/* Mode badge */}
               <div className="flex items-center gap-2 text-xs text-muted-foreground -mt-1">

@@ -1,4 +1,5 @@
 import type { TrackedVacancyContext } from "./trackedOutbound";
+import { nativeWorkspaceAvailable } from "./nativeWorkspace";
 
 export const ASSISTED_APPLICATION_EVENT = "jobsage:assisted-application";
 export interface AssistedApplicationEvent {
@@ -35,7 +36,7 @@ export async function beginAssistedApplication(applicationUrl: string, vacancy: 
   publish(detail);
   let tab: Window | null = null;
   try {
-    tab = window.open("about:blank", "_blank");
+    tab = nativeWorkspaceAvailable() ? null : window.open("about:blank", "_blank");
     if (tab) {
       tab.opener = null;
       // Mobile browsers may show this reserved tab while the server commits.

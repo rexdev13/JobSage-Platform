@@ -7,9 +7,14 @@
  */
 import type { CandidateMessageMessageType } from "./candidateMessageMessageType";
 
+/**
+ * An owned candidate inbox message
+ */
 export interface CandidateMessage {
   id: number;
   senderEmployerProfileId?: number | null;
+  /** @nullable */
+  senderEmail?: string | null;
   recipientUserId: string;
   vacancyId?: number | null;
   applicationId?: number | null;

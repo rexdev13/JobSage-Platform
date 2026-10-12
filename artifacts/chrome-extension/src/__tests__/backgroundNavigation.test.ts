@@ -121,9 +121,12 @@ describe("background trusted navigation listeners", () => {
     await Promise.all([register(h, 10, first), register(h, 20, second)]);
     h.listeners.before[0]({ frameId: 0, tabId: 11, url: first });
     h.listeners.before[0]({ frameId: 0, tabId: 21, url: second });
-    await settle();
-    expect(activationKeys(h.session)?.["11"]).toMatchObject({ applicationUrl: first });
-    expect(activationKeys(h.session)?.["21"]).toMatchObject({ applicationUrl: second });
+    // Wait for both persisted writes, not a wall-clock assumption that breaks
+    // when the suite runs several DOM workers in parallel.
+    await vi.waitFor(() => {
+      expect(activationKeys(h.session)?.["11"]).toMatchObject({ applicationUrl: first });
+      expect(activationKeys(h.session)?.["21"]).toMatchObject({ applicationUrl: second });
+    }, { timeout: 1000, interval: 10 });
   });
 
   it("clears tracked context for an unrelated cross-origin ref-only commit", async () => {

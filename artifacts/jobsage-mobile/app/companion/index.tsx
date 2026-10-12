@@ -254,7 +254,7 @@ export default function DashboardScreen() {
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(tabs)/path");
+              router.push("/companion/path");
             }}
             testID="view-path-button"
           >

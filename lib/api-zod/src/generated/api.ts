@@ -55,11 +55,171 @@ export const GetCurrentAuthUserResponse = zod.object({
 });
 
 /**
+ * @summary Issue an authenticated single-use mobile session exchange
+ */
+export const createMobileSessionGrantBodyChallengeRegExp = new RegExp(
+  "^[a-f0-9]{64}$",
+);
+export const createMobileSessionGrantBodyNextPathDefault = `/`;
+export const createMobileSessionGrantBodyNextPathMax = 2048;
+
+export const CreateMobileSessionGrantBody = zod.object({
+  challenge: zod.string().regex(createMobileSessionGrantBodyChallengeRegExp),
+  audience: zod.enum(["native", "web"]),
+  nextPath: zod
+    .string()
+    .max(createMobileSessionGrantBodyNextPathMax)
+    .default(createMobileSessionGrantBodyNextPathDefault),
+});
+
+export const CreateMobileSessionGrantResponse = zod.object({
+  code: zod.string(),
+  expiresAt: zod.date(),
+});
+
+/**
+ * @summary Redeem a website-authorized grant using native-held proof
+ */
+export const redeemMobileSessionGrantBodyCodeRegExp = new RegExp(
+  "^[a-f0-9]{64}$",
+);
+export const redeemMobileSessionGrantBodyVerifierMin = 32;
+export const redeemMobileSessionGrantBodyVerifierMax = 128;
+
+export const RedeemMobileSessionGrantBody = zod.object({
+  code: zod.string().regex(redeemMobileSessionGrantBodyCodeRegExp),
+  verifier: zod
+    .string()
+    .min(redeemMobileSessionGrantBodyVerifierMin)
+    .max(redeemMobileSessionGrantBodyVerifierMax),
+});
+
+export const RedeemMobileSessionGrantResponse = zod.object({
+  token: zod.string(),
+  user: zod.object({
+    id: zod.string(),
+    email: zod.string().nullish(),
+    firstName: zod.string().nullish(),
+    lastName: zod.string().nullish(),
+    profileImageUrl: zod.string().nullish(),
+    emailVerified: zod.boolean().nullish(),
+    role: zod
+      .enum([
+        "candidate",
+        "admin",
+        "reviewer",
+        "employer",
+        "super_admin",
+        "marketing",
+      ])
+      .nullish(),
+  }),
+});
+
+/**
+ * @summary Resolve an owned tracked application's native destination
+ */
+
+export const GetMobileApplicationContextParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const GetMobileApplicationContextResponse = zod.object({
+  id: zod.number(),
+  applicationUrl: zod.string(),
+  jobTitle: zod.string().nullable(),
+  companyName: zod.string().nullable(),
+  roleId: zod.number(),
+  status: zod.string(),
+});
+
+/**
+ * @summary Generate a candidate-reviewed application answer using the existing assistant
+ */
+
+export const generateNativeSmartApplyAnswerBodyMessageMax = 12000;
+
+export const generateNativeSmartApplyAnswerBodyQuestionTextMax = 3000;
+
+export const generateNativeSmartApplyAnswerBodyQuestionIdMax = 200;
+
+export const generateNativeSmartApplyAnswerBodyJobTitleMax = 500;
+
+export const generateNativeSmartApplyAnswerBodyEmployerMax = 500;
+
+export const generateNativeSmartApplyAnswerBodyJobDescriptionMax = 12000;
+
+export const GenerateNativeSmartApplyAnswerBody = zod.object({
+  roleId: zod.number().min(1).optional(),
+  message: zod.string().max(generateNativeSmartApplyAnswerBodyMessageMax),
+  questionText: zod
+    .string()
+    .max(generateNativeSmartApplyAnswerBodyQuestionTextMax),
+  questionId: zod
+    .string()
+    .max(generateNativeSmartApplyAnswerBodyQuestionIdMax)
+    .optional(),
+  jobTitle: zod
+    .string()
+    .max(generateNativeSmartApplyAnswerBodyJobTitleMax)
+    .optional(),
+  employer: zod
+    .string()
+    .max(generateNativeSmartApplyAnswerBodyEmployerMax)
+    .optional(),
+  jobDescription: zod
+    .string()
+    .max(generateNativeSmartApplyAnswerBodyJobDescriptionMax)
+    .optional(),
+  wordLimit: zod.number().min(1).optional(),
+  maxLength: zod.number().min(1).optional(),
+});
+
+/**
+ * @summary Resolve exact reviewed profile and CV facts for detected structured fields
+ */
+export const getNativeStructuredPrefillBodyFieldsMax = 40;
+
+export const GetNativeStructuredPrefillBody = zod.object({
+  fields: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        label: zod.string(),
+        controlType: zod.enum([
+          "text",
+          "textarea",
+          "number",
+          "date",
+          "select",
+          "radio",
+        ]),
+        options: zod.array(zod.string()),
+      }),
+    )
+    .max(getNativeStructuredPrefillBodyFieldsMax),
+});
+
+export const GetNativeStructuredPrefillResponse = zod.object({
+  values: zod.array(
+    zod.object({
+      id: zod.string(),
+      value: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Register a new account with email and password
  */
 export const registerWithEmailBodyPasswordMin = 8;
 
 export const RegisterWithEmailBody = zod.object({
+  ageConfirmed: zod
+    .boolean()
+    .describe(
+      "Candidate explicitly confirms they are at least 18. No birth date is collected.",
+    ),
   email: zod.string().email(),
   password: zod.string().min(registerWithEmailBodyPasswordMin),
   firstName: zod.string().optional(),
@@ -3334,27 +3494,30 @@ export const ContactCandidateBody = zod.object({
  */
 export const GetCandidateMessagesResponse = zod.object({
   messages: zod.array(
-    zod.object({
-      id: zod.number(),
-      senderEmployerProfileId: zod.number().nullish(),
-      recipientUserId: zod.string(),
-      vacancyId: zod.number().nullish(),
-      applicationId: zod.number().nullish(),
-      supportTicketId: zod.number().nullish(),
-      messageType: zod.enum([
-        "system",
-        "employer",
-        "employer_reply",
-        "support",
-      ]),
-      messageText: zod.string(),
-      subject: zod.string(),
-      isRead: zod.boolean(),
-      archivedAt: zod.date().nullish(),
-      createdAt: zod.date(),
-      companyName: zod.string().nullish(),
-      industry: zod.string().nullish(),
-    }),
+    zod
+      .object({
+        id: zod.number(),
+        senderEmployerProfileId: zod.number().nullish(),
+        senderEmail: zod.string().nullish(),
+        recipientUserId: zod.string(),
+        vacancyId: zod.number().nullish(),
+        applicationId: zod.number().nullish(),
+        supportTicketId: zod.number().nullish(),
+        messageType: zod.enum([
+          "system",
+          "employer",
+          "employer_reply",
+          "support",
+        ]),
+        messageText: zod.string(),
+        subject: zod.string(),
+        isRead: zod.boolean(),
+        archivedAt: zod.date().nullish(),
+        createdAt: zod.date(),
+        companyName: zod.string().nullish(),
+        industry: zod.string().nullish(),
+      })
+      .describe("An owned candidate inbox message"),
   ),
   unreadCount: zod.number(),
 });
@@ -3364,6 +3527,42 @@ export const GetCandidateMessagesResponse = zod.object({
  */
 export const GetInboxUnreadCountResponse = zod.object({
   unreadCount: zod.number(),
+});
+
+/**
+ * @summary Block the sender of an owned inbox message
+ */
+
+export const BlockMessageSenderParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const BlockMessageSenderResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary List the current account's sender blocks
+ */
+export const ListMessageSenderBlocksResponseItem = zod.object({
+  id: zod.number(),
+  senderLabel: zod.string(),
+  createdAt: zod.date(),
+});
+export const ListMessageSenderBlocksResponse = zod.array(
+  ListMessageSenderBlocksResponseItem,
+);
+
+/**
+ * @summary Unblock a sender for the current account
+ */
+
+export const RemoveMessageSenderBlockParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const RemoveMessageSenderBlockResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**
@@ -3378,6 +3577,7 @@ export const MarkMessageReadResponse = zod.object({
     .object({
       id: zod.number(),
       senderEmployerProfileId: zod.number().nullish(),
+      senderEmail: zod.string().nullish(),
       recipientUserId: zod.string(),
       vacancyId: zod.number().nullish(),
       applicationId: zod.number().nullish(),
@@ -3396,7 +3596,8 @@ export const MarkMessageReadResponse = zod.object({
       companyName: zod.string().nullish(),
       industry: zod.string().nullish(),
     })
-    .optional(),
+    .optional()
+    .describe("An owned candidate inbox message"),
 });
 
 /**

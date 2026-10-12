@@ -4,6 +4,12 @@
   "files": [],
   "references": [
     {
+      "path": "./lib/smart-apply-core"
+    },
+    {
+      "path": "./lib/mobile-core"
+    },
+    {
       "path": "./lib/db"
     },
     {

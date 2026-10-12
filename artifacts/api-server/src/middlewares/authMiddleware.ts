@@ -4,6 +4,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   clearSession,
+  deleteSession,
   getSessionId,
   getSession,
 } from "../lib/auth";
@@ -41,7 +42,13 @@ export async function authMiddleware(
 
   const session = await getSession(sid);
   if (!session?.user?.id) {
-    await clearSession(res, sid);
+    // An expired bearer is independent of the browser's cookie session.
+    // Clearing that cookie here can sign out a newer WebView account.
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      await deleteSession(sid);
+    } else {
+      await clearSession(res, sid);
+    }
     next();
     return;
   }

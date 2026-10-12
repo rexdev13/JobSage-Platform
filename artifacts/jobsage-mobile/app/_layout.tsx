@@ -32,10 +32,14 @@ const queryClient = new QueryClient({
   },
 });
 
+export const unstable_settings = { initialRouteName: "workspace" };
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="workspace" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="companion" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false, animation: "fade" }} />
     </Stack>
   );

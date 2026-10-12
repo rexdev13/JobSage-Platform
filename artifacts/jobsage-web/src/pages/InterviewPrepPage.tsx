@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AIContentReport } from "@/components/AIContentReport";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { useGetInterviewPrepQuestions, useGetMyProfile } from "@workspace/api-client-react";
 import {
@@ -296,6 +297,15 @@ export default function InterviewPrepPage() {
 
         {!isLoading && !isError && data && (
           <>
+            <AIContentReport
+              content={JSON.stringify({
+                questionBanks: data.questionBanks,
+                structuredInterviewGuide: data.structuredInterviewGuide,
+                professionAdvice: data.nhsSpecificAdvice,
+              }, null, 2)}
+              context={`AI interview preparation: ${data.profession}`}
+              label="Report this interview guidance"
+            />
             {/* Header badge */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">

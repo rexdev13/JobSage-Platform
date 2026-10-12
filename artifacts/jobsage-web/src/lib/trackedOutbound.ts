@@ -1,4 +1,5 @@
 import { beginAssistedApplication, shouldUseAssistedWorkspace } from "./assistedApplication";
+import { nativeWorkspaceAvailable } from "./nativeWorkspace";
 
 type ToastFn = (opts: { title: string; description: string; variant?: "default" | "destructive" }) => void;
 
@@ -48,7 +49,7 @@ export async function openTrackedOutbound({
   vacancy?: TrackedVacancyContext;
 }): Promise<void> {
   const outboundUrl = appendJobSageRef(url);
-  if (vacancy && shouldUseAssistedWorkspace()) {
+  if (vacancy && (nativeWorkspaceAvailable() || shouldUseAssistedWorkspace())) {
     await beginAssistedApplication(outboundUrl, vacancy, onTracked);
     return;
   }

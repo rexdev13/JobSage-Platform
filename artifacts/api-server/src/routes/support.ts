@@ -19,6 +19,7 @@ import {
   db,
   supportTicketRepliesTable,
   supportTicketsTable,
+  usersTable,
 } from "@workspace/db";
 import { z } from "zod/v4";
 import {
@@ -58,14 +59,44 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     return;
   }
 
+  const isAIReport = req.get("x-jobsage-ai-report") === "1";
+  const isMessageReport = req.get("x-jobsage-message-report") === "1";
+  const isContentReport = isAIReport || isMessageReport;
+  if (isContentReport && (!req.user || req.isImpersonating
+    || req.get("x-jobsage-report-user") !== req.user.id)) {
+    res.status(403).json({ error: "Sign in with the reporting account before sending this report." });
+    return;
+  }
+  // Tagged reports bind contact details to the authenticated actor. Public
+  // support submissions retain their existing alternative-contact behavior.
+  let ticketData = parsed.data;
+  if (isContentReport) {
+    const [actor] = await db.select({
+      email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName,
+    }).from(usersTable).where(eq(usersTable.id, req.user!.id));
+    if (!actor?.email) {
+      res.status(403).json({ error: "The reporting account is unavailable." }); return;
+    }
+    ticketData = {
+      ...parsed.data,
+      name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
+      email: actor.email, category: "Other", subject: isMessageReport ? "Message content report" : "AI content report",
+    };
+  }
+
   const ticketId = `JS-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
   await db.insert(supportTicketsTable).values({
     ticketId,
-    ...parsed.data,
+    ...ticketData,
     userId: req.user?.id ?? null,
   });
 
-  const delivery = await sendSupportTicketNotification({ ticketId, ...parsed.data });
+  const delivery = await sendSupportTicketNotification({
+    ticketId, ...ticketData,
+    // Staff read supplied evidence in the access-controlled support queue.
+    // Do not replicate AI draft text in the notification email.
+    ...(isContentReport ? { message: "A content report was saved. Review its evidence in the JOBSAGE support queue." } : {}),
+  });
   if (!delivery.success) {
     req.log.error(
       { ticketId, error: delivery.error },
