@@ -7,12 +7,13 @@ Owner decisions updated 12 October 2026. This document is not store approval.
 - JOBSAGE is for adults aged 18 and over.
 - Registration requires an explicit age self-attestation, checked by the server. No birth date is collected for this gate, and it is not represented as identity-verified age.
 - Continue implementation without inventing the legal operator or store identities.
+- [Complete deletion/retention policy](approved-deletion-policy.md): 30-calendar-day active deletion, encrypted backups at most 90 days, limited restricted lawful retention, shared-organisation safeguards and no real customer deletion during implementation/testing.
 
 ## Remind the owner before release
 
 1. **Legal operating entity and public privacy/support contact:** owner will provide later. No assumed legal name or address may be used in final store/legal declarations.
 2. **iOS bundle identifier and Android package identifier:** not created or approved. Do not select identifiers silently or change existing store identities. Needed before valid store prebuild, link association files, signing or submission.
-3. **Qualified legal review:** confirm operator, jurisdiction, processor/transfer contracts, retention durations, backups, deletion exceptions and the final legal text.
+3. **Qualified legal review:** confirm operator, jurisdiction, processor/transfer contracts, implementation of the approved retention/backup/deletion rules and final legal text. Financial retention requires the actual company financial-year end.
 4. **Store ownership and signing:** no credentials or signing keys in repository; no store form submission, deployment or production writes are authorised.
 5. **Device evidence:** physical iOS and Android, supported OS versions, uploads, cookies, employer SSO/CAPTCHA, deep-link associations and push-provider configuration must be validated.
 
@@ -32,6 +33,8 @@ Implemented in source, but **not physical-device verified**:
 - Persistent, recipient-owned sender blocking/unblocking and a blocked-sender management dialog. Exact employer accounts or sender email addresses are blocked, not fuzzy company/domain matches. Existing messages are hidden and unread counts exclude them; new employer contacts, identified employer stage/profile-view updates and inbound email replies check the block before storage/notification. Platform support remains accessible. In-flight deliveries may still arrive, and other accounts/addresses are not implicitly blocked.
 - Serialized native credential operations across provider remounts, immediate local sign-out invalidation, captured-token revocation, and stale startup/foreground/redemption guards. Overlapping operations are tested with deferred storage/network responses; native-device lifecycle evidence remains outstanding.
 - Bearer-only logout revokes its supplied session without clearing website cookies; ordinary cookie logout is unchanged.
+- Deletion policy/disclosures available from the account sidebar and Privacy Policy, including 30/90-day periods, restricted exceptions, shared-record/recipient limits and Apple/Google subscription instructions. Request submission is deliberately disabled, not a completed deletion flow.
+- Fixture-tested deletion protocol, transactional queue/quarantine/local-session revocation source, encrypted temporary resources, stale-worker fencing, restricted retention summaries, provider-confirmation checks and fail-closed tombstone replay interface. No live worker or destructive endpoint is active; concrete erasure/provider/restore adapters remain unfinished.
 
 Still unfinished:
 
@@ -45,7 +48,7 @@ Automated checks confirm source types, backend policy/exchange behavior and DOM 
 
 ## Data audit evidence
 
-[Source-only relationship inventory](schema-ownership-inventory.md) covers 62 `pgTable` definitions, including declared delete actions. Only eleven definitions are associated through the declared user-FK graph; raw IDs, JSON, arrays, shared records and external processors still need explicit ownership/retention decisions. This inventory is not proof of complete erasure.
+[Source-only relationship inventory](schema-ownership-inventory.md) covers 66 `pgTable` definitions, including declared delete actions. Only eleven definitions are associated through the declared user-FK graph; raw IDs, JSON, arrays, shared records and external processors still need verified ownership selectors and retention handling. This inventory is not proof of complete erasure.
 
 The inventory now also flags 134 source columns for manual ownership, container, credential or document-pointer review. [Data ownership decisions](data-inventory.md) separates candidate, employer, marketer and staff associations and lists unresolved object/provider/device work. These are review candidates, not executable deletion predicates or a complete export allowlist.
 

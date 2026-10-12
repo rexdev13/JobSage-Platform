@@ -108,4 +108,4 @@
 - [Mobile product release facts](mobile-product-scope.md) — audience is 18+; legal operator and store identifiers are deferred owner decisions, not facts to invent.
 - [Sponsor vacancy audit inputs](sponsor-vacancy-audit-inputs.md) — merge only explicitly selected current inputs; preserve partial-source status and never treat historical outputs as fresh.
 - [Native reauthentication](native-reauthentication.md) — a newly exchanged capability is not proof of recent user reauthentication for account erasure.
-- [Approved deletion policy](account-deletion-policy.md) — owner-approved erasure, shared-record and retention rules; supplied policy ends mid-sentence and needs its remainder.
+- [Approved deletion policy](account-deletion-policy.md) — owner-approved 30-day erasure, 90-day backup limit, restricted legal retention and shared-record safeguards.

@@ -1,6 +1,6 @@
 {
   "scope": "SOURCE_ONLY_NOT_AN_ERASURE_OR_EXPORT_POLICY",
-  "generatedAt": "2026-10-12T11:28:14.488Z",
+  "generatedAt": "2026-10-12T12:14:42.581Z",
   "databaseAccessed": false,
   "limits": [
     "Name/type heuristics are not exhaustive",
@@ -8,6 +8,56 @@
     "Retention and shared ownership unresolved"
   ],
   "tables": [
+    {
+      "definition": "accountDeletionRequestsTable",
+      "table": "account_deletion_requests",
+      "source": "lib/db/src/schema/accountDeletion.ts",
+      "declaredUserGraph": false,
+      "references": [],
+      "review": []
+    },
+    {
+      "definition": "accountDeletionTasksTable",
+      "table": "account_deletion_tasks",
+      "source": "lib/db/src/schema/accountDeletion.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "requestId",
+          "target": "accountDeletionRequestsTable",
+          "action": "\"restrict\""
+        }
+      ],
+      "review": []
+    },
+    {
+      "definition": "legalRetentionRecordsTable",
+      "table": "legal_retention_records",
+      "source": "lib/db/src/schema/accountDeletion.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "requestId",
+          "target": "accountDeletionRequestsTable",
+          "action": "\"restrict\""
+        }
+      ],
+      "review": []
+    },
+    {
+      "definition": "deletionTombstoneOutboxTable",
+      "table": "deletion_tombstone_outbox",
+      "source": "lib/db/src/schema/accountDeletion.ts",
+      "declaredUserGraph": false,
+      "references": [
+        {
+          "column": "requestId",
+          "target": "accountDeletionRequestsTable",
+          "action": "\"restrict\""
+        }
+      ],
+      "review": []
+    },
     {
       "definition": "jobAlertVacancyDeliveriesTable",
       "table": "job_alert_vacancy_deliveries",

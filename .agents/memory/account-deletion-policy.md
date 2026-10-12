@@ -1,13 +1,13 @@
 ---
 name: Owner-approved account deletion and retention
-description: Business rules supplied on 2026-10-12; the last sentence was truncated, so the remaining policy must be obtained.
+description: Complete business rules supplied on 2026-10-12 for deletion, retained data, backups and disclosures.
 ---
 
 The owner explicitly approved the following JOBSAGE rules on 2026-10-12. This approves implementation, not production writes, real-account deletion, deployment or store submission.
 
 **Why:** Retention and shared-record ownership are owner/legal decisions, not technical defaults to invent.
 
-**How to apply:** Implement against isolated fixtures, preserve unrelated accounts and organisations, and obtain the missing policy remainder before claiming a complete policy or completed erasure. The received text ends at: “Legally retained data must be separated from normal”.
+**How to apply:** Implement against isolated fixtures, preserve unrelated accounts and organisations, and do not delete any real customer data during implementation/testing. Complete active-system and processor work before claiming completed erasure.
 
 ## Confirmed deletion process
 
@@ -43,4 +43,15 @@ Include database, object storage, temporary storage, search indexes and JOBSAGE-
 - Minimal pseudonymous deletion evidence: request ID, hashed account identifier, request date, completion date and outcome; no deleted profile, CV or documents.
 - Fully anonymised aggregates may remain only if they cannot reasonably be linked back to the user.
 
-Retained-data separation/access requirements and any subsequent backup/provider rules were not received. Do not infer them or invent approval.
+## Retained data and backups
+
+- Legally retained data must be separated from normal application data, access-restricted, and never used for advertising, recommendations or marketing.
+- Deleted information may remain in encrypted backups for no longer than 90 days, beyond normal operational use.
+- Restores must automatically replay deletion tombstones to erase restored accounts/personal data again.
+- Disclose the backup-deletion period in the Privacy Policy and account-deletion screen.
+
+## Required disclosures and tests
+
+Before final confirmation, explain deleted information, limited lawful retention/reasons, up to 30-day completion, up to 90-day backup expiry, employer/shared-record consequences, independent-recipient copy limits and applicable Apple/Google subscription-management instructions. Account deletion may not cancel store subscriptions.
+
+Automated tests must cover candidate deletion, employer/staff deletion, sole-organisation-owner handling, shared records, third-party deletion jobs, backup tombstones, token revocation and legal-retention exceptions.

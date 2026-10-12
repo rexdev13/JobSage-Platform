@@ -86,7 +86,7 @@ const lines = [
   "- Listed onDelete behavior is from source only. Compare migrations and the target database before relying on it.",
   "- Foreign-key-free IDs, JSON, arrays, object storage, email, calendars, AI processors, local native/extension memory, logs and backups require additional review.",
   "- Do not cascade-delete public employer/source catalogues or another person's applications or messages merely because a path reaches them.",
-  "- Retention durations, legal exceptions, backup timing and processor erasure are UNRESOLVED pending owner/provider/legal confirmation. No duration is inferred.",
+  "- Owner-approved retention rules are recorded in approved-deletion-policy.md. Actual provider/backup controls, ownership selectors and legal review still require verification; source policy is not erasure evidence.",
   "- An export must use explicit field allowlists and ownership joins; never export passwords, session material, email-verification/reset tokens, OAuth credentials or internal administrative notes.",
   "- The review candidates below are conservative name/type heuristics, not proven ownership, a deletion allowlist or an exhaustive personal-data detector. Unflagged free text can also contain personal data.",
   "",

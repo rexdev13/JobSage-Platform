@@ -116,6 +116,18 @@ export default function PrivacyPolicyPage() {
             <p className="text-muted-foreground">
               We retain personal data only for as long as necessary to fulfill the purposes outlined in this policy, maintain your active account, comply with legal obligations, or resolve disputes. When data is no longer required, it is securely deleted or anonymised.
             </p>
+            <p className="mt-3 text-muted-foreground">
+              Our approved account-deletion policy requires reauthentication and permanent-deletion confirmation, immediate account disablement and credential revocation, and deletion from active systems within 30 calendar days. Deleted information may remain in encrypted backups for no longer than 90 days, beyond normal operational use. Deletion tombstones must be replayed before a restored backup returns to service.
+            </p>
+            <p className="mt-3 text-muted-foreground">
+              Limited lawful exceptions include financial, payment, invoice, subscription and tax records for six years from the relevant company financial-year end (or longer where legally required); security, fraud-prevention and access logs for 12 months; and complaints/disputes for 24 months after closure. Active investigations, legal claims and documented legal holds may require longer retention until the applicable obligation ends. Retained records must be separated, access-restricted and excluded from advertising, recommendations and marketing. Deletion evidence contains only a minimal pseudonymous record, not CVs, identity documents, credentials or AI content.
+            </p>
+            <p className="mt-3 text-muted-foreground">
+              Individual employer/staff deletion does not delete employer-owned organisations, jobs, campaigns or shared records. Ownership transfer may be required; shared history identifies the departing person as “Deleted User”. JOBSAGE cannot recall copies already independently received by an employer, agency or external ATS. Deleting your account may not cancel an Apple App Store or Google Play subscription; manage store subscriptions separately in your Apple Settings or Google Play account.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Implementation status: the permanent-deletion request flow and provider/backup controls are still undergoing verification in this build. These approved time limits are requirements, not evidence that deployment and third-party controls have been verified.
+            </p>
           </section>
 
           <section>

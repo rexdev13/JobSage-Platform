@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/auth-web";
+import { AccountDeletionDisclosure } from "@/components/AccountDeletionDisclosure";
 import {
   ArrowRight, BarChart2, BookOpen, Briefcase, Building2, CalendarDays,
   CheckCircle2, ChevronRight, ClipboardList, FileText, GraduationCap, HelpCircle,
@@ -284,6 +285,7 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
             <p className="text-xs capitalize text-muted-foreground">{role ?? ""}</p>
           </div>
         </div>
+        <AccountDeletionDisclosure />
         <button onClick={logout} data-testid="button-logout"
           className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
           <LogOut className="mr-3 h-5 w-5 opacity-80" />Log out

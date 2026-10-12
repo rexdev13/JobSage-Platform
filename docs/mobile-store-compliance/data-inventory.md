@@ -1,8 +1,8 @@
 # Data ownership and erasure decisions
 
-Status: **engineering review in progress; not an approved retention policy, complete export manifest or completed erasure implementation.**
+Status: **owner-approved retention policy recorded; ownership engineering review remains in progress. This is not a complete export manifest or completed erasure implementation.** See [approved deletion policy](approved-deletion-policy.md).
 
-The source inventory covers 62 table definitions and flags 134 columns for manual review. Only eleven definitions are connected through declared user foreign keys. The accompanying [machine-readable candidates](schema-ownership-candidates.json) contain schema metadata only, not user records.
+The source inventory covers 66 table definitions and flags 134 columns for manual review. Only eleven definitions are connected through declared user foreign keys. The accompanying [machine-readable candidates](schema-ownership-candidates.json) contain schema metadata only, not user records.
 
 Sender blocks are account-owned preferences. Their exact sender keys may contain an email address and are personal data, not anonymous identifiers. Shared company labels are not an ownership selector. Account export/erasure must include these preferences explicitly; deleting a sender account is not permission to delete another recipient's block list.
 
@@ -44,10 +44,10 @@ These are review groups, not executable delete predicates. Exact joins, field al
 | Email delivery and inbound processing | Provider-retained content/metadata, alias routing, pending workers, delivery records and recipient-copy limits. |
 | Google Calendar and other scheduling services | Account-specific credential revocation and event/invite handling; do not revoke the shared workspace integration as a substitute. |
 | AI processing | Actual transmitted facts/documents/prompts, provider/subprocessor retention and transfer terms, consent where required, and deletion capabilities. |
-| Logs, analytics, payment services and backups | Actual data fields, access controls, approved retention/exceptions, provider capabilities and truthful restore/backup handling. No retention duration has been assumed. |
+| Logs, analytics, payment services and backups | Approved limits: security 12 months, closed complaints 24 months, financial six years from actual company financial-year end, encrypted deleted-data backups at most 90 days. Actual exceptions, provider controls and restore replay still need verification. |
 
 ## Required approvals before release
 
-The owner and qualified reviewer must approve retention durations, lawful exceptions, shared-record handling, processor/transfer terms, backup timing and final public disclosures. Legal operator/contact and store identifiers remain deferred owner facts.
+The owner approved retention durations, lawful exceptions, shared-record safeguards and backup rules on 12 October 2026. Qualified review and evidence of actual processor/transfer terms, backup controls and final public disclosures remain required. Legal operator/contact, the relevant company financial-year end and store identifiers have not been supplied; do not invent them.
 
 These approvals do not remove the engineering requirement to prove row selectors, field allowlists, retry behaviour and device cleanup. Conversely, a passing schema/type/unit check does not approve the legal policy.

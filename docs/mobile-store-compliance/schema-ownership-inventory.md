@@ -1,7 +1,7 @@
 # Database relationship evidence for the mobile privacy/deletion audit
 
 Generated from source on 2026-10-12 using scripts/audit-mobile-data-schema.mjs.
-Found 62 pgTable definitions. No database connection, environment values or user data were accessed.
+Found 66 pgTable definitions. No database connection, environment values or user data were accessed.
 
 ## Scope and limits
 
@@ -10,7 +10,7 @@ Found 62 pgTable definitions. No database connection, environment values or user
 - Listed onDelete behavior is from source only. Compare migrations and the target database before relying on it.
 - Foreign-key-free IDs, JSON, arrays, object storage, email, calendars, AI processors, local native/extension memory, logs and backups require additional review.
 - Do not cascade-delete public employer/source catalogues or another person's applications or messages merely because a path reaches them.
-- Retention durations, legal exceptions, backup timing and processor erasure are UNRESOLVED pending owner/provider/legal confirmation. No duration is inferred.
+- Owner-approved retention rules are recorded in approved-deletion-policy.md. Actual provider/backup controls, ownership selectors and legal review still require verification; source policy is not erasure evidence.
 - An export must use explicit field allowlists and ownership joins; never export passwords, session material, email-verification/reset tokens, OAuth credentials or internal administrative notes.
 - The review candidates below are conservative name/type heuristics, not proven ownership, a deletion allowlist or an exhaustive personal-data detector. Unflagged free text can also contain personal data.
 
@@ -157,6 +157,10 @@ Found 62 pgTable definitions. No database connection, environment values or user
 
 | Table / definition | User-associated through declared FK graph | Columns | Declared references and deletion action |
 | --- | --- | --- | --- |
+| account_deletion_requests (accountDeletionRequestsTable), [source](../../lib/db/src/schema/accountDeletion.ts) | Not established by graph; inspect raw identifiers/JSON | id, accountHash, requestedAt, completedAt, outcome | No inline FK declaration |
+| account_deletion_tasks (accountDeletionTasksTable), [source](../../lib/db/src/schema/accountDeletion.ts) | Not established by graph; inspect raw identifiers/JSON | id, requestId, kind, state, resourceCiphertext, attempts, retryAt, leaseUntil, failureCode | requestId → accountDeletionRequestsTable; "restrict" |
+| legal_retention_records (legalRetentionRecordsTable), [source](../../lib/db/src/schema/accountDeletion.ts) | Not established by graph; inspect raw identifiers/JSON | id, requestId, category, lawfulReason, expiresAt, holdReference, recordCiphertext, createdAt | requestId → accountDeletionRequestsTable; "restrict" |
+| deletion_tombstone_outbox (deletionTombstoneOutboxTable), [source](../../lib/db/src/schema/accountDeletion.ts) | Not established by graph; inspect raw identifiers/JSON | requestId, acknowledgedAt | requestId → accountDeletionRequestsTable; "restrict" |
 | job_alert_vacancy_deliveries (jobAlertVacancyDeliveriesTable), [source](../../lib/db/src/schema/alertDeliveries.ts) | Not established by graph; inspect raw identifiers/JSON | id, userId, vacancyId, vacancyUrl, sentAt | No inline FK declaration |
 | applications (applicationsTable), [source](../../lib/db/src/schema/applications.ts) | Not established by graph; inspect raw identifiers/JSON | id, userId, roleId, applicationType, applicationUrl, companyName, jobTitle, status, appliedAt, notes, interviewDate, interviewNotes, cvDocumentId, jobsageEmail | No inline FK declaration |
 | audit_events (auditEventsTable), [source](../../lib/db/src/schema/audit.ts) | Not established by graph; inspect raw identifiers/JSON | id, actor, action, target, details, createdAt | No inline FK declaration |
