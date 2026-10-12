@@ -2,6 +2,7 @@
 - [Drizzle raw SQL array parameters](drizzle-raw-sql-array-params.md) — wrap arrays with `sql.param()` before a PostgreSQL array cast; direct interpolation becomes a row expression.
 - [PostgreSQL DISTINCT ON ordering](postgres-distinct-on-ordering.md) — every DISTINCT ON key must lead ORDER BY in the same order before tie-breakers.
 - [Drizzle correlated subqueries](drizzle-correlated-subqueries.md) — raw SQL interpolations can lose outer-table qualification; use an explicit qualified SQL fragment for correlated IDs.
+- [Cyclic Drizzle foreign keys](drizzle-circular-foreign-keys.md) — keep cyclic relation IDs scalar in Drizzle and declare their foreign keys in SQL migrations to avoid TypeScript inference cycles.
 - [GCS File download pattern](gcs-file-download.md) — use storage.downloadObject(gcsFile) then response.arrayBuffer(), not gcsFile.arrayBuffer()
 - [pdf-parse ESM type fix](pdf-parse-esm-type.md) — import("pdf-parse").default errors fixed via unknown cast; calendar.tsx ref fixed with React.Ref<HTMLDivElement> cast. Both projects now at zero TS errors.
 - [Unknown-type JSX patterns](unknown-jsx-patterns.md) — Record<string,unknown> property access in JSX needs explicit casts; `{p?.x && <C />}` returns `unknown` not ReactNode — use `{!!p?.x && <C />}`.

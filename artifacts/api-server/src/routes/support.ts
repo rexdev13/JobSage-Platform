@@ -15,7 +15,7 @@ import {
   UpdateAdminSupportTicketParams,
   UpdateAdminSupportTicketResponse,
 } from "@workspace/api-zod";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   candidateMessagesTable,
   db,
@@ -92,19 +92,6 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     res.status(400).json({ error: "A message report must identify exactly one inbox message." });
     return;
   }
-  if (isMessageReport) {
-    const [reportedMessage] = await db
-      .select({ id: candidateMessagesTable.id })
-      .from(candidateMessagesTable)
-      .where(and(
-        eq(candidateMessagesTable.id, reportedMessageId!),
-        eq(candidateMessagesTable.recipientUserId, req.user!.id),
-      ));
-    if (!reportedMessage) {
-      res.status(404).json({ error: "That inbox message is not available to this account." });
-      return;
-    }
-  }
   // Tagged reports bind contact details to the authenticated actor. Public
   // support submissions retain their existing alternative-contact behavior.
   let ticketData = requestTicketData;
@@ -116,7 +103,7 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
       res.status(403).json({ error: "The reporting account is unavailable." }); return;
     }
     ticketData = {
-      ...parsed.data,
+      ...requestTicketData,
       name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
       email: actor.email, category: "Other", subject: isMessageReport ? "Message content report" : "AI content report",
     };
@@ -132,7 +119,18 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     appealOfTicketId: null,
   };
   if (isContentReport) {
-    const inserted = await db.transaction(async (tx) => {
+    const insertResult = await db.transaction(async (tx) => {
+      if (isMessageReport) {
+        const [reportedMessage] = await tx
+          .select({ id: candidateMessagesTable.id })
+          .from(candidateMessagesTable)
+          .where(and(
+            eq(candidateMessagesTable.id, reportedMessageId!),
+            eq(candidateMessagesTable.recipientUserId, req.user!.id),
+          ))
+          .for("update");
+        if (!reportedMessage) return "message_not_found" as const;
+      }
       // Serialize per reporter so concurrent requests cannot bypass the daily cap.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`content-report:${req.user!.id}`}))`);
       const countResult = await tx.execute(sql`SELECT count(*)::int AS count
@@ -142,11 +140,15 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
           AND created_at >= now() - interval '24 hours'`);
       const count = Number(countResult.rows[0]?.count ?? 0);
       if (!Number.isSafeInteger(count) || count < 0) throw new Error("content_report_limit_check_failed");
-      if (count >= CONTENT_REPORTS_PER_DAY) return false;
+      if (count >= CONTENT_REPORTS_PER_DAY) return "rate_limited" as const;
       await tx.insert(supportTicketsTable).values(newTicket);
-      return true;
+      return "inserted" as const;
     });
-    if (!inserted) {
+    if (insertResult === "message_not_found") {
+      res.status(404).json({ error: "That inbox message is not available to this account." });
+      return;
+    }
+    if (insertResult === "rate_limited") {
       res.status(429).json({ error: "You have reached the content-report limit. Try again later." });
       return;
     }
@@ -184,8 +186,17 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
 router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> => {
   const params = AppealContentReportParams.safeParse(req.params);
   const body = AppealContentReportBody.safeParse(req.body);
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: !params.success ? params.error.message : body.error.message });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const appealMessage = body.data.message.trim();
+  if (appealMessage.length < 10) {
+    res.status(400).json({ error: "Add at least 10 non-whitespace characters to the review request." });
     return;
   }
   if (!req.user || req.isImpersonating || req.get("x-jobsage-report-user") !== req.user.id) {
@@ -196,7 +207,8 @@ router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> 
   const [actor] = await db.select({
     email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName,
   }).from(usersTable).where(eq(usersTable.id, req.user.id));
-  if (!actor?.email) {
+  const actorEmail = actor?.email;
+  if (!actorEmail) {
     res.status(403).json({ error: "The reporting account is unavailable." });
     return;
   }
@@ -207,8 +219,16 @@ router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> 
       eq(supportTicketsTable.ticketId, params.data.ticketId),
       eq(supportTicketsTable.userId, req.user!.id),
       eq(supportTicketsTable.isContentReport, true),
+      isNull(supportTicketsTable.appealOfTicketId),
     )).for("update");
-    if (!original) return { kind: "not_found" as const };
+    if (
+      !original
+      || original.userId !== req.user!.id
+      || !original.isContentReport
+      || original.appealOfTicketId !== null
+    ) {
+      return { kind: "not_found" as const };
+    }
 
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`content-report:${req.user!.id}`}))`);
     const countResult = await tx.execute(sql`SELECT count(*)::int AS count
@@ -223,10 +243,10 @@ router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> 
     await tx.insert(supportTicketsTable).values({
       ticketId: appealTicketId,
       name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
-      email: actor.email,
+      email: actorEmail,
       category: "Other",
       subject: `Appeal of content report ${original.ticketId}`,
-      message: `The reporter requested another review of their content report.\n\n${body.data.message.trim()}`,
+      message: `The reporter requested another review of their content report.\n\n${appealMessage}`,
       userId: req.user!.id,
       isContentReport: true,
       reportedMessageId: original.reportedMessageId,
@@ -247,7 +267,7 @@ router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> 
   const delivery = await sendSupportTicketNotification({
     ticketId: appealTicketId,
     name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
-    email: actor.email,
+    email: actorEmail,
     category: "Other",
     subject: "Content report appeal",
     message: "A content-report appeal was saved. Review its details in the JOBSAGE support queue.",

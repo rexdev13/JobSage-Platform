@@ -214,6 +214,11 @@ export default function AdminSupportTicketsTab() {
                     <h3 className="text-lg font-semibold text-foreground">Conversation · {activeTicket?.ticketId}</h3>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{activeTicket?.subject}</p>
+                  {activeTicket?.isContentReport && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Reply to the reporter before resolving this content report.
+                    </p>
+                  )}
                 </div>
                 <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
                   {activeTicket ? statusLabels[activeTicket.status] : ""}
@@ -440,6 +445,16 @@ export default function AdminSupportTicketsTab() {
                           Content report
                         </span>
                       )}
+                      {ticket.appealOfTicketId !== null && (
+                        <span className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                          Linked review request
+                        </span>
+                      )}
+                      {ticket.reportedMessageId !== null && (
+                        <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                          Inbox message #{ticket.reportedMessageId}
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground">{formatDate(ticket.createdAt)}</span>
                     </div>
                     <h3 className="mt-2 text-base font-semibold text-foreground">{ticket.subject}</h3>
@@ -466,7 +481,13 @@ export default function AdminSupportTicketsTab() {
                     className="field-support min-h-9 w-auto min-w-32 py-1.5 text-xs font-semibold"
                   >
                     {(Object.keys(statusLabels) as TicketStatus[]).map((status) => (
-                      <option key={status} value={status}>{statusLabels[status]}</option>
+                      <option
+                        key={status}
+                        value={status}
+                        disabled={status === "resolved" && ticket.isContentReport && ticket.status !== "resolved"}
+                      >
+                        {statusLabels[status]}
+                      </option>
                     ))}
                   </select>
                 </div>

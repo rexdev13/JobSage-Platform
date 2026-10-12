@@ -157,6 +157,8 @@ function supportTicketRow(overrides: Record<string, unknown> = {}) {
     message: "The password reset link never arrives.",
     userId: null,
     isContentReport: false,
+    reportedMessageId: null,
+    appealOfTicketId: null,
     status: "new",
     severity: "normal",
     assignedModeratorId: null,
@@ -266,12 +268,82 @@ describe("support ticket routes", () => {
   });
   it("saves an actor-bound message report without copying its excerpt into notification mail", async () => {
     dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([{ id: 77 }]);
+    txExecuteResults.push([], [{ count: 0 }]);
     const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
       .set("X-Jobsage-Message-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
-      .send({ ...ticketInput, message: "Private message excerpt fixture." });
+      .send({ ...ticketInput, message: "Private message excerpt fixture.", reportedMessageId: 77 });
     expect(response.status).toBe(201);
-    expect(txInsertedValues[0]).toMatchObject({ userId: "candidate-1", subject: "Message content report", email: "reporter@example.test", isContentReport: true });
+    expect(txInsertedValues[0]).toMatchObject({
+      userId: "candidate-1", subject: "Message content report", email: "reporter@example.test",
+      isContentReport: true, reportedMessageId: 77, appealOfTicketId: null,
+    });
     expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private message excerpt");
+  });
+
+  it("does not accept a message report for another account's inbox message", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-Message-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
+      .send({ ...ticketInput, reportedMessageId: 77 });
+    expect(response.status).toBe(404);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a rate-limited appeal linked to the reporter's own original report", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([supportTicketRow({ userId: "candidate-1", isContentReport: true, reportedMessageId: 77 })]);
+    txExecuteResults.push([], [{ count: 1 }]);
+
+    const response = await request(buildApp()).post("/support/ticket/JS-ABCDEF1234/appeal")
+      .set(authAs("candidate")).set("X-Jobsage-Report-User", "candidate-1")
+      .send({ message: "Please reconsider the earlier review outcome." });
+
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      userId: "candidate-1",
+      isContentReport: true,
+      reportedMessageId: 77,
+      appealOfTicketId: 41,
+      message: "The reporter requested another review of their content report.\n\nPlease reconsider the earlier review outcome.",
+    });
+    expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("earlier review outcome");
+  });
+
+  it("does not disclose or appeal another account's content report", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([supportTicketRow({ userId: "different-account", isContentReport: true })]);
+    const response = await request(buildApp()).post("/support/ticket/JS-ABCDEF1234/appeal")
+      .set(authAs("candidate")).set("X-Jobsage-Report-User", "candidate-1")
+      .send({ message: "Please reconsider the earlier review outcome." });
+    expect(response.status).toBe(404);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("limits appeals with the same per-account daily report quota", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([supportTicketRow({ userId: "candidate-1", isContentReport: true })]);
+    txExecuteResults.push([], [{ count: 8 }]);
+    const response = await request(buildApp()).post("/support/ticket/JS-ABCDEF1234/appeal")
+      .set(authAs("candidate")).set("X-Jobsage-Report-User", "candidate-1")
+      .send({ message: "Please reconsider the earlier review outcome." });
+    expect(response.status).toBe(429);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("does not allow an appeal ticket to be appealed again", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([supportTicketRow({ userId: "candidate-1", isContentReport: true, appealOfTicketId: 40 })]);
+    const response = await request(buildApp()).post("/support/ticket/JS-ABCDEF1234/appeal")
+      .set(authAs("candidate")).set("X-Jobsage-Report-User", "candidate-1")
+      .send({ message: "Please reconsider the earlier review outcome." });
+    expect(response.status).toBe(404);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(txExecuteResults).toHaveLength(0);
   });
 
   it("does not accept anonymous tagged AI reports", async () => {
@@ -357,6 +429,17 @@ describe("support ticket routes", () => {
       .set(authAs("admin"))
       .send({ assignment: "unassigned" });
     expect(response.status).toBe(403);
+    expect(updatedValues).toHaveLength(0);
+  });
+
+  it("requires a delivered admin reply before resolving a content report", async () => {
+    dbResults.push([supportTicketRow({ isContentReport: true, status: "in_review" })]);
+    const response = await request(buildApp())
+      .patch("/admin/super/support-tickets/41")
+      .set(authAs("admin"))
+      .send({ status: "resolved" });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("Send a reply");
     expect(updatedValues).toHaveLength(0);
   });
 

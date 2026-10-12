@@ -9,12 +9,13 @@ type AIContentReportProps = {
   content: string;
   context: string;
   label?: string;
+  loginNext?: string;
 } & (
   | { kind: "message"; messageId: number }
   | { kind?: "ai"; messageId?: never }
 );
 
-export function AIContentReport({ content, context, label = "Report this AI answer", kind = "ai", messageId }: AIContentReportProps) {
+export function AIContentReport({ content, context, label = "Report this AI answer", loginNext, kind = "ai", messageId }: AIContentReportProps) {
   const { user: currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<{ content: string; context: string; userId: string; messageId?: number }>({ content: "", context: "", userId: "" });
@@ -96,7 +97,7 @@ export function AIContentReport({ content, context, label = "Report this AI answ
       setSnapshot({ content, context, userId: currentUser.id, ...(kind === "message" ? { messageId } : {}) });
       setDetail(""); setInclude(false); setNotice(""); setReason("inaccurate"); setSavedTicketId(""); setAppealDetail(""); setAppealTicketId(""); setOpen(true);
     }}>{label}</button> : <span className="text-xs text-muted-foreground">
-      <Link className="underline" href="/login">Sign in to report</Link>
+      <Link className="underline" href={loginNext ? `/login?next=${encodeURIComponent(loginNext)}` : "/login"}>Sign in to report</Link>
     </span>}
     <Dialog open={open} onOpenChange={value => { if (!value) close(); }}>
       <DialogContent className="z-[80] max-h-[90dvh] overflow-y-auto">

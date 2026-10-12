@@ -6,11 +6,13 @@ const state = vi.hoisted(() => ({
   user: { id: "reporter-fixture" },
   fresh: vi.fn(),
   save: vi.fn(),
+  appeal: vi.fn(),
 }));
 vi.mock("@workspace/auth-web", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("@workspace/api-client-react", () => ({
   getCurrentAuthUser: state.fresh,
   createSupportTicket: state.save,
+  appealContentReport: state.appeal,
 }));
 import { AIContentReport } from "./AIContentReport";
 
@@ -23,12 +25,13 @@ beforeEach(() => {
   state.user = { id: "reporter-fixture" };
   state.fresh.mockReset().mockResolvedValue({ user: { id: state.user.id, email: "reporter@example.test", firstName: "Fixture" } });
   state.save.mockReset().mockResolvedValue({ success: true, ticketId: "JS-FIXTURE" });
+  state.appeal.mockReset().mockResolvedValue({ success: true, ticketId: "JS-APPEAL" });
 });
 afterEach(cleanup);
 
 describe("AI reporting consent and initiating account", () => {
   it("routes inbox content to message review, with the same consent and actor safeguards", async () => {
-    render(<AIContentReport {...props} kind="message" />);
+    render(<AIContentReport {...props} kind="message" messageId={321} />);
     openAndDescribe();
     fireEvent.click(screen.getByRole("button", { name: "Send report" }));
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
@@ -38,6 +41,7 @@ describe("AI reporting consent and initiating account", () => {
     expect(body.message).not.toContain(props.content);
     expect(options.headers["X-Jobsage-Message-Report"]).toBe("1");
     expect(options.headers["X-Jobsage-Report-User"]).toBe("reporter-fixture");
+    expect(body.reportedMessageId).toBe(321);
   });
   it("submits a real ticket request without output text by default", async () => {
     render(<AIContentReport {...props} />);
@@ -76,5 +80,22 @@ describe("AI reporting consent and initiating account", () => {
     page.rerender(<AIContentReport {...props} />);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(state.save).not.toHaveBeenCalled();
+  });
+  it("creates a separately linked review request without resending report evidence", async () => {
+    render(<AIContentReport {...props} />);
+    openAndDescribe();
+    fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    await screen.findByText(/Saved for staff review/);
+    fireEvent.change(screen.getByRole("textbox", { name: "Review request details" }), {
+      target: { value: "Please reconsider the original review decision." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Request review" }));
+    await screen.findByText(/Review request saved/);
+    expect(state.appeal).toHaveBeenCalledWith(
+      "JS-FIXTURE",
+      { message: "Please reconsider the original review decision." },
+      expect.objectContaining({ headers: { "X-Jobsage-Report-User": "reporter-fixture" } }),
+    );
+    expect(state.save).toHaveBeenCalledOnce();
   });
 });
