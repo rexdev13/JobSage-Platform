@@ -12,7 +12,7 @@ Owner decisions updated 12 October 2026. This document is not store approval.
 ## Remind the owner before release
 
 1. **Legal operating entity and public privacy/support contact:** owner will provide later. No assumed legal name or address may be used in final store/legal declarations.
-2. **iOS bundle identifier and Android package identifier:** not created or approved. Do not select identifiers silently or change existing store identities. Needed before valid store prebuild, link association files, signing or submission.
+2. **iOS bundle identifier and Android package identifier:** not created or approved. Do not select identifiers silently or change existing store identities. EAS development/preview/production profiles are prepared, but builds still require approved identifiers and EAS project/account configuration.
 3. **Qualified legal review:** confirm operator, jurisdiction, processor/transfer contracts, implementation of the approved retention/backup/deletion rules and final legal text. Financial retention requires the actual company financial-year end.
 4. **Store ownership and signing:** no credentials or signing keys in repository; no store form submission, deployment or production writes are authorised.
 5. **Device evidence:** physical iOS and Android, supported OS versions, uploads, cookies, employer SSO/CAPTCHA, deep-link associations and push-provider configuration must be validated.

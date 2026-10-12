@@ -220,6 +220,42 @@ describe("GapAnalysisSheet readiness claims", () => {
     expect(screen.getByText("JobSage Pro")).toBeTruthy();
   });
 
+  it("does not expose website purchase buttons inside the authenticated native app", async () => {
+    Object.defineProperty(window, "ReactNativeWebView", {
+      configurable: true,
+      value: { postMessage: vi.fn() },
+    });
+    Object.defineProperty(window, "__JOBSAGE_NATIVE__", {
+      configurable: true,
+      value: { version: 1, channel: "a".repeat(24), challenge: "b".repeat(64) },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 3, limit: 3 });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
+        return jsonResponse({ error: "Readiness Check limit reached." }, 429);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderSheet();
+    fireEvent.click(await screen.findByTestId("button-toggle-readiness-upgrades"));
+
+    expect(await screen.findByTestId("readiness-purchases-unavailable-in-app")).toBeTruthy();
+    expect(screen.queryByText("Check Booster Pack")).toBeNull();
+    expect(screen.queryByText("JobSage Pro")).toBeNull();
+    expect(screen.queryByText("£4.99")).toBeNull();
+    expect(screen.queryByText("£15.99")).toBeNull();
+    expect(screen.queryByTestId("button-buy-booster")).toBeNull();
+    expect(screen.queryByTestId("button-buy-pro")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/checkout/create-session"),
+      expect.anything(),
+    );
+  });
+
   it.each(["booster_pack", "pro_subscription"] as const)("unblocks the mounted sheet after a sandbox %s upgrade", async (purchase) => {
     let upgraded = false;
     let analysisRequests = 0;

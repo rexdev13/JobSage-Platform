@@ -1,0 +1,345 @@
+FINISH THE JOBSAGE MOBILE, PRIVACY, COMPLIANCE AND STORE-RELEASE WORK
+
+You are continuing an existing JOBSAGE implementation. Do not restart the project, replace the architecture, create a disconnected demo, or merely produce another audit report.
+
+Your job is to implement and verify every feasible remaining requirement from the two original JOBSAGE specifications.
+
+IMPORTANT WORKING RULES
+
+1. Read both original JOBSAGE specifications completely before editing.
+2. Inspect the current repository, recent changes and existing test results.
+3. Create a requirement traceability matrix containing:
+   - Requirement ID
+   - Original specification
+   - Existing implementation
+   - Missing work
+   - Files changed
+   - Tests performed
+   - Final evidence
+   - Genuine external blocker, if any
+4. Work through every incomplete requirement.
+5. Do not claim something is complete merely because source code exists.
+6. Do not claim real-device verification from unit tests, browser previews, emulators or mocked providers.
+7. Do not claim store readiness without the required metadata, manifests, screenshots, declarations and review-access plan.
+8. Preserve the existing JOBSAGE website design, terminology, workflows, roles and features. Do not invent placeholder pages, “Coming soon” labels, renamed navigation items or alternative UI.
+9. Use the authoritative root application and packages. Do not modify an obsolete nested copy of the application.
+10. Reuse the current mobile technology and architecture unless there is documented proof that it cannot satisfy a requirement.
+11. Search for and use relevant installed skills, libraries and official Apple, Google and framework documentation. Prefer official current documentation over random tutorials or YouTube videos.
+12. Never use real customer data for testing.
+13. Never expose passwords, API keys, signing keys, certificates or customer records.
+14. Do not submit, publish or deploy to production unless the owner separately authorizes it.
+15. Continue with independent work when owner information is missing. Collect missing owner decisions into one concise blocker list instead of repeatedly stopping.
+
+PHASE 1 — ESTABLISH THE REAL BASELINE
+
+Inspect the actual database schema, APIs, object storage, authentication system, background jobs, providers, notification services, analytics, mobile wrapper/native code and existing tests.
+
+Produce a complete data inventory covering every location that can contain user-linked data, including:
+
+- Authentication and sessions
+- Candidate profiles
+- Employer and staff profiles
+- Employer organisations
+- CVs and generated documents
+- Uploaded identity and right-to-work documents
+- Job applications
+- Application tracking
+- Saved jobs and searches
+- Smart Apply data
+- AI prompts and generated content
+- Messages and attachments
+- Interview and calendar records
+- Notifications and device tokens
+- Support and feedback records
+- Moderation records
+- Billing, invoices and subscriptions
+- Audit, security and fraud logs
+- Analytics
+- Object storage
+- Temporary files
+- Search indexes and caches
+- External processors and providers
+- Backups
+
+Search by schema relationships, account IDs, candidate IDs, employer IDs, organisation IDs, email addresses, file ownership and provider identifiers. Do not assume foreign-key cascades cover everything.
+
+PHASE 2 — COMPLETE ACCOUNT DELETION
+
+Implement a central account-deletion orchestrator. It must not be a collection of disconnected adapters.
+
+The complete flow must:
+
+- Require reauthentication and explicit confirmation.
+- Create a persistent deletion request with statuses such as requested, processing, waiting_on_provider, completed, partially_failed and legally_restricted.
+- Immediately revoke sessions, refresh tokens, device tokens and Sign in with Apple tokens where applicable.
+- Stop marketing, notifications and automated applications immediately.
+- Be idempotent and safely retryable.
+- Delete active user-owned personal data within 30 calendar days.
+- Track each database, file-storage and provider cleanup step independently.
+- Retry temporary provider failures.
+- Record non-sensitive completion evidence.
+- Notify the user when deletion finishes.
+- Never log deleted personal content or credentials.
+
+Delete user-owned information including profiles, CVs, cover letters, uploaded documents, identity documents, application drafts, saved items, preferences, Smart Apply data, AI content, attachments, device identifiers, temporary files and search-index entries.
+
+Implement the approved shared-record rules:
+
+- Candidate personal data must be deleted or anonymised in JOBSAGE-controlled records.
+- Employer job listings and non-personal aggregate statistics may remain.
+- Employer/staff account deletion must not automatically delete an organisation.
+- Remove or anonymise the departing staff identity in shared history.
+- Transfer shared ownership to another organisation administrator.
+- A sole organisation owner must transfer ownership or use a separate organisation-deletion flow.
+- Data already independently downloaded or received by an external employer or ATS cannot be recalled, but JOBSAGE-controlled copies must be removed.
+- Show this limitation clearly to the user.
+
+Implement legal-retention handling:
+
+- Financial, tax, payment and invoice records: retain for six years from the relevant financial-year end where applicable.
+- Security and fraud logs: retain for 12 months unless an active investigation requires longer.
+- Closed complaint/dispute records: retain for 24 months unless needed for an active legal claim.
+- Legal-hold or regulatory records: retain only for the documented obligation.
+- Separate retained records from normal application data and block their use for marketing, recommendations or profiling.
+- Keep only a minimal pseudonymous deletion receipt.
+- Do not retain raw CVs, identity documents, passwords, tokens or AI content as deletion evidence.
+
+Do not enable production deletion until the inventory, automated tests and staging verification pass. The feature may be enabled for fixtures and designated staging test accounts.
+
+PHASE 3 — BACKUPS AND RESTORE SAFETY
+
+Implement and document:
+
+- Maximum 90-day encrypted backup expiry for deleted personal information.
+- Deleted backup data placed beyond normal operational use.
+- Deletion tombstones or an equivalent durable mechanism.
+- Automatic deletion replay after any restore.
+- A staging restore drill proving that a previously deleted test user is not resurrected.
+- Provider retry/reconciliation after restore.
+- Monitoring and alerts for failed deletion jobs.
+- An operations runbook for restoring backups without reviving deleted accounts.
+
+A unit test alone does not prove restore safety. Provide the staging procedure, timestamped result and database/file/provider checks. If the environment cannot perform an actual restore, mark that requirement as externally blocked rather than passed.
+
+PHASE 4 — PROVIDERS, DEVICES AND ACCESS REQUESTS
+
+Complete cleanup adapters for every configured processor and provider, including as applicable:
+
+- Authentication provider
+- Email provider
+- Push provider
+- File/object storage
+- Analytics
+- AI provider storage
+- Search service
+- Payment/subscription provider
+- Identity-verification provider
+- Calendar integrations
+- Employer ATS/SSO integrations
+
+Implement provider deletion dispatch, retry, reconciliation and failure escalation.
+
+Remove device registrations and push tokens during logout, account changes and account deletion.
+
+Create an operational process for privacy access requests involving processors, restricted records and legal holds. Include identity verification, request tracking, export production, redaction, processor collection, delivery and closure evidence.
+
+PHASE 5 — COMPLETE MODERATION
+
+Inventory every user-generated or reportable content surface.
+
+Complete moderation for:
+
+- Profiles
+- Job listings
+- Messages
+- Attachments
+- Employer content
+- Support/feedback content
+- AI-generated or user-submitted public content
+
+Implement:
+
+- Reporting
+- Blocking
+- Content filtering where appropriate
+- Moderator review queues
+- Escalation levels
+- Decision history
+- Appeals or reconsideration workflow where required
+- Abuse-rate protection
+- Moderator permissions
+- Operations documentation
+- Tests proving blocked users cannot continue prohibited interactions
+
+Do not describe reporting and blocking alone as complete moderation.
+
+PHASE 6 — NATIVE IOS AND ANDROID COMPLETION
+
+Preserve parity with the JOBSAGE website and extension features.
+
+Create a role-by-role parity matrix for:
+
+- Candidate
+- Employer
+- Employer staff
+- Administrator
+- Any additional existing roles
+
+Verify navigation, authentication, profiles, job discovery, saved jobs, applications, Smart Apply, CV/document features, employer functions, messages, notifications, interviews, account settings, privacy and deletion.
+
+Complete and test:
+
+- Session restoration
+- Cookie/token ordering
+- Logout
+- Account switching
+- Role switching
+- Cold-start deep links
+- Warm deep links
+- Push-notification routing
+- File selection
+- Camera capture
+- Upload cancellation and failures
+- Employer SSO
+- CAPTCHA
+- Streaming AI responses
+- Stream cancellation
+- Background/foreground transitions
+- Network interruption recovery
+- Temporary-file cleanup after cancellation, crash or app termination
+- Permission-denied flows
+- Offline and expired-session behaviour
+- Accessible loading, error and empty states
+
+Add automated tests where possible, but keep physical-device verification as a separate acceptance gate.
+
+Prepare a real-device test script for at least:
+
+- One supported iPhone
+- One supported Android phone
+- iOS release build
+- Android release build
+
+For every device test, record device model, OS version, build identifier, actions, expected result, actual result and evidence reference.
+
+If no physical devices or remote-device service are available, finish the implementation and automated coverage, then mark only physical-device verification as blocked. Do not claim it passed.
+
+PHASE 7 — STORE-RELEASE PACKAGE
+
+Prepare, but do not submit, complete Apple App Store and Google Play release packages.
+
+Request these owner values once if unavailable:
+
+- Legal company/operator name
+- Privacy contact email
+- Support email
+- Registered address where required
+- Financial-year-end date
+- Final app name
+- iOS bundle identifier
+- Android application ID
+- Apple team/account identity
+- Google Play developer identity
+- Production API and website domains
+- Privacy Policy URL
+- Terms/EULA URL
+- Account-deletion webpage URL
+- Support URL
+- Store category
+- Countries of distribution
+- Age-rating answers
+- Subscription or purchase details
+- Reviewer login credentials or review/demo mode
+
+Prepare:
+
+- iOS bundle/configuration
+- Android package/configuration
+- Version and build-number strategy
+- App icons and launch assets
+- Permission descriptions
+- iOS privacy manifest
+- Required SDK privacy declarations
+- Google Data Safety draft
+- Apple App Privacy draft
+- Content-rating draft
+- Encryption/export-compliance answers
+- Tracking/advertising declarations
+- Account-deletion instructions and URL
+- EULA/Terms links
+- Privacy Policy links
+- Support information
+- Reviewer instructions
+- Test/reviewer account plan
+- Store descriptions and keywords
+- Phone and tablet screenshot plan
+- Release checklist
+- Signing and submission runbook
+- Rollback and incident-response plan
+
+Do not fabricate owner identities, identifiers, declarations, screenshots, licences, reviewer credentials or legal information. Use clearly labelled placeholders and list them as owner blockers.
+
+PHASE 8 — TESTING AND ACCEPTANCE
+
+Add and run focused tests for:
+
+- Candidate deletion
+- Employer/staff deletion
+- Sole organisation owner
+- Shared records
+- Legal holds
+- Financial-record retention
+- Provider failures and retries
+- File deletion
+- Search/cache deletion
+- Device-token cleanup
+- Sign in with Apple revocation
+- Restore-time deletion replay
+- Duplicate deletion requests
+- Interrupted deletion jobs
+- Access requests
+- Moderation permissions and escalation
+- Role-by-role mobile parity
+- Deep links
+- File/camera handling
+- Temporary-file cleanup
+- Session and account switching
+
+Run the project’s relevant:
+
+- Unit tests
+- Integration tests
+- API tests
+- Type checks
+- Linting
+- Production builds
+- iOS build checks
+- Android build checks
+
+Do not hide existing failures. Separate failures caused by your changes from pre-existing failures.
+
+FINAL RESPONSE FORMAT
+
+Do not respond with another broad plan or “ready for review”.
+
+Return:
+
+1. Completed requirements.
+2. Files changed.
+3. Database migrations.
+4. Providers covered.
+5. Tests run, exact commands and results.
+6. Build results.
+7. Physical-device evidence.
+8. Backup-restore evidence.
+9. Store assets and documents prepared.
+10. Remaining owner inputs.
+11. External blockers.
+12. Requirements still not completed.
+13. Exact safe next action for each blocker.
+
+For every incomplete requirement, state “NOT COMPLETE” and explain why.
+
+Do not say “the project is complete”, “store ready”, “production ready” or “fully verified” unless every applicable acceptance gate has actual evidence.
+
+Begin now by reading both specifications and producing the traceability matrix, then immediately implement the missing work. Do not stop after the matrix.

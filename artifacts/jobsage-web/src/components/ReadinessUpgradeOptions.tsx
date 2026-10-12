@@ -7,6 +7,7 @@ import {
   useCreateCheckoutSession,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui-enhanced";
+import { nativeWorkspaceAvailable } from "@/lib/nativeWorkspace";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 
@@ -60,6 +61,18 @@ export function ReadinessUpgradeOptions({ compact = false }: { compact?: boolean
         variant: "destructive",
       });
     }
+  }
+
+  if (nativeWorkspaceAvailable()) {
+    return (
+      <p
+        className="col-span-full rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+        role="status"
+        data-testid="readiness-purchases-unavailable-in-app"
+      >
+        Paid Readiness upgrades are not available in this app.
+      </p>
+    );
   }
 
   return (

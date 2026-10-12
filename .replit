@@ -48,7 +48,7 @@ COMPANY_SITE_REVIEWED_IMPORT_ENABLED = "true"
 [userenv.development]
 
 [objectStorage]
-defaultBucketID = "replit-objstore-cb06040b-ed72-4c0c-9f5f-0a7529247177"
+defaultBucketID = "replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e"
 
 [[ports]]
 localPort = 8080
