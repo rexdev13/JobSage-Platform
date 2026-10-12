@@ -53,6 +53,127 @@ tags:
   - name: Learning
     description: Candidate learning videos and staff-managed publishing.
 paths:
+  /privacy/settings:
+    get:
+      operationId: getPrivacySettings
+      tags: [Consent]
+      responses:
+        "200":
+          description: Current actor privacy preferences and deletion availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacySettings"
+    patch:
+      operationId: updatePrivacySettings
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyChoicesInput"
+      responses:
+        "200":
+          description: Choices saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyActionResult"
+  /privacy/data-request:
+    post:
+      operationId: requestPersonalData
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyVerificationInput"
+      responses:
+        "201":
+          description: Authenticated export request saved, not a generated export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalDataReceipt"
+        "403": { description: Reauthentication failed }
+        "429": { description: Too many attempts }
+  /privacy/smart-apply-drafts:
+    delete:
+      operationId: clearSmartApplyDrafts
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyConfirmationInput"
+      responses:
+        "200":
+          description: Only the current actor's server drafts were removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyActionResult"
+  /privacy/push-device:
+    post:
+      operationId: registerPushDevice
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceInput"
+      responses:
+        "200":
+          description: Encrypted actor-bound token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyActionResult"
+    delete:
+      operationId: revokePushDevices
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyConfirmationInput"
+      responses:
+        "200":
+          description: Current actor's registrations revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyActionResult"
   /healthz:
     get:
       operationId: healthCheck
@@ -4959,6 +5080,60 @@ paths:
 
 components:
   schemas:
+    PrivacySettings:
+      type: object
+      required: [userId, policyVersion, marketing, optionalAnalytics, notifications, deletionEnabled]
+      properties:
+        userId: { type: string }
+        policyVersion: { type: string }
+        marketing: { type: boolean }
+        optionalAnalytics: { type: boolean }
+        notifications:
+          type: object
+          additionalProperties: { type: boolean }
+        deletionEnabled: { type: boolean }
+    PrivacyChoicesInput:
+      type: object
+      additionalProperties: false
+      properties:
+        marketing: { type: boolean }
+        optionalAnalytics: { type: boolean }
+        notifications:
+          type: object
+          additionalProperties: { type: boolean }
+    PrivacyVerificationInput:
+      type: object
+      additionalProperties: false
+      required: [expectedAccountId, password, confirmed]
+      properties:
+        expectedAccountId: { type: string }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+        confirmed: { type: boolean, const: true }
+    PrivacyConfirmationInput:
+      type: object
+      additionalProperties: false
+      required: [confirmed]
+      properties:
+        confirmed: { type: boolean, const: true }
+    PushDeviceInput:
+      type: object
+      additionalProperties: false
+      required: [token, platform]
+      properties:
+        token: { type: string }
+        platform: { type: string, enum: [ios, android] }
+    PrivacyActionResult:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
+    PersonalDataReceipt:
+      type: object
+      required: [ticketId, status, message]
+      properties:
+        ticketId: { type: string }
+        status: { type: string, enum: [requested] }
+        message: { type: string }
     SponsorWebsiteImportPreviewUpload:
       type: object
       required: [file]

@@ -4,6 +4,7 @@ import { db, consentLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { RecordConsentBody, RecordConsentResponse, GetMyConsentResponse } from "@workspace/api-zod";
 import crypto from "crypto";
+import { PRIVACY_POLICY_VERSION } from "@workspace/mobile-core";
 
 const router: IRouter = Router();
 
@@ -17,7 +18,7 @@ router.get("/consent", requireAuthenticated, async (req: Request, res: Response)
 
   res.json(
     GetMyConsentResponse.parse({
-      hasConsented: !!latestConsent,
+      hasConsented: latestConsent?.termsVersion === PRIVACY_POLICY_VERSION,
       latestConsent: latestConsent ?? null,
     }),
   );
@@ -28,6 +29,9 @@ router.post("/consent", requireAuthenticated, async (req: Request, res: Response
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+  if (parsed.data.termsVersion !== PRIVACY_POLICY_VERSION) {
+    res.status(400).json({ error: "Review and accept the current privacy policy and terms." }); return;
   }
 
   const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";

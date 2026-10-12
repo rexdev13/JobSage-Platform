@@ -1,3 +1,4 @@
+import { PRIVACY_POLICY_VERSION } from "@workspace/mobile-core";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useRecordConsent } from "@workspace/api-client-react";
@@ -35,7 +36,7 @@ export default function ConsentPage() {
 
   const handleContinue = async () => {
     try {
-      await recordConsentMutation.mutateAsync({ data: { termsVersion: "1.0.0" } });
+      await recordConsentMutation.mutateAsync({ data: { termsVersion: PRIVACY_POLICY_VERSION } });
       queryClient.invalidateQueries({ queryKey: getGetMyConsentQueryKey() });
       setLocation(user?.role === "employer" ? "/employer/onboarding" : "/");
     } catch (err) {

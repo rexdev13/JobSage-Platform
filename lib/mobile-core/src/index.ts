@@ -1,3 +1,4 @@
+export * from "./privacy";
 export * from "./deletion-policy";
 import { z } from "zod/v4";
 

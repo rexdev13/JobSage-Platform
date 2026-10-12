@@ -1,3 +1,4 @@
+export * from "./privacy";
 export * from "./accountDeletion";
 export * from "./auth";
 export * from "./profiles";
