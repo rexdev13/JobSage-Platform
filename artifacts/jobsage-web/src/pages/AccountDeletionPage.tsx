@@ -15,7 +15,8 @@ export default function AccountDeletionPage() {
     document.title = "Account deletion & retention | JOBSAGE";
   }, []);
 
-  const deletionEnabled = settingsQuery.data?.userId === user?.id ? settingsQuery.data.deletionEnabled : undefined;
+  const settings = settingsQuery.data;
+  const deletionEnabled = settings && user && settings.userId === user.id ? settings.deletionEnabled : undefined;
 
   return (
     <main className="min-h-[100dvh] bg-background">
@@ -32,12 +33,12 @@ export default function AccountDeletionPage() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <div data-testid="status-deletion-enabled" role="status" className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold ${deletionEnabled === true ? "border-emerald-800/20 bg-emerald-700/[0.07] text-emerald-900 dark:text-emerald-200" : deletionEnabled === false ? "border-amber-700/20 bg-amber-600/[0.08] text-amber-950 dark:text-amber-200" : "border-border bg-muted/60 text-muted-foreground"}`}>
                 <span className={`h-2 w-2 rounded-full ${deletionEnabled === true ? "bg-emerald-600" : deletionEnabled === false ? "bg-amber-600" : "bg-muted-foreground/50"}`} />
-                {authLoading ? "Checking account status…" : !user ? "Sign in to check account status" : settingsQuery.isLoading ? "Loading account status…" : deletionEnabled === undefined ? "Account status unavailable" : `deletionEnabled: ${String(deletionEnabled)}`}
+                {authLoading ? "Checking account status…" : !user ? "Sign in to check account status" : settingsQuery.isLoading ? "Loading account status…" : deletionEnabled === undefined ? "Account status unavailable" : deletionEnabled ? "Deletion requests enabled" : "Deletion requests currently disabled"}
               </div>
               {user && deletionEnabled === false && <span data-testid="text-deletion-disabled-explanation" className="text-xs text-muted-foreground">This account cannot submit a deletion request through JOBSAGE right now.</span>}
             </div>
             {user && settingsQuery.isError && <div role="alert" data-testid="status-deletion-status-error" className="mt-3 flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4" /> We couldn’t verify the current deletion setting for this account.</div>}
-            {!user && !authLoading && <p data-testid="text-public-deletion-status" className="mt-3 text-xs text-muted-foreground">This is the public deletion policy. Sign in to see whether requests are enabled for your account.</p>}
+            {!user && !authLoading && <p data-testid="text-public-deletion-status" className="mt-3 text-xs text-muted-foreground">This is the public deletion policy. <Link href="/login?next=/account-deletion" data-testid="link-deletion-sign-in" className="text-primary underline">Sign in</Link> to check the current request status.</p>}
           </div>
         </header>
 

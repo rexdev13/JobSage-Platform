@@ -104,6 +104,9 @@ vi.mock("@workspace/db", () => ({
 vi.mock("../../lib/email", () => ({
   sendEmployerReplyNotification: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../lib/privacyAccess", () => ({
+  isPrivacyNotificationAllowed: async () => true,
+}));
 
 // ---------------------------------------------------------------------------
 // Svix helpers

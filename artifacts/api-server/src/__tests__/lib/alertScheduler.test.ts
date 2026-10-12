@@ -7,6 +7,7 @@ const {
   deleteWhereMock,
   fetchSponsorVacanciesAsRolesMock,
   sendJobAlertEmailMock,
+  privacyNotificationsAllowedMock,
 } = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
   insertValuesMock: vi.fn(),
@@ -14,6 +15,11 @@ const {
   deleteWhereMock: vi.fn(),
   fetchSponsorVacanciesAsRolesMock: vi.fn(),
   sendJobAlertEmailMock: vi.fn(),
+  privacyNotificationsAllowedMock: vi.fn(),
+}));
+
+vi.mock("../../lib/privacyAccess", () => ({
+  isPrivacyNotificationAllowed: privacyNotificationsAllowedMock,
 }));
 
 vi.mock("@workspace/db", () => {
@@ -176,6 +182,26 @@ describe("weekly candidate job alerts", () => {
     deleteWhereMock.mockClear();
     fetchSponsorVacanciesAsRolesMock.mockReset();
     sendJobAlertEmailMock.mockReset().mockResolvedValue({ success: true, messageId: "msg-1" });
+    privacyNotificationsAllowedMock.mockReset().mockResolvedValue(true);
+  });
+
+  it("does not claim or email jobs when privacy preferences disable alerts", async () => {
+    privacyNotificationsAllowedMock.mockResolvedValue(false);
+    const result = await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+    expect(result.reason).toBe("notifications_disabled");
+    expect(updateSetMock).not.toHaveBeenCalled();
+    expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("releases claims without sending when the candidate opts out mid-batch", async () => {
+    privacyNotificationsAllowedMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const role = sponsorVacancy(1);
+    queueReads({ sponsorRoles: [role] });
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([role]);
+    const result = await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+    expect(result.reason).toBe("notifications_disabled");
+    expect(deleteWhereMock).toHaveBeenCalled();
+    expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
   });
 
   it("sends at most the Opportunities top five in the same score order", async () => {

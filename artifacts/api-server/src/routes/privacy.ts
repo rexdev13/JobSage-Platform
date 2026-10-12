@@ -76,7 +76,7 @@ router.post("/privacy/data-request", requirePrivacyActor, async (req, res) => {
   res.status(201).json({ ticketId, status: "requested", message: "Your authenticated request is saved. The privacy team will contact your verified account email about securely providing your data. This receipt is not a completed export." });
 });
 router.delete("/privacy/smart-apply-drafts", requirePrivacyActor, async (req, res) => {
-  if (req.body?.confirmed !== true) { res.status(400).json({ error: "Confirm draft deletion." }); return; }
+  if (!confirmationInput.safeParse(req.body).success) { res.status(400).json({ error: "Confirm draft deletion." }); return; }
   await db.delete(smartApplyDraftsTable).where(eq(smartApplyDraftsTable.userId, req.user!.id));
   res.json({ success: true });
 });

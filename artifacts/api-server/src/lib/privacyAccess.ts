@@ -24,7 +24,7 @@ export async function requirePrivacyActor(req: Request, res: Response, next: Nex
       const proxyHost = req.get("x-forwarded-host");
       const dev = process.env.NODE_ENV !== "production" && (url.host === host || url.host === proxyHost);
       if (url.protocol !== "https:" && !(dev && url.hostname === "localhost")) throw new Error();
-      if (!dev && url.hostname !== "jobsage.co.uk" && !url.hostname.endsWith(".jobsage.co.uk")) throw new Error();
+      if (!dev && url.hostname !== "jobsage.co.uk" && url.hostname !== "www.jobsage.co.uk") throw new Error();
     } catch { res.status(403).json({ error: "Untrusted origin." }); return; }
   }
   let account: ReauthAccount | undefined;
@@ -34,7 +34,7 @@ export async function requirePrivacyActor(req: Request, res: Response, next: Nex
     next(error);
     return;
   }
-  if (!account || account.suspendedAt || account.role !== req.user.role) {
+  if (!account || account.id !== req.user.id || account.suspendedAt || account.role !== req.user.role) {
     res.status(403).json({ error: "This account is unavailable or its sign-in state has changed." });
     return;
   }
@@ -50,10 +50,10 @@ export async function verifyPrivacyReauthentication(input: {
   if (!input.confirmed) throw new DeletionBlocked("confirmation_required");
   if (!input.password || input.password.length > 1024) throw new DeletionBlocked("reauthentication_failed");
   const account = await readAccount(input.signedInId);
-  if (!account || account.suspendedAt || !account.passwordHash) throw new DeletionBlocked("reauthentication_failed");
+  if (!account || account.id !== input.signedInId || account.suspendedAt || !account.passwordHash) throw new DeletionBlocked("reauthentication_failed");
   if (!await bcrypt.compare(input.password, account.passwordHash)) throw new DeletionBlocked("reauthentication_failed");
   const fresh = await readAccount(input.signedInId);
-  if (!fresh || fresh.suspendedAt || fresh.passwordHash !== account.passwordHash || fresh.role !== account.role) {
+  if (!fresh || fresh.id !== input.signedInId || fresh.suspendedAt || fresh.passwordHash !== account.passwordHash || fresh.role !== account.role) {
     throw new DeletionBlocked("account_changed");
   }
   return { id: fresh.id, role: fresh.role, impersonating: false, confirmed: true, reauthenticatedAt: now };
@@ -66,6 +66,8 @@ export async function readPrivacyAccount(id: string) {
 }
 
 export async function isPrivacyNotificationAllowed(userId: string, category: NotificationCategory): Promise<boolean> {
+  const account = await readPrivacyAccount(userId);
+  if (!account || account.suspendedAt) return false;
   const [preferences] = await db
     .select({ notifications: privacyPreferencesTable.notifications })
     .from(privacyPreferencesTable)

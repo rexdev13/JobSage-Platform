@@ -106,7 +106,7 @@ export default function PrivacySettingsPage() {
   }, [user?.id]);
 
   const notificationEntries = useMemo(() => Object.entries(notifications).sort(([a], [b]) => a.localeCompare(b)), [notifications]);
-  const notificationTitle = (key: string) => key.replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const notificationTitle = (key: string) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   const saveChoices = () => {
     updateMutation.mutate(
@@ -119,7 +119,7 @@ export default function PrivacySettingsPage() {
     if (!user?.id || !confirmed) return;
     exportMutation.mutate({
       data: { expectedAccountId: user.id, password, confirmed: true },
-    });
+    }, { onSuccess: () => exportForm.reset({ password: "", confirmed: false }) });
   });
 
   if (authLoading) {
@@ -135,7 +135,7 @@ export default function PrivacySettingsPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Your account, your choices</p>
           <h1 className="mt-2 text-3xl font-semibold">Privacy settings</h1>
           <p className="mt-3 max-w-xl leading-7 text-muted-foreground">Sign in to review and change the privacy preferences saved to your JOBSAGE account.</p>
-          <Link href="/login" data-testid="link-sign-in" className="mt-7 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90">Sign in to continue</Link>
+          <Link href="/login?next=/privacy-settings" data-testid="link-sign-in" className="mt-7 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90">Sign in to continue</Link>
         </div>
       </main>
     );
@@ -170,12 +170,12 @@ export default function PrivacySettingsPage() {
                 <div><h2 id="choices-heading" className="text-xl font-semibold">Communication &amp; optional use</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">These switches reflect the preferences currently saved to your account. Changes take effect after you save.</p></div>
               </div>
               <div className="mt-5">
-                <ToggleRow title="Marketing messages" description="Product news, opportunities and occasional updates from JOBSAGE." checked={marketing} onCheckedChange={(value) => { updateMutation.reset(); setMarketing(value); }} disabled={updateMutation.isPending} testId="switch-marketing" />
-                <ToggleRow title="Optional analytics" description="Allow optional product analytics that help us understand how the service is used." checked={optionalAnalytics} onCheckedChange={(value) => { updateMutation.reset(); setOptionalAnalytics(value); }} disabled={updateMutation.isPending} testId="switch-optional-analytics" />
+                <ToggleRow title="Marketing preference" description="Saved opt-in for optional JOBSAGE promotions. Requested service emails and job-alert choices are separate." checked={marketing} onCheckedChange={(value) => { updateMutation.reset(); setMarketing(value); }} disabled={updateMutation.isPending} testId="switch-marketing" />
+                <ToggleRow title="Optional analytics preference" description="This choice is saved for optional analytics. No optional analytics collector is currently connected; essential service and security logs are separate." checked={optionalAnalytics} onCheckedChange={(value) => { updateMutation.reset(); setOptionalAnalytics(value); }} disabled={updateMutation.isPending} testId="switch-optional-analytics" />
               </div>
               <div className="mt-7 border-t border-border pt-5">
                 <div className="mb-1 flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><h3 className="font-semibold">Notifications</h3></div>
-                <p className="mb-2 text-sm leading-6 text-muted-foreground">Choose which notification categories may reach you. Essential account and security messages may still be sent.</p>
+                <p className="mb-2 text-sm leading-6 text-muted-foreground">Weekly job alerts and employer-reply emails honour the relevant choices below. Document, eligibility and native push delivery integrations are not yet connected. Essential account, requested-service and security messages may still be sent.</p>
                 {notificationEntries.length > 0 ? notificationEntries.map(([key, enabled]) => (
                   <ToggleRow key={key} title={notificationTitle(key)} description="Control notifications for this saved category." checked={enabled} onCheckedChange={(value) => { updateMutation.reset(); setNotifications((previous) => ({ ...previous, [key]: value })); }} disabled={updateMutation.isPending} testId={`switch-notification-${key}`} />
                 )) : <p data-testid="text-notification-categories-empty" className="rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">No notification categories are currently listed in your saved settings.</p>}
@@ -223,6 +223,7 @@ export default function PrivacySettingsPage() {
               </div>
               <Form {...exportForm}>
                 <form onSubmit={submitExport} className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                  <input type="text" name="username" value={user.email ?? ""} autoComplete="username" readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
                   <FormField control={exportForm.control} name="password" rules={{ required: "Enter your password to verify your account." }} render={({ field }) => (
                     <FormItem>
                       <FormLabel>Confirm your password</FormLabel>
@@ -240,7 +241,7 @@ export default function PrivacySettingsPage() {
                       {exportForm.formState.errors.confirmed && <p role="alert" data-testid="error-export-confirmation" className="text-sm text-destructive">{exportForm.formState.errors.confirmed.message}</p>}
                     </FormItem>
                   )} />
-                  <button type="submit" data-testid="button-request-export" disabled={exportMutation.isPending} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-wait disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : "Request export"}</button>
+                  <button type="submit" data-testid="button-request-export" disabled={exportMutation.isPending || exportMutation.isSuccess} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-wait disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : exportMutation.isSuccess ? "Request received" : "Request export"}</button>
                 </form>
               </Form>
               {exportMutation.isSuccess && exportMutation.data && <div role="status" data-testid="status-export-requested" className="mt-5 rounded-xl border border-primary/20 bg-card p-4"><p className="font-semibold text-foreground">Request received · {exportMutation.data.status}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{exportMutation.data.message}</p><p className="mt-2 font-mono text-xs text-muted-foreground">Receipt {exportMutation.data.ticketId}</p><p className="mt-2 text-xs font-medium text-primary">This receipt confirms a support request only. No export file has been generated or delivered.</p></div>}

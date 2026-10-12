@@ -523,6 +523,12 @@ export async function processUserAlert(
       aiScore: role.aiScore,
       matchScore: role.matchScore,
     }));
+    // Recheck after ranking: a candidate may opt out while this batch is in progress.
+    if (!await isPrivacyNotificationAllowed(userId, "jobAlerts")) {
+      await releaseClaims([...claimedKeys]);
+      await restoreCheckpoint();
+      return { sent: false, rolesIncluded: 0, reason: "notifications_disabled" };
+    }
     const result = await sendJobAlertEmail(email, firstName || "Candidate", alertRoles, "weekly");
     if (!result.success) {
       await releaseClaims([...claimedKeys]);

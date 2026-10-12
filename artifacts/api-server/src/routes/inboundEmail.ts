@@ -26,6 +26,7 @@ import {
 } from "@workspace/db";
 import { eq, and, or } from "drizzle-orm";
 import { sendEmployerReplyNotification } from "../lib/email";
+import { isPrivacyNotificationAllowed } from "../lib/privacyAccess";
 import {
   forwardReceivedEmail,
   getReceivedEmail,
@@ -636,7 +637,9 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
 
   // --- 11. Notify candidate --------------------------------------------
   try {
-    if (candidateEmail) {
+    const notificationCategory = category === "interview_invited" ? "interviews"
+      : category === "acknowledged" ? "messages" : "applications";
+    if (candidateEmail && candidateUserId && await isPrivacyNotificationAllowed(candidateUserId, notificationCategory)) {
       await sendEmployerReplyNotification({
         to: candidateEmail,
         candidateFirstName,

@@ -1,8 +1,11 @@
 import { useEffect } from "react";
+import { useAuth } from "@workspace/auth-web";
+import { PRIVACY_POLICY_VERSION } from "@workspace/mobile-core";
 import { Link } from "wouter";
 import { Shield, ArrowLeft } from "lucide-react";
 
 export default function PrivacyPolicyPage() {
+  const { user, isLoading } = useAuth();
   useEffect(() => {
     document.title = "Privacy Policy | JOBSAGE";
   }, []);
@@ -22,7 +25,7 @@ export default function PrivacyPolicyPage() {
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-10">
           <p>Effective Date: 12 October 2026</p>
-          <p>Version: 2026-10-12</p>
+          <p>Version: {PRIVACY_POLICY_VERSION}</p>
         </div>
 
         <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-xs text-muted-foreground mb-10">
@@ -189,6 +192,7 @@ export default function PrivacyPolicyPage() {
             <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>
             <Link href="/account-deletion" className="text-primary hover:underline">Account deletion &amp; retention</Link>
             <Link href="/privacy-settings" className="text-primary hover:underline">Privacy settings</Link>
+            {!isLoading && !user && <Link href="/login?next=/account-deletion" data-testid="link-privacy-sign-in" className="text-primary hover:underline">Sign in</Link>}
             <Link href="/extension-privacy" className="text-primary hover:underline">Smart Apply Extension Privacy</Link>
             <Link href="/" className="text-primary hover:underline">JOBSAGE home</Link>
           </div>
