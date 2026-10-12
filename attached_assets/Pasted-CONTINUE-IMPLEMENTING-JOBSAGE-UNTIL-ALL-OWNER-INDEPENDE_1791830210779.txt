@@ -1,0 +1,410 @@
+CONTINUE IMPLEMENTING JOBSAGE UNTIL ALL OWNER-INDEPENDENT ENGINEERING WORK IS ACTUALLY FINISHED
+
+This is an execution task, not a planning, auditing or advisory task.
+
+You already identified remaining work. Do not stop again to tell me what could be done. Do it now.
+
+AUTHORIZATION
+
+You are authorized to:
+
+- Modify the JOBSAGE source code.
+- Add database migrations.
+- Add development-safe cleanup adapters.
+- Add fixtures and tests.
+- Update mobile and web code.
+- Add moderation workflows.
+- Add documentation and operational runbooks.
+- Run local and development tests, typechecks, linting and builds.
+- Apply and work through the three pending follow-up cards.
+- Create additional internal implementation tasks when necessary and immediately work on them.
+
+You are not authorized to:
+
+- Delete real customer data.
+- Enable destructive production deletion.
+- Deploy to production.
+- Submit to Apple or Google.
+- Purchase services.
+- Invent legal identities, store identifiers, credentials or owner decisions.
+- Expose credentials or customer information.
+
+Keep the destructive production-deletion gate closed. This gate must not prevent development implementation or fixture-based testing.
+
+NON-STOP EXECUTION RULE
+
+Do not stop at any of the following:
+
+- A plan
+- An audit
+- A traceability matrix
+- A parity matrix
+- A checkpoint
+- A progress report
+- “Ready for review”
+- “Owner input required”
+- “Physical-device testing required”
+- Proposed follow-up cards
+- A list of remaining engineering work
+- Passing only one group of tests
+
+Use the following autonomous loop:
+
+1. Inspect the next incomplete requirement.
+2. Implement it.
+3. Add or update tests.
+4. Run the relevant tests.
+5. Fix failures caused by the change.
+6. Record evidence.
+7. Move immediately to the next incomplete requirement.
+8. Repeat until no owner-independent source work remains.
+
+If a command or test fails, diagnose it, correct the problem and retry. If one tool is unavailable, use a safe alternative and continue. Do not abandon the entire task because one external service is inaccessible.
+
+Only stop when:
+
+- All owner-independent engineering work below has been implemented.
+- Relevant source-level tests pass.
+- Typechecking and production builds pass, or every remaining failure is proven to be pre-existing and documented.
+- The only remaining items genuinely require credentials, owner decisions, physical devices, paid services, production access or store access.
+
+Do not ask me to choose which engineering item to do first. Complete all of them.
+
+STEP 1 — ACTIVATE THE PENDING WORK
+
+The three proposed follow-up cards are pending instead of assigned.
+
+Immediately:
+
+- Assign/apply all three cards.
+- Convert their requirements into active implementation tasks.
+- Do not create cards and leave them pending.
+- Do not wait for approval between cards.
+- Work through every card completely.
+- Continue with remaining requirements after completing the cards.
+
+STEP 2 — ROUTE-BY-ROLE MOBILE PARITY
+
+Build the route-by-role parity matrix, but do not stop after producing it.
+
+Derive the matrix from the actual:
+
+- Web routes
+- Mobile routes
+- Navigation configuration
+- Role checks
+- Permission middleware
+- API authorization
+- Feature flags
+- Deep-link configuration
+- Screens and components
+
+Cover every existing role, including at least:
+
+- Candidate
+- Employer
+- Employer staff
+- Administrator
+- Any additional role found in the repository
+
+For every web feature, record:
+
+- Web route
+- Mobile route
+- Allowed roles
+- Web component
+- Mobile screen
+- API endpoints
+- Permission checks
+- Deep-link behaviour
+- Current parity state
+- Missing implementation
+- Test coverage
+
+After identifying a genuine gap, immediately implement it. Do not merely document it.
+
+Preserve the website’s:
+
+- Feature names
+- Navigation wording
+- Role visibility
+- UI hierarchy
+- Workflows
+- Permissions
+- API behaviour
+
+Do not invent “Coming soon” pages, placeholder features, alternative navigation labels or new routes without specification support.
+
+Complete source-level parity for:
+
+- Authentication and onboarding
+- Candidate profile
+- Employer and staff profiles
+- Job search and job details
+- Saved jobs and searches
+- Applications and tracking
+- Smart Apply
+- CVs and documents
+- Identity/right-to-work features
+- Messages and attachments
+- Interviews and calendars
+- Notifications
+- Employer job management
+- Employer candidate management
+- Staff permissions
+- Administration
+- Help, feedback and reporting
+- Privacy settings
+- Account deletion
+
+STEP 3 — COMPLETE THE PRIVACY AND DATA-FLOW INVENTORY
+
+Inspect the source, database schema, migrations, APIs, workers, environment configuration and provider integrations.
+
+Inventory every user-data location across:
+
+- Database tables
+- Authentication
+- Sessions and tokens
+- Object/file storage
+- Temporary files
+- CVs and generated documents
+- Identity documents
+- Applications
+- Messages and attachments
+- Smart Apply
+- AI prompts and generated outputs
+- Email
+- Push notifications and device registrations
+- Search indexes
+- Caches
+- Calendar providers
+- Analytics
+- Billing
+- Moderation
+- Support
+- Audit and security logs
+- Backups
+- External processors
+
+For every data flow, record:
+
+- Data category
+- Source
+- Destination
+- User/account ownership key
+- Storage location
+- Provider
+- Creation path
+- Read path
+- Update path
+- Deletion path
+- Retention rule
+- Confirmed source evidence
+- Item requiring external verification
+
+Clearly separate confirmed source facts from external assumptions.
+
+Do not stop after documenting the inventory. Use it to implement missing cleanup coverage.
+
+STEP 4 — COMPLETE DEVELOPMENT-SAFE ACCOUNT DELETION
+
+Implement a central account-deletion orchestrator covering every confirmed user-data location.
+
+Complete:
+
+- Ownership selectors for candidates, employers, staff and organisations.
+- Reauthentication and permanent-deletion confirmation.
+- Persistent deletion-request state.
+- Immediate session/token revocation.
+- Sign in with Apple token-revocation support where configured.
+- Device-token and notification cleanup.
+- Database cleanup.
+- File and object-storage cleanup.
+- Temporary-file cleanup.
+- Search-index and cache cleanup.
+- AI-data cleanup.
+- Email-provider cleanup where supported.
+- Analytics deletion/anonymisation where supported.
+- Calendar cleanup.
+- Provider cleanup adapters.
+- Retry and reconciliation jobs.
+- Idempotency.
+- Partial-failure recovery.
+- Legal-hold exclusions.
+- Retention exceptions.
+- Shared-record handling.
+- Minimal pseudonymous deletion receipt.
+- User completion notification.
+- Safe structured logging without personal content.
+
+Shared-record behaviour:
+
+- Candidate-owned personal data must be deleted or anonymised.
+- Employer-owned job listings must remain when an individual staff account is deleted.
+- Remove/anonymise deleted staff identities from shared records.
+- Transfer shared ownership to another organisation administrator.
+- A sole organisation owner must enter the separate organisation-deletion or ownership-transfer flow.
+- Data already independently received by an external employer or ATS cannot be recalled, but JOBSAGE-controlled copies must be removed.
+- Legal-hold records must be isolated and excluded from ordinary application use.
+
+Add fixture tests covering every cleanup adapter and ownership path.
+
+Keep production deletion disabled, but make the implementation complete and testable in local/development environments.
+
+STEP 5 — CLOSE MODERATION GAPS
+
+Inventory every content and interaction surface, including:
+
+- Candidate profiles
+- Employer profiles
+- Job listings
+- Applications
+- Messages
+- Attachments
+- Feedback
+- Support requests
+- User-generated text
+- AI-generated content exposed to users
+
+Implement missing moderation capabilities:
+
+- Reporting
+- Blocking
+- Content-surface coverage
+- Staff review queue
+- Triage status
+- Severity levels
+- Escalation
+- Assignment
+- Moderator notes
+- Decision history
+- Resolution
+- Appeals/reconsideration where applicable
+- Abuse and spam rate limits
+- Repeat-offender controls
+- Moderator permission checks
+- Notifications
+- Audit history
+
+Test that:
+
+- Blocked users cannot continue prohibited interactions.
+- Ordinary users cannot access moderation tools.
+- Staff permissions are enforced by the API, not only hidden in the UI.
+- Reports cannot be duplicated or spammed without limits.
+- Moderation actions are auditable.
+- Attachments and less obvious content surfaces are covered.
+
+STEP 6 — SOURCE-LEVEL MOBILE TESTING
+
+Add and run tests for:
+
+- Route access by role
+- Navigation visibility
+- API permission enforcement
+- Authentication restoration
+- Expired sessions
+- Logout
+- Account changes
+- Role changes
+- Cold deep-link routing
+- Warm deep-link routing
+- Invalid and unauthorized deep links
+- Push-notification route parsing
+- File-selection state
+- Camera permission states
+- Upload cancellation
+- Streaming cancellation
+- Temporary-file cleanup
+- Offline/error states
+- Screen-reader labels
+- Focus order
+- Touch-target accessibility
+- Keyboard handling
+- Colour/contrast-related component states where testable
+- Account deletion screens and confirmation states
+
+These tests do not replace physical-device testing. Nevertheless, implement and run every test that can be completed from source.
+
+STEP 7 — OWNER-DEPENDENT WORK MUST NOT BLOCK ENGINEERING
+
+Create one consolidated `OWNER_INPUTS.md` containing only genuinely external inputs:
+
+- Legal operator name
+- Privacy and support contacts
+- Registered address where required
+- Financial-year-end information
+- Final EULA and legal approval
+- Billing/subscription strategy
+- Apple account/team identity
+- Google Play account identity
+- Final iOS bundle identifier
+- Final Android application ID
+- EAS/signing credentials
+- Production domains
+- Provider-production configuration
+- Store-form answers
+- Reviewer credentials
+- Physical-device acceptance evidence
+
+Use explicit placeholders in configuration templates where required.
+
+Do not invent these values, but do not use their absence as a reason to stop unrelated implementation.
+
+STEP 8 — VALIDATION
+
+Run all relevant:
+
+- Unit tests
+- Integration tests
+- API tests
+- Permission tests
+- Deletion fixture tests
+- Moderation tests
+- Mobile route tests
+- Accessibility tests
+- Typechecks
+- Lint checks
+- Web production build
+- API production build
+- Mobile development/build validation available without signing
+
+Fix all failures introduced by your work.
+
+If an unrelated pre-existing failure remains, prove it by identifying:
+
+- Exact failing command
+- Exact error
+- Relevant file
+- Why it predates or is independent of the current work
+- Whether it prevents release
+
+FINAL RESPONSE REQUIREMENT
+
+Do not return another recommendation about what to do next.
+
+Return only after the execution loop is exhausted, using this structure:
+
+1. Work completed
+2. Files changed
+3. Database migrations
+4. Route-by-role gaps found and fixed
+5. Deletion locations and providers covered
+6. Moderation gaps fixed
+7. Tests added
+8. Exact commands run and results
+9. Build results
+10. Remaining external-only blockers
+11. Owner inputs still required
+12. Physical-device tests still required
+13. Store actions still requiring account access
+
+Every unfinished item must be labelled either:
+
+- EXTERNAL BLOCKER — with the exact missing access/evidence; or
+- ENGINEERING NOT COMPLETE — which means you must continue working instead of returning the response.
+
+You are not allowed to label a source-code task as an external blocker merely because physical devices, store credentials or owner legal information are unavailable.
+
+Begin immediately. Apply the pending cards, build the parity matrix, implement its gaps, then continue through privacy, deletion, moderation, testing and builds without waiting for another instruction.

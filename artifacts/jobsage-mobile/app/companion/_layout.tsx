@@ -7,6 +7,7 @@ import { ActivityIndicator, Platform, StyleSheet, View, useColorScheme } from "r
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { canAccessCandidateCompanion } from "@/lib/role-access";
 
 export default function TabLayout() {
   const { user, isLoading } = useAuth();
@@ -26,6 +27,10 @@ export default function TabLayout() {
 
   if (!user) {
     return <Redirect href="/login" />;
+  }
+
+  if (!canAccessCandidateCompanion(user.role)) {
+    return <Redirect href="/workspace" />;
   }
 
   return (

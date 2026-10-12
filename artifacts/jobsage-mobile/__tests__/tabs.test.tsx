@@ -2,11 +2,23 @@ import React from "react";
 import { describe, it, expect, jest } from "@jest/globals";
 import { render } from "@testing-library/react-native";
 
-jest.mock("expo-router", () => ({
-  router: { push: jest.fn(), replace: jest.fn() },
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
-  Link: ({ children }: { children: React.ReactNode }) => children,
-}));
+let mockAuthUserRole: string | null = "candidate";
+
+jest.mock("expo-router", () => {
+  const React = require("react");
+  const { View, Text } = require("react-native");
+  const Tabs = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(View, { testID: "companion-tabs" }, children);
+  Tabs.Screen = () => null;
+  return {
+    router: { push: jest.fn(), replace: jest.fn() },
+    useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+    Link: ({ children }: { children: React.ReactNode }) => children,
+    Redirect: ({ href }: { href: string }) =>
+      React.createElement(Text, { testID: "companion-redirect", accessibilityLabel: href }, href),
+    Tabs,
+  };
+});
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
@@ -25,6 +37,8 @@ jest.mock("expo-linear-gradient", () => ({
 jest.mock("expo-blur", () => ({
   BlurView: ({ children }: { children: React.ReactNode }) => children,
 }));
+
+jest.mock("expo-symbols", () => ({ SymbolView: () => null }));
 
 jest.mock("react-native-svg", () => {
   const React = require("react");
@@ -77,7 +91,7 @@ jest.mock("@workspace/api-client-react", () => ({
 
 jest.mock("@/context/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "u1", email: "test@test.com", firstName: "Test", lastName: "User", role: "candidate" },
+    user: { id: "u1", email: "test@test.com", firstName: "Test", lastName: "User", role: mockAuthUserRole },
     isLoading: false,
     logout: jest.fn(),
     refetchUser: jest.fn(),
@@ -153,4 +167,23 @@ describe("Login screen", () => {
     const { getAllByText } = await render(<Login />);
     expect(getAllByText(/sign in|log in|jobsage/i).length).toBeGreaterThan(0);
   });
+});
+
+describe("Companion role gate", () => {
+  it("keeps candidate users in the native companion", async () => {
+    mockAuthUserRole = "candidate";
+    const TabLayout = require("../app/companion/_layout").default;
+    const { getByTestId } = await render(<TabLayout />);
+    expect(getByTestId("companion-tabs")).toBeTruthy();
+  });
+
+  it.each(["employer", "reviewer", "admin", "super_admin", "marketing", null])(
+    "routes non-candidate role %s to the canonical workspace",
+    async (role) => {
+      mockAuthUserRole = role;
+      const TabLayout = require("../app/companion/_layout").default;
+      const { getByTestId } = await render(<TabLayout />);
+      expect(getByTestId("companion-redirect").props.accessibilityLabel).toBe("/workspace");
+    },
+  );
 });
