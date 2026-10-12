@@ -3151,8 +3151,29 @@ export const SupportTicketUpdateStatus = {
   resolved: "resolved",
 } as const;
 
+export type SupportTicketUpdateSeverity =
+  (typeof SupportTicketUpdateSeverity)[keyof typeof SupportTicketUpdateSeverity];
+
+export const SupportTicketUpdateSeverity = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type SupportTicketUpdateAssignment =
+  (typeof SupportTicketUpdateAssignment)[keyof typeof SupportTicketUpdateAssignment];
+
+export const SupportTicketUpdateAssignment = {
+  me: "me",
+  unassigned: "unassigned",
+} as const;
+
 export interface SupportTicketUpdate {
   status?: SupportTicketUpdateStatus;
+  severity?: SupportTicketUpdateSeverity;
+  assignment?: SupportTicketUpdateAssignment;
+  escalate?: boolean;
   /**
    * @maxLength 5000
    * @nullable
@@ -3181,6 +3202,16 @@ export const SupportTicketItemStatus = {
   resolved: "resolved",
 } as const;
 
+export type SupportTicketItemSeverity =
+  (typeof SupportTicketItemSeverity)[keyof typeof SupportTicketItemSeverity];
+
+export const SupportTicketItemSeverity = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
 export interface SupportTicketItem {
   id: number;
   ticketId: string;
@@ -3191,7 +3222,13 @@ export interface SupportTicketItem {
   message: string;
   /** @nullable */
   userId: string | null;
+  isContentReport: boolean;
   status: SupportTicketItemStatus;
+  severity: SupportTicketItemSeverity;
+  /** @nullable */
+  assignedModeratorId: string | null;
+  /** @nullable */
+  escalatedAt: string | null;
   /** @nullable */
   adminNotes: string | null;
   /** @nullable */
@@ -3249,9 +3286,24 @@ export interface SupportTicketReply {
   createdAt: string;
 }
 
+/**
+ * @nullable
+ */
+export type SupportTicketEventDetails = { [key: string]: unknown } | null;
+
+export interface SupportTicketEvent {
+  id: number;
+  actor: string;
+  action: string;
+  /** @nullable */
+  details: SupportTicketEventDetails;
+  createdAt: string;
+}
+
 export interface SupportTicketDetail {
   ticket: SupportTicketItem;
   replies: SupportTicketReply[];
+  history: SupportTicketEvent[];
 }
 
 export type LearningVideoCategory =
@@ -3547,6 +3599,7 @@ export type ResetCandidateReadinessQuota200 = {
 export type ListAdminSupportTicketsParams = {
   status?: ListAdminSupportTicketsStatus;
   category?: ListAdminSupportTicketsCategory;
+  isContentReport?: boolean;
   sort?: ListAdminSupportTicketsSort;
   /**
    * @minimum 1

@@ -5,10 +5,12 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SupportTicketEvent } from "./supportTicketEvent";
 import type { SupportTicketItem } from "./supportTicketItem";
 import type { SupportTicketReply } from "./supportTicketReply";
 
 export interface SupportTicketDetail {
   ticket: SupportTicketItem;
   replies: SupportTicketReply[];
+  history: SupportTicketEvent[];
 }

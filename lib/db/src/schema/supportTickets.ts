@@ -1,5 +1,6 @@
 import { createInsertSchema } from "drizzle-zod";
-import { index, integer, pgTable, serial, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, integer, pgTable, serial, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
 import { candidateMessagesTable } from "./candidateMessages";
@@ -13,6 +14,7 @@ export const supportTicketCategories = [
 ] as const;
 
 export const supportTicketStatuses = ["new", "in_review", "attended", "resolved"] as const;
+export const supportTicketSeverities = ["low", "normal", "high", "urgent"] as const;
 
 export const supportTicketsTable = pgTable(
   "support_tickets",
@@ -25,7 +27,11 @@ export const supportTicketsTable = pgTable(
     subject: varchar("subject", { length: 180 }).notNull(),
     message: text("message").notNull(),
     userId: varchar("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    isContentReport: boolean("is_content_report").notNull().default(false),
     status: varchar("status", { enum: supportTicketStatuses }).notNull().default("new"),
+    severity: varchar("severity", { enum: supportTicketSeverities }).notNull().default("normal"),
+    assignedModeratorId: varchar("assigned_moderator_id").references(() => usersTable.id, { onDelete: "set null" }),
+    escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     adminNotes: text("admin_notes"),
     reviewedBy: varchar("reviewed_by").references(() => usersTable.id, { onDelete: "set null" }),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
@@ -39,6 +45,8 @@ export const supportTicketsTable = pgTable(
     uniqueIndex("support_tickets_ticket_id_unique").on(table.ticketId),
     index("support_tickets_status_created_at_idx").on(table.status, table.createdAt),
     index("support_tickets_user_id_idx").on(table.userId),
+    index("support_tickets_moderation_queue_idx").on(table.isContentReport, table.status, table.severity, table.createdAt),
+    check("support_tickets_severity_check", sql`${table.severity} IN ('low', 'normal', 'high', 'urgent')`),
   ],
 );
 
@@ -69,6 +77,10 @@ export const insertSupportTicketSchema = createInsertSchema(supportTicketsTable)
   id: true,
   userId: true,
   status: true,
+  isContentReport: true,
+  severity: true,
+  assignedModeratorId: true,
+  escalatedAt: true,
   adminNotes: true,
   reviewedBy: true,
   reviewedAt: true,

@@ -52,21 +52,21 @@ describe("writeAuditEvent", () => {
     );
   });
 
-  it("resolves without error when target and details are omitted", async () => {
+  it("reports a successful write when target and details are omitted", async () => {
     const { writeAuditEvent } = await import("../lib/audit");
-    await expect(writeAuditEvent("actor-3", "bare_event")).resolves.toBeUndefined();
+    await expect(writeAuditEvent("actor-3", "bare_event")).resolves.toBe(true);
   });
 
-  it("swallows a db error and does not throw", async () => {
+  it("reports a failed insert without throwing", async () => {
     mockInsert.mockImplementationOnce(() => {
       throw new Error("DB connection refused");
     });
     const { writeAuditEvent } = await import("../lib/audit");
-    await expect(writeAuditEvent("actor-4", "failing_event", "target-4")).resolves.toBeUndefined();
+    await expect(writeAuditEvent("actor-4", "failing_event", "target-4")).resolves.toBe(false);
     expect(console.error).toHaveBeenCalled();
   });
 
-  it("swallows a rejected-promise from values() and does not throw", async () => {
+  it("reports a rejected values() promise without throwing", async () => {
     const failChain = {
       then(_resolve: any, reject?: any) {
         return Promise.reject(new Error("insert failed")).catch(reject ?? (() => {}));
@@ -75,6 +75,6 @@ describe("writeAuditEvent", () => {
     };
     mockValues.mockReturnValueOnce(failChain);
     const { writeAuditEvent } = await import("../lib/audit");
-    await expect(writeAuditEvent("actor-5", "rejected_event")).resolves.toBeUndefined();
+    await expect(writeAuditEvent("actor-5", "rejected_event")).resolves.toBe(false);
   });
 });

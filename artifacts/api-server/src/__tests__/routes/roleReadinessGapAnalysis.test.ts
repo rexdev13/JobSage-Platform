@@ -103,6 +103,9 @@ vi.mock("../../lib/readinessClaims", async () => {
   const actual = await vi.importActual<typeof import("../../lib/readinessClaims")>("../../lib/readinessClaims");
   return { ...actual, getCandidateReadinessClaims: getClaims };
 });
+vi.mock("../../lib/candidateVacancyLocation", () => ({
+  getCandidateRoleLocationStatus: vi.fn().mockResolvedValue("confirmed_uk"),
+}));
 
 vi.mock("../../lib/auth", async () => {
   const actual = await vi.importActual<typeof import("../../lib/auth")>("../../lib/auth");

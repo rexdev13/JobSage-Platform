@@ -38,6 +38,13 @@ const { supportTicket, supportDetail, useListMock, useDetailMock, updateMutation
       updatedAt: "2026-10-01T10:00:00.000Z",
     },
     replies: [],
+    history: [{
+      id: 21,
+      actor: "admin-1",
+      action: "admin_update_support_ticket",
+      details: { status: "in_review", severity: "high", assignedModeratorId: "admin-1" },
+      createdAt: "2026-10-01T11:30:00.000Z",
+    }],
   },
   useListMock: vi.fn(),
   useDetailMock: vi.fn(),
@@ -52,6 +59,10 @@ vi.mock("@workspace/api-client-react", () => ({
   useGetAdminSupportTicket: (...args: unknown[]) => useDetailMock(...args),
   useUpdateAdminSupportTicket: () => ({ mutate: updateMutationMock }),
   useReplyToAdminSupportTicket: () => ({ mutate: replyMutationMock }),
+}));
+
+vi.mock("@workspace/auth-web", () => ({
+  useAuth: () => ({ user: { id: "admin-1", role: "admin" } }),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -125,6 +136,8 @@ describe("AdminSupportTicketsTab", () => {
     expect(thread.nextElementSibling?.getAttribute("data-testid")).toBe("support-ticket-thread-42");
     expect(screen.getByText("Will be sent via email")).toBeTruthy();
     expect(conversation.textContent).toContain("Reply to Candidate");
+    expect(screen.getByText("admin update support ticket")).toBeTruthy();
+    expect(screen.getByLabelText("Support ticket activity history").textContent).toContain("severity: high");
 
     fireEvent.change(screen.getByTestId("input-support-ticket-reply"), {
       target: { value: "We have sent a replacement link." },

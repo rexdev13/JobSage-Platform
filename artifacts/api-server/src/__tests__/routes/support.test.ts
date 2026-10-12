@@ -6,6 +6,7 @@ import request from "supertest";
 const {
   dbResults,
   txResults,
+  txExecuteResults,
   insertedValues,
   txInsertedValues,
   updatedValues,
@@ -14,9 +15,11 @@ const {
   sendSupportTicketNotificationMock,
   sendSupportTicketReplyMock,
   requestLogErrorMock,
+  writeAuditEventMock,
 } = vi.hoisted(() => ({
   dbResults: [] as any[],
   txResults: [] as any[],
+  txExecuteResults: [] as any[],
   insertedValues: [] as any[],
   txInsertedValues: [] as any[],
   updatedValues: [] as any[],
@@ -25,6 +28,7 @@ const {
   sendSupportTicketNotificationMock: vi.fn(),
   sendSupportTicketReplyMock: vi.fn(),
   requestLogErrorMock: vi.fn(),
+  writeAuditEventMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", async () => {
@@ -77,6 +81,7 @@ vi.mock("@workspace/db", async () => {
 
   const tx = {
     select: vi.fn(() => makeSelectChain(txResults)),
+    execute: vi.fn(async () => ({ rows: txExecuteResults.shift() ?? [] })),
     insert: vi.fn((table: unknown) =>
       makeInsertChain(
         txInsertedValues,
@@ -112,7 +117,7 @@ vi.mock("../../lib/email", () => ({
 }));
 
 vi.mock("../../lib/audit", () => ({
-  writeAuditEvent: vi.fn().mockResolvedValue(undefined),
+  writeAuditEvent: writeAuditEventMock,
 }));
 
 const supportRouter = (await import("../../routes/support")).default;
@@ -151,7 +156,11 @@ function supportTicketRow(overrides: Record<string, unknown> = {}) {
     subject: "Password reset link",
     message: "The password reset link never arrives.",
     userId: null,
+    isContentReport: false,
     status: "new",
+    severity: "normal",
+    assignedModeratorId: null,
+    escalatedAt: null,
     adminNotes: null,
     reviewedBy: null,
     reviewedAt: null,
@@ -186,6 +195,7 @@ describe("support ticket routes", () => {
   beforeEach(() => {
     dbResults.length = 0;
     txResults.length = 0;
+    txExecuteResults.length = 0;
     insertedValues.length = 0;
     txInsertedValues.length = 0;
     updatedValues.length = 0;
@@ -194,6 +204,7 @@ describe("support ticket routes", () => {
     sendSupportTicketNotificationMock.mockReset().mockResolvedValue({ success: true });
     sendSupportTicketReplyMock.mockReset().mockResolvedValue({ success: true });
     requestLogErrorMock.mockReset();
+    writeAuditEventMock.mockReset().mockResolvedValue(true);
   });
 
   it("saves a guest ticket before sending the email notification", async () => {
@@ -206,6 +217,7 @@ describe("support ticket routes", () => {
       ...ticketInput,
       ticketId: response.body.ticketId,
       userId: null,
+      isContentReport: false,
     });
     expect(sendSupportTicketNotificationMock).toHaveBeenCalledWith({
       ...ticketInput,
@@ -219,12 +231,29 @@ describe("support ticket routes", () => {
       .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
       .send({ ...ticketInput, name: "Forged contact", email: "other@example.test", message: "Private answer excerpt fixture." });
     expect(response.status).toBe(201);
-    expect(insertedValues[0]).toMatchObject({
+    expect(txInsertedValues[0]).toMatchObject({
       userId: "candidate-1", email: "reporter@example.test", name: "Reporter Fixture",
       category: "Other", subject: "AI content report",
-      message: "Private answer excerpt fixture.",
+      message: "Private answer excerpt fixture.", isContentReport: true,
     });
     expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private answer excerpt");
+  });
+
+  it("logs an audit-write failure after saving a content report", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    writeAuditEventMock.mockResolvedValue(false);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
+      .send({ ...ticketInput, message: "Private answer excerpt fixture." });
+
+    expect(response.status).toBe(201);
+    expect(writeAuditEventMock).toHaveBeenCalledWith("candidate-1", "candidate_content_report", response.body.ticketId, {
+      reportType: "ai",
+    });
+    expect(requestLogErrorMock).toHaveBeenCalledWith(
+      { ticketId: response.body.ticketId },
+      "Content report was saved but its audit event could not be recorded",
+    );
   });
 
   it("rejects a report after the requesting account changes", async () => {
@@ -241,7 +270,7 @@ describe("support ticket routes", () => {
       .set("X-Jobsage-Message-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
       .send({ ...ticketInput, message: "Private message excerpt fixture." });
     expect(response.status).toBe(201);
-    expect(insertedValues[0]).toMatchObject({ userId: "candidate-1", subject: "Message content report", email: "reporter@example.test" });
+    expect(txInsertedValues[0]).toMatchObject({ userId: "candidate-1", subject: "Message content report", email: "reporter@example.test", isContentReport: true });
     expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private message excerpt");
   });
 
@@ -249,7 +278,7 @@ describe("support ticket routes", () => {
     const response = await request(buildApp()).post("/support/ticket")
       .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1").send(ticketInput);
     expect(response.status).toBe(403);
-    expect(insertedValues).toHaveLength(0);
+    expect(txInsertedValues).toHaveLength(0);
   });
 
   it("does not save an AI report for a deleted account", async () => {
@@ -257,7 +286,18 @@ describe("support ticket routes", () => {
     const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
       .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1").send(ticketInput);
     expect(response.status).toBe(403);
-    expect(insertedValues).toHaveLength(0);
+    expect(txInsertedValues).toHaveLength(0);
+  });
+
+  it("enforces the daily report limit before storing evidence", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txExecuteResults.push([], [{ count: 8 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-AI-Report", "1").set("X-Jobsage-Report-User", "candidate-1")
+      .send({ ...ticketInput, message: "Private answer excerpt fixture." });
+    expect(response.status).toBe(429);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
   });
 
   it("keeps a saved ticket successful when its notification email fails", async () => {
@@ -282,9 +322,12 @@ describe("support ticket routes", () => {
     expect(listed.status).toBe(200);
     expect(listed.body).toHaveLength(1);
 
+    dbResults.push([supportTicketRow()]);
     dbResults.push([
       supportTicketRow({
         status: "in_review",
+        severity: "urgent",
+        assignedModeratorId: "super_admin-1",
         adminNotes: "Sent a replacement link.",
         reviewedBy: "super_admin-1",
         reviewedAt: new Date("2026-10-01T11:00:00.000Z"),
@@ -293,15 +336,38 @@ describe("support ticket routes", () => {
     const updated = await request(buildApp())
       .patch("/admin/super/support-tickets/41")
       .set(authAs("super_admin"))
-      .send({ status: "in_review", adminNotes: "Sent a replacement link." });
+      .send({ status: "in_review", adminNotes: "Sent a replacement link.", severity: "urgent", assignment: "me", escalate: true });
 
     expect(updated.status).toBe(200);
     expect(updated.body.status).toBe("in_review");
     expect(updatedValues[0]).toMatchObject({
       status: "in_review",
+      severity: "urgent",
+      assignedModeratorId: "super_admin-1",
+      escalatedAt: expect.any(Date),
       adminNotes: "Sent a replacement link.",
       reviewedBy: "super_admin-1",
     });
+  });
+
+  it("prevents moderators from unassigning a ticket owned by another moderator", async () => {
+    dbResults.push([supportTicketRow({ assignedModeratorId: "admin-2" })]);
+    const response = await request(buildApp())
+      .patch("/admin/super/support-tickets/41")
+      .set(authAs("admin"))
+      .send({ assignment: "unassigned" });
+    expect(response.status).toBe(403);
+    expect(updatedValues).toHaveLength(0);
+  });
+
+  it("prevents moderators from taking over another moderator's ticket", async () => {
+    dbResults.push([supportTicketRow({ assignedModeratorId: "admin-2" })]);
+    const response = await request(buildApp())
+      .patch("/admin/super/support-tickets/41")
+      .set(authAs("admin"))
+      .send({ assignment: "me" });
+    expect(response.status).toBe(403);
+    expect(updatedValues).toHaveLength(0);
   });
 
   it("returns the ticket and full reply history to an admin", async () => {
@@ -316,7 +382,14 @@ describe("support ticket routes", () => {
       candidateMessageId: null,
       createdAt: new Date("2026-10-01T11:00:00.000Z"),
     };
-    dbResults.push([supportTicketRow()], [reply]);
+    const event = {
+      id: 21,
+      actor: "admin-1",
+      action: "admin_update_support_ticket",
+      details: { status: "in_review", severity: "high", assignedModeratorId: "admin-1" },
+      createdAt: new Date("2026-10-01T11:30:00.000Z"),
+    };
+    dbResults.push([supportTicketRow()], [reply], [event]);
 
     const response = await request(buildApp())
       .get("/admin/super/support-tickets/41")
@@ -328,6 +401,11 @@ describe("support ticket routes", () => {
       adminDisplayName: "Alex Admin",
       replyText: "We have sent a replacement link.",
       deliveryChannel: "email",
+    });
+    expect(response.body.history[0]).toMatchObject({
+      action: "admin_update_support_ticket",
+      actor: "admin-1",
+      details: { status: "in_review", severity: "high" },
     });
   });
 

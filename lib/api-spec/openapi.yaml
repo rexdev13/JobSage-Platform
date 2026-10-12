@@ -1554,6 +1554,10 @@ paths:
           schema:
             type: string
             enum: [Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other]
+        - name: isContentReport
+          in: query
+          schema:
+            type: boolean
         - name: sort
           in: query
           schema:
@@ -9836,6 +9840,14 @@ components:
         status:
           type: string
           enum: [new, in_review, attended, resolved]
+        severity:
+          type: string
+          enum: [low, normal, high, urgent]
+        assignment:
+          type: string
+          enum: [me, unassigned]
+        escalate:
+          type: boolean
         adminNotes:
           type: ["string", "null"]
           maxLength: 5000
@@ -9851,7 +9863,11 @@ components:
         - subject
         - message
         - userId
+        - isContentReport
         - status
+        - severity
+        - assignedModeratorId
+        - escalatedAt
         - adminNotes
         - reviewedBy
         - reviewedAt
@@ -9876,9 +9892,19 @@ components:
           type: string
         userId:
           type: ["string", "null"]
+        isContentReport:
+          type: boolean
         status:
           type: string
           enum: [new, in_review, attended, resolved]
+        severity:
+          type: string
+          enum: [low, normal, high, urgent]
+        assignedModeratorId:
+          type: ["string", "null"]
+        escalatedAt:
+          type: ["string", "null"]
+          format: date-time
         adminNotes:
           type: ["string", "null"]
         reviewedBy:
@@ -9936,7 +9962,7 @@ components:
 
     SupportTicketDetail:
       type: object
-      required: [ticket, replies]
+      required: [ticket, replies, history]
       properties:
         ticket:
           $ref: "#/components/schemas/SupportTicketItem"
@@ -9944,6 +9970,27 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SupportTicketReply"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportTicketEvent"
+
+    SupportTicketEvent:
+      type: object
+      required: [id, actor, action, details, createdAt]
+      properties:
+        id:
+          type: integer
+        actor:
+          type: string
+        action:
+          type: string
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
 
     LearningVideo:
       type: object

@@ -7,6 +7,7 @@ const fixture = vi.hoisted(() => ({
   claimedRow: null as Record<string, unknown> | null,
   account: { id: "fixture-candidate", role: "candidate", suspendedAt: null as Date | null },
   writes: [] as Array<{ table: string; operation: string; value?: unknown; where?: unknown }>,
+  queries: [] as string[],
 }));
 vi.mock("../../lib/accountDeletion/releaseReadiness", () => ({
   get DELETION_REQUESTS_ENABLED() { return fixture.enabled; },
@@ -53,6 +54,7 @@ vi.mock("@workspace/db", async () => {
   });
   const tx = { select, insert, update, delete: remove, execute: vi.fn(async (query: SQL) => {
     const text = new PgDialect().sqlToQuery(query).sql;
+    fixture.queries.push(text);
     if (text.includes("SELECT t.request_id")) return { rows: fixture.claimedRow ? [{
       request_id: "fixture-request", resource_ciphertext: fixture.claimedRow.resource_ciphertext,
       account_hash: fixture.accountHash,
@@ -79,6 +81,7 @@ describe("Postgres deletion transaction, fixture database adapter only", () => {
   beforeEach(() => {
     fixture.existing = false; fixture.organisation = false; fixture.enabled = true; fixture.account.role = "candidate"; fixture.claimedRow = null;
     fixture.account.suspendedAt = null; fixture.writes.length = 0;
+    fixture.queries.length = 0;
     vi.stubEnv("ACCOUNT_DELETION_MASTER_KEY", "fixture-only-key-not-a-production-secret-123456789");
     fixture.accountHash = accountDeletionHash("fixture-candidate");
   });
@@ -141,6 +144,21 @@ describe("Postgres deletion transaction, fixture database adapter only", () => {
       await expect(claim).resolves.toMatchObject({ id: "fixture-task", attempts: 1, resource });
       expect(fixture.writes).toContainEqual(expect.objectContaining({ operation: "update", table: "account_deletion_tasks" }));
     }
+  });
+  it("retains database pointers until object, processor and device cleanup tasks complete", async () => {
+    fixture.existing = true;
+    fixture.claimedRow = {
+      id: "fixture-task", attempts: 0, kind: "object",
+      resource_ciphertext: encryptDeletionResource(JSON.stringify({
+        version: 1, accountId: "fixture-candidate", reference: "/objects/fixture",
+        provider: "app-storage", generation: "101",
+      })),
+    };
+    await new PostgresDeletionStore().claim("fixture-request", now);
+    const claimSql = fixture.queries.find(text => text.includes("prior.kind IN"));
+    expect(claimSql).toContain("prior.kind IN ('object', 'processor', 'device_data')");
+    expect(claimSql).toContain("prior.state <> 'complete'");
+    expect(claimSql).toMatch(/WHEN 'object' THEN 1[\s\S]*WHEN 'processor' THEN 2[\s\S]*WHEN 'device_data' THEN 3[\s\S]*WHEN 'active_data' THEN 4/);
   });
   it("blocks every direct store mutation while the real release gate is closed", async () => {
     fixture.enabled = false;

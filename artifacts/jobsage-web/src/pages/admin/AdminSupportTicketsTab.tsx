@@ -9,12 +9,21 @@ import {
   useUpdateAdminSupportTicket,
   type SupportTicketItem,
 } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/auth-web";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 type TicketStatus = "new" | "in_review" | "attended" | "resolved";
+type TicketSeverity = "low" | "normal" | "high" | "urgent";
+type TicketUpdate = {
+  status?: TicketStatus;
+  adminNotes?: string | null;
+  severity?: TicketSeverity;
+  assignment?: "me" | "unassigned";
+  escalate?: boolean;
+};
 type TicketFilter = "needs_attention" | "attended" | "resolved" | "all";
 type TicketCategory =
   | "Visa Sponsorship"
@@ -61,27 +70,46 @@ function getErrorStatus(error: unknown): number | undefined {
     : undefined;
 }
 
+function eventSummary(details: Record<string, unknown> | null) {
+  if (!details) return "";
+  const parts: string[] = [];
+  if (typeof details.reportType === "string") parts.push(`${details.reportType} report`);
+  if (typeof details.status === "string") parts.push(`status: ${details.status}`);
+  if (typeof details.severity === "string") parts.push(`severity: ${details.severity}`);
+  if (typeof details.assignedModeratorId === "string") parts.push("moderator assignment changed");
+  if (details.escalatedAt) parts.push("escalated");
+  if (Array.isArray(details.changedFields)) {
+    const fields = details.changedFields.filter((field): field is string => typeof field === "string");
+    if (fields.length) parts.push(`updated: ${fields.join(", ")}`);
+  }
+  if (typeof details.deliveryChannel === "string") parts.push(`reply sent via ${details.deliveryChannel}`);
+  return parts.join(" · ");
+}
+
 export default function AdminSupportTicketsTab() {
   const [filter, setFilter] = useState<TicketFilter>("needs_attention");
   const [category, setCategory] = useState<TicketCategory | "all">("all");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const [contentReportsOnly, setContentReportsOnly] = useState(false);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [replyText, setReplyText] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const params = useMemo(
     () => ({
       ...(filter === "all" ? {} : { status: filter }),
       ...(category === "all" ? {} : { category }),
+      ...(contentReportsOnly ? { isContentReport: true } : {}),
       sort,
       limit: 100,
       offset: 0,
     }),
-    [filter, category, sort],
+    [filter, category, sort, contentReportsOnly],
   );
   const queryKey = getListAdminSupportTicketsQueryKey(params);
   const { data, isLoading, isError, refetch } = useListAdminSupportTickets(params, {
@@ -112,7 +140,7 @@ export default function AdminSupportTicketsTab() {
     void queryClient.invalidateQueries({ queryKey: getGetAdminSupportTicketQueryKey(ticketId) });
   }
 
-  function saveTicket(ticket: SupportTicketItem, update: { status?: TicketStatus; adminNotes?: string | null }) {
+  function saveTicket(ticket: SupportTicketItem, update: TicketUpdate) {
     setSavingId(ticket.id);
     updateTicket.mutate(
       { id: ticket.id, data: update },
@@ -219,6 +247,32 @@ export default function AdminSupportTicketsTab() {
                 ))}
               </ol>
 
+              <section className="space-y-3 border-t border-border pt-4" aria-labelledby="support-ticket-history-title">
+                <h4 id="support-ticket-history-title" className="text-sm font-semibold text-foreground">
+                  Internal activity history
+                </h4>
+                {detailQuery.data.history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No activity has been recorded yet.</p>
+                ) : (
+                  <ol className="space-y-2" aria-label="Support ticket activity history">
+                    {detailQuery.data.history.map((event) => (
+                      <li key={event.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2">
+                        <div>
+                          <p className="text-xs font-semibold capitalize text-foreground">{event.action.replaceAll("_", " ")}</p>
+                          {eventSummary(event.details) && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">{eventSummary(event.details)}</p>
+                          )}
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">Actor ID: {event.actor}</p>
+                        </div>
+                        <time className="text-[11px] text-muted-foreground" dateTime={event.createdAt}>
+                          {formatDate(event.createdAt)}
+                        </time>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+
               <div className="space-y-3 border-t border-border pt-5">
                 <div>
                   <label htmlFor="support-ticket-reply" className="block text-sm font-semibold text-foreground">
@@ -322,6 +376,16 @@ export default function AdminSupportTicketsTab() {
           </select>
         </label>
 
+        <label className="flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={contentReportsOnly}
+            onChange={(event) => setContentReportsOnly(event.target.checked)}
+            data-testid="checkbox-content-reports-only"
+          />
+          Content reports only
+        </label>
+
         <Button
           type="button"
           variant="outline"
@@ -371,6 +435,11 @@ export default function AdminSupportTicketsTab() {
                       <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground">
                         {ticket.category}
                       </span>
+                      {ticket.isContentReport && (
+                        <span className="rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold text-destructive">
+                          Content report
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground">{formatDate(ticket.createdAt)}</span>
                     </div>
                     <h3 className="mt-2 text-base font-semibold text-foreground">{ticket.subject}</h3>
@@ -388,7 +457,11 @@ export default function AdminSupportTicketsTab() {
                     value={ticket.status}
                     data-testid={`select-support-ticket-status-${ticket.id}`}
                     aria-label={`Status for support ticket ${ticket.ticketId}`}
-                    disabled={savingId === ticket.id}
+                    disabled={savingId === ticket.id || Boolean(
+                      ticket.assignedModeratorId
+                      && ticket.assignedModeratorId !== user?.id
+                      && user?.role !== "super_admin",
+                    )}
                     onChange={(event) => saveTicket(ticket, { status: event.target.value as TicketStatus })}
                     className="field-support min-h-9 w-auto min-w-32 py-1.5 text-xs font-semibold"
                   >
@@ -419,6 +492,56 @@ export default function AdminSupportTicketsTab() {
                     <span className="text-xs text-muted-foreground">
                       Last attended {formatDate(ticket.reviewedAt)}
                     </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    Severity
+                    <select
+                      value={ticket.severity}
+                      data-testid={`select-support-ticket-severity-${ticket.id}`}
+                      aria-label={`Severity for support ticket ${ticket.ticketId}`}
+                      disabled={savingId === ticket.id}
+                      onChange={(event) => saveTicket(ticket, { severity: event.target.value as TicketSeverity })}
+                      className="field-support min-h-9 w-auto py-1.5 text-xs font-semibold"
+                    >
+                      <option value="low">Low</option>
+                      <option value="normal">Normal</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-testid={`button-support-ticket-assign-${ticket.id}`}
+                    onClick={() => saveTicket(ticket, {
+                      assignment: ticket.assignedModeratorId === user?.id ? "unassigned" : "me",
+                    })}
+                    disabled={savingId === ticket.id}
+                  >
+                    {ticket.assignedModeratorId === user?.id ? "Unassign me" : "Assign to me"}
+                  </Button>
+                  {ticket.assignedModeratorId && ticket.assignedModeratorId !== user?.id && (
+                    <span className="text-xs text-muted-foreground">Assigned to another moderator</span>
+                  )}
+                  {ticket.escalatedAt ? (
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+                      Escalated · {formatDate(ticket.escalatedAt)}
+                    </span>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      data-testid={`button-support-ticket-escalate-${ticket.id}`}
+                      onClick={() => saveTicket(ticket, { escalate: true })}
+                      disabled={savingId === ticket.id}
+                    >
+                      Escalate
+                    </Button>
                   )}
                 </div>
 

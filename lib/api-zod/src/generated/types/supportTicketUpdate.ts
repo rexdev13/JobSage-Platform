@@ -5,10 +5,15 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SupportTicketUpdateAssignment } from "./supportTicketUpdateAssignment";
+import type { SupportTicketUpdateSeverity } from "./supportTicketUpdateSeverity";
 import type { SupportTicketUpdateStatus } from "./supportTicketUpdateStatus";
 
 export interface SupportTicketUpdate {
   status?: SupportTicketUpdateStatus;
+  severity?: SupportTicketUpdateSeverity;
+  assignment?: SupportTicketUpdateAssignment;
+  escalate?: boolean;
   /**
    * @maxLength 5000
    * @nullable

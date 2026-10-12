@@ -12,6 +12,7 @@ import type { ListAdminSupportTicketsStatus } from "./listAdminSupportTicketsSta
 export type ListAdminSupportTicketsParams = {
   status?: ListAdminSupportTicketsStatus;
   category?: ListAdminSupportTicketsCategory;
+  isContentReport?: boolean;
   sort?: ListAdminSupportTicketsSort;
   /**
    * @minimum 1

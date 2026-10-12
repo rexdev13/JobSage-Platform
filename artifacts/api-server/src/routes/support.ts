@@ -13,10 +13,11 @@ import {
   UpdateAdminSupportTicketParams,
   UpdateAdminSupportTicketResponse,
 } from "@workspace/api-zod";
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   candidateMessagesTable,
   db,
+  auditEventsTable,
   supportTicketRepliesTable,
   supportTicketsTable,
   usersTable,
@@ -31,6 +32,7 @@ import { writeAuditEvent } from "../lib/audit";
 
 const router: IRouter = Router();
 const adminSupportRole = requireRole("admin", "super_admin");
+const CONTENT_REPORTS_PER_DAY = 8;
 const SupportTicketResultSchema = z.object({
   success: z.boolean(),
   ticketId: z.string(),
@@ -49,7 +51,19 @@ async function getTicketDetail(ticketId: number) {
     .where(eq(supportTicketRepliesTable.ticketId, ticketId))
     .orderBy(asc(supportTicketRepliesTable.createdAt), asc(supportTicketRepliesTable.id));
 
-  return { ticket, replies };
+  const history = await db
+    .select({
+      id: auditEventsTable.id,
+      actor: auditEventsTable.actor,
+      action: auditEventsTable.action,
+      details: auditEventsTable.details,
+      createdAt: auditEventsTable.createdAt,
+    })
+    .from(auditEventsTable)
+    .where(eq(auditEventsTable.target, ticket.ticketId))
+    .orderBy(asc(auditEventsTable.createdAt), asc(auditEventsTable.id));
+
+  return { ticket, replies, history };
 }
 
 router.post("/support/ticket", async (req, res): Promise<void> => {
@@ -85,11 +99,34 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
   }
 
   const ticketId = `JS-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
-  await db.insert(supportTicketsTable).values({
+  const newTicket = {
     ticketId,
     ...ticketData,
     userId: req.user?.id ?? null,
-  });
+    isContentReport,
+  };
+  if (isContentReport) {
+    const inserted = await db.transaction(async (tx) => {
+      // Serialize per reporter so concurrent requests cannot bypass the daily cap.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`content-report:${req.user!.id}`}))`);
+      const countResult = await tx.execute(sql`SELECT count(*)::int AS count
+        FROM support_tickets
+        WHERE user_id = ${req.user!.id}
+          AND is_content_report = true
+          AND created_at >= now() - interval '24 hours'`);
+      const count = Number(countResult.rows[0]?.count ?? 0);
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error("content_report_limit_check_failed");
+      if (count >= CONTENT_REPORTS_PER_DAY) return false;
+      await tx.insert(supportTicketsTable).values(newTicket);
+      return true;
+    });
+    if (!inserted) {
+      res.status(429).json({ error: "You have reached the content-report limit. Try again later." });
+      return;
+    }
+  } else {
+    await db.insert(supportTicketsTable).values(newTicket);
+  }
 
   const delivery = await sendSupportTicketNotification({
     ticketId, ...ticketData,
@@ -102,6 +139,14 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
       { ticketId, error: delivery.error },
       "Support ticket was saved but its email notification could not be delivered",
     );
+  }
+  if (isContentReport) {
+    const recorded = await writeAuditEvent(req.user!.id, "candidate_content_report", ticketId, {
+        reportType: isMessageReport ? "message" : "ai",
+      });
+    if (!recorded) {
+      req.log.error({ ticketId }, "Content report was saved but its audit event could not be recorded");
+    }
   }
 
   res.status(201).json(SupportTicketResultSchema.parse({
@@ -128,6 +173,9 @@ router.get(
     }
     if (query.data.category) {
       filters.push(eq(supportTicketsTable.category, query.data.category));
+    }
+    if (query.data.isContentReport !== undefined) {
+      filters.push(eq(supportTicketsTable.isContentReport, query.data.isContentReport));
     }
 
     const tickets = await db
@@ -181,10 +229,43 @@ router.patch(
       return;
     }
 
+    const [currentTicket] = await db
+      .select()
+      .from(supportTicketsTable)
+      .where(eq(supportTicketsTable.id, params.data.id));
+    if (!currentTicket) {
+      res.status(404).json({ error: "Support ticket not found." });
+      return;
+    }
+
+    if (body.data.assignment === "unassigned"
+      && currentTicket.assignedModeratorId
+      && currentTicket.assignedModeratorId !== req.user!.id
+      && req.user!.role !== "super_admin") {
+      res.status(403).json({ error: "Only the assigned moderator or a super admin can unassign this ticket." });
+      return;
+    }
+    if (body.data.assignment === "me"
+      && currentTicket.assignedModeratorId
+      && currentTicket.assignedModeratorId !== req.user!.id
+      && req.user!.role !== "super_admin") {
+      res.status(403).json({ error: "Only a super admin can reassign another moderator's ticket." });
+      return;
+    }
+
+    const { assignment, escalate, ...ticketFields } = body.data;
+    const update: Record<string, unknown> = { ...ticketFields };
+    if (assignment === "me") update.assignedModeratorId = req.user!.id;
+    if (assignment === "unassigned") update.assignedModeratorId = null;
+    if (escalate) {
+      update.escalatedAt = currentTicket.escalatedAt ?? new Date();
+      update.severity = "urgent";
+    }
+
     const [ticket] = await db
       .update(supportTicketsTable)
       .set({
-        ...body.data,
+        ...update,
         reviewedBy: req.user!.id,
         reviewedAt: new Date(),
       })
@@ -196,9 +277,16 @@ router.patch(
       return;
     }
 
-    writeAuditEvent(req.user!.id, "admin_update_support_ticket", String(ticket.id), {
-      status: ticket.status,
-    }).catch(() => {});
+    const recorded = await writeAuditEvent(req.user!.id, "admin_update_support_ticket", ticket.ticketId, {
+        status: ticket.status,
+        severity: ticket.severity,
+        assignedModeratorId: ticket.assignedModeratorId,
+        escalatedAt: ticket.escalatedAt?.toISOString() ?? null,
+        changedFields: Object.keys(body.data).filter((field) => field !== "adminNotes"),
+      });
+    if (!recorded) {
+      req.log.error({ ticketId: ticket.id }, "Support ticket was updated but its audit event could not be recorded");
+    }
 
     res.json(UpdateAdminSupportTicketResponse.parse(ticket));
   },
@@ -333,12 +421,19 @@ router.post(
       return;
     }
 
-    writeAuditEvent(admin.id, "admin_reply_support_ticket", String(params.data.id), {
-      status: result.detail.ticket.status,
-      deliveryChannel: result.detail.replies.at(-1)?.deliveryChannel,
-    }).catch(() => {});
+    const recorded = await writeAuditEvent(admin.id, "admin_reply_support_ticket", result.detail.ticket.ticketId, {
+        status: result.detail.ticket.status,
+        deliveryChannel: result.detail.replies.at(-1)?.deliveryChannel,
+      });
+    if (!recorded) {
+      req.log.error({ ticketId: params.data.id }, "Support reply was saved but its audit event could not be recorded");
+    }
 
-    res.json(ReplyToAdminSupportTicketResponse.parse(result.detail));
+    const refreshedDetail = await getTicketDetail(params.data.id);
+    res.json(ReplyToAdminSupportTicketResponse.parse(refreshedDetail ?? {
+      ...result.detail,
+      history: [],
+    }));
   },
 );
 

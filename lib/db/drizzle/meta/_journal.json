@@ -169,6 +169,13 @@
       "when": 1791676800000,
       "tag": "0045_candidate_profile_sector",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791849600000,
+      "tag": "0046_support_ticket_moderation_triage",
+      "breakpoints": true
     }
   ]
 }

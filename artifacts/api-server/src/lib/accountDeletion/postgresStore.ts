@@ -56,13 +56,19 @@ export class PostgresDeletionStore implements DeletionStore {
             OR NOT EXISTS (SELECT 1 FROM ${tasks} AS prior WHERE prior.request_id = ${requestId}
               AND prior.kind = 'token_revocation' AND prior.state <> 'complete')
           )
+          AND (
+            kind <> 'active_data'
+            OR NOT EXISTS (SELECT 1 FROM ${tasks} AS prior WHERE prior.request_id = ${requestId}
+              AND prior.kind IN ('object', 'processor', 'device_data') AND prior.state <> 'complete')
+          )
           AND (kind <> 'completion_notice' OR (
             NOT EXISTS (SELECT 1 FROM ${tasks} AS other WHERE other.request_id = ${requestId}
               AND other.kind <> 'completion_notice' AND other.state <> 'complete')
             AND EXISTS (SELECT 1 FROM ${outbox} WHERE request_id = ${requestId} AND acknowledged_at IS NOT NULL)
           ))
-        ORDER BY CASE kind WHEN 'token_revocation' THEN 0 WHEN 'active_data' THEN 1
-          WHEN 'completion_notice' THEN 9 ELSE 2 END, id
+        ORDER BY CASE kind WHEN 'token_revocation' THEN 0 WHEN 'object' THEN 1
+          WHEN 'processor' THEN 2 WHEN 'device_data' THEN 3 WHEN 'active_data' THEN 4
+          WHEN 'completion_notice' THEN 9 ELSE 5 END, id
         LIMIT 1 FOR UPDATE SKIP LOCKED`);
       const row = selected.rows[0] as Record<string, unknown> | undefined;
       if (!row) return null;

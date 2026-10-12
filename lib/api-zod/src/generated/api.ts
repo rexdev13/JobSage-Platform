@@ -1742,6 +1742,7 @@ export const ListAdminSupportTicketsQueryParams = zod.object({
       "Other",
     ])
     .optional(),
+  isContentReport: zod.coerce.boolean().optional(),
   sort: zod
     .enum(["newest", "oldest"])
     .default(listAdminSupportTicketsQuerySortDefault),
@@ -1771,7 +1772,11 @@ export const ListAdminSupportTicketsResponseItem = zod.object({
   subject: zod.string(),
   message: zod.string(),
   userId: zod.string().nullable(),
+  isContentReport: zod.boolean(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
+  severity: zod.enum(["low", "normal", "high", "urgent"]),
+  assignedModeratorId: zod.string().nullable(),
+  escalatedAt: zod.date().nullable(),
   adminNotes: zod.string().nullable(),
   reviewedBy: zod.string().nullable(),
   reviewedAt: zod.date().nullable(),
@@ -1806,7 +1811,11 @@ export const GetAdminSupportTicketResponse = zod.object({
     subject: zod.string(),
     message: zod.string(),
     userId: zod.string().nullable(),
+    isContentReport: zod.boolean(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
+    severity: zod.enum(["low", "normal", "high", "urgent"]),
+    assignedModeratorId: zod.string().nullable(),
+    escalatedAt: zod.date().nullable(),
     adminNotes: zod.string().nullable(),
     reviewedBy: zod.string().nullable(),
     reviewedAt: zod.date().nullable(),
@@ -1826,6 +1835,15 @@ export const GetAdminSupportTicketResponse = zod.object({
       createdAt: zod.date(),
     }),
   ),
+  history: zod.array(
+    zod.object({
+      id: zod.number(),
+      actor: zod.string(),
+      action: zod.string(),
+      details: zod.record(zod.string(), zod.unknown()).nullable(),
+      createdAt: zod.date(),
+    }),
+  ),
 });
 
 /**
@@ -1840,6 +1858,9 @@ export const updateAdminSupportTicketBodyAdminNotesMax = 5000;
 
 export const UpdateAdminSupportTicketBody = zod.object({
   status: zod.enum(["new", "in_review", "attended", "resolved"]).optional(),
+  severity: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+  assignment: zod.enum(["me", "unassigned"]).optional(),
+  escalate: zod.boolean().optional(),
   adminNotes: zod
     .string()
     .max(updateAdminSupportTicketBodyAdminNotesMax)
@@ -1861,7 +1882,11 @@ export const UpdateAdminSupportTicketResponse = zod.object({
   subject: zod.string(),
   message: zod.string(),
   userId: zod.string().nullable(),
+  isContentReport: zod.boolean(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
+  severity: zod.enum(["low", "normal", "high", "urgent"]),
+  assignedModeratorId: zod.string().nullable(),
+  escalatedAt: zod.date().nullable(),
   adminNotes: zod.string().nullable(),
   reviewedBy: zod.string().nullable(),
   reviewedAt: zod.date().nullable(),
@@ -1901,7 +1926,11 @@ export const ReplyToAdminSupportTicketResponse = zod.object({
     subject: zod.string(),
     message: zod.string(),
     userId: zod.string().nullable(),
+    isContentReport: zod.boolean(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
+    severity: zod.enum(["low", "normal", "high", "urgent"]),
+    assignedModeratorId: zod.string().nullable(),
+    escalatedAt: zod.date().nullable(),
     adminNotes: zod.string().nullable(),
     reviewedBy: zod.string().nullable(),
     reviewedAt: zod.date().nullable(),
@@ -1918,6 +1947,15 @@ export const ReplyToAdminSupportTicketResponse = zod.object({
       deliveryChannel: zod.enum(["inbox", "email"]),
       deliveryStatus: zod.enum(["sent", "failed"]),
       candidateMessageId: zod.number().nullable(),
+      createdAt: zod.date(),
+    }),
+  ),
+  history: zod.array(
+    zod.object({
+      id: zod.number(),
+      actor: zod.string(),
+      action: zod.string(),
+      details: zod.record(zod.string(), zod.unknown()).nullable(),
       createdAt: zod.date(),
     }),
   ),

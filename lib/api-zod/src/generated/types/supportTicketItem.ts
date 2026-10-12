@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SupportTicketItemCategory } from "./supportTicketItemCategory";
+import type { SupportTicketItemSeverity } from "./supportTicketItemSeverity";
 import type { SupportTicketItemStatus } from "./supportTicketItemStatus";
 
 export interface SupportTicketItem {
@@ -18,7 +19,13 @@ export interface SupportTicketItem {
   message: string;
   /** @nullable */
   userId: string | null;
+  isContentReport: boolean;
   status: SupportTicketItemStatus;
+  severity: SupportTicketItemSeverity;
+  /** @nullable */
+  assignedModeratorId: string | null;
+  /** @nullable */
+  escalatedAt: Date | null;
   /** @nullable */
   adminNotes: string | null;
   /** @nullable */

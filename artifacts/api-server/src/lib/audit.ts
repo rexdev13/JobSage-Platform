@@ -5,10 +5,12 @@ export async function writeAuditEvent(
   action: string,
   target?: string,
   details?: Record<string, unknown>
-): Promise<void> {
+): Promise<boolean> {
   try {
     await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
+    return true;
   } catch (err) {
     console.error("[audit] event write failed:", err);
+    return false;
   }
 }
