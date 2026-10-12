@@ -43,9 +43,14 @@ router.patch("/privacy/settings", requirePrivacyActor, async (req, res) => {
     const { sql } = await import("drizzle-orm");
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`privacy:${req.user!.id}`}))`);
     const [existing] = await tx.select().from(privacyPreferencesTable).where(eq(privacyPreferencesTable.userId, req.user!.id));
+    const notifications = { ...existing?.notifications };
+    for (const category of NOTIFICATION_CATEGORIES) {
+      const choice = parsed.data.notifications?.[category];
+      if (choice !== undefined) notifications[category] = choice;
+    }
     const value = { userId: req.user!.id, marketing: parsed.data.marketing ?? existing?.marketing ?? false,
       optionalAnalytics: parsed.data.optionalAnalytics ?? existing?.optionalAnalytics ?? false,
-      notifications: { ...existing?.notifications, ...parsed.data.notifications }, updatedAt: new Date() };
+      notifications, updatedAt: new Date() };
     await tx.insert(privacyPreferencesTable).values(value).onConflictDoUpdate({ target: privacyPreferencesTable.userId, set: value });
   });
   res.json({ success: true });
@@ -61,7 +66,7 @@ router.post("/privacy/data-request", requirePrivacyActor, async (req, res) => {
     .from(usersTable).where(eq(usersTable.id, req.user!.id));
   if (!actor?.email) { res.status(403).json({ error: "The account is unavailable." }); return; }
   const ticketId = `JS-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
-  const ticket = { ticketId, userId: req.user!.id, category: "Other", subject: "Authenticated personal-data export request",
+  const ticket = { ticketId, userId: req.user!.id, category: "Other" as const, subject: "Authenticated personal-data export request",
     name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0,120) || "JOBSAGE user", email: actor.email,
     message: "The account holder reauthenticated and requested a personal-data export. Verify ownership and field allowlists, exclude credentials/internal notes/other users, and deliver only through a short-lived authenticated channel. No export has been generated yet." };
   await db.insert(supportTicketsTable).values(ticket);

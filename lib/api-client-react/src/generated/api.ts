@@ -135,8 +135,15 @@ import type {
   MobileSessionRedeemed,
   MyLeadPerformance,
   OkResponse,
+  PersonalDataReceipt,
+  PrivacyActionResult,
+  PrivacyChoicesInput,
+  PrivacyConfirmationInput,
+  PrivacySettings,
+  PrivacyVerificationInput,
   ProfessionListResponse,
   ProgressReportResponse,
+  PushDeviceInput,
   ReadinessQuota,
   RecordConsentRequest,
   RegisterDocumentRequest,
@@ -229,6 +236,476 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+export const getGetPrivacySettingsUrl = () => {
+  return `/api/privacy/settings`;
+};
+
+export const getPrivacySettings = async (
+  options?: RequestInit,
+): Promise<PrivacySettings> => {
+  return customFetch<PrivacySettings>(getGetPrivacySettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPrivacySettingsQueryKey = () => {
+  return [`/api/privacy/settings`] as const;
+};
+
+export const getGetPrivacySettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPrivacySettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPrivacySettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPrivacySettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPrivacySettings>>
+  > = ({ signal }) => getPrivacySettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPrivacySettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPrivacySettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPrivacySettings>>
+>;
+export type GetPrivacySettingsQueryError = ErrorType<unknown>;
+
+export function useGetPrivacySettings<
+  TData = Awaited<ReturnType<typeof getPrivacySettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPrivacySettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPrivacySettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getUpdatePrivacySettingsUrl = () => {
+  return `/api/privacy/settings`;
+};
+
+export const updatePrivacySettings = async (
+  privacyChoicesInput: PrivacyChoicesInput,
+  options?: RequestInit,
+): Promise<PrivacyActionResult> => {
+  return customFetch<PrivacyActionResult>(getUpdatePrivacySettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(privacyChoicesInput),
+  });
+};
+
+export const getUpdatePrivacySettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePrivacySettings>>,
+    TError,
+    { data: BodyType<PrivacyChoicesInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePrivacySettings>>,
+  TError,
+  { data: BodyType<PrivacyChoicesInput> },
+  TContext
+> => {
+  const mutationKey = ["updatePrivacySettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePrivacySettings>>,
+    { data: BodyType<PrivacyChoicesInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updatePrivacySettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePrivacySettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePrivacySettings>>
+>;
+export type UpdatePrivacySettingsMutationBody = BodyType<PrivacyChoicesInput>;
+export type UpdatePrivacySettingsMutationError = ErrorType<unknown>;
+
+export const useUpdatePrivacySettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePrivacySettings>>,
+    TError,
+    { data: BodyType<PrivacyChoicesInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePrivacySettings>>,
+  TError,
+  { data: BodyType<PrivacyChoicesInput> },
+  TContext
+> => {
+  return useMutation(getUpdatePrivacySettingsMutationOptions(options));
+};
+
+export const getRequestPersonalDataUrl = () => {
+  return `/api/privacy/data-request`;
+};
+
+export const requestPersonalData = async (
+  privacyVerificationInput: PrivacyVerificationInput,
+  options?: RequestInit,
+): Promise<PersonalDataReceipt> => {
+  return customFetch<PersonalDataReceipt>(getRequestPersonalDataUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(privacyVerificationInput),
+  });
+};
+
+export const getRequestPersonalDataMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPersonalData>>,
+    TError,
+    { data: BodyType<PrivacyVerificationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestPersonalData>>,
+  TError,
+  { data: BodyType<PrivacyVerificationInput> },
+  TContext
+> => {
+  const mutationKey = ["requestPersonalData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestPersonalData>>,
+    { data: BodyType<PrivacyVerificationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestPersonalData(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestPersonalDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestPersonalData>>
+>;
+export type RequestPersonalDataMutationBody =
+  BodyType<PrivacyVerificationInput>;
+export type RequestPersonalDataMutationError = ErrorType<void>;
+
+export const useRequestPersonalData = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPersonalData>>,
+    TError,
+    { data: BodyType<PrivacyVerificationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestPersonalData>>,
+  TError,
+  { data: BodyType<PrivacyVerificationInput> },
+  TContext
+> => {
+  return useMutation(getRequestPersonalDataMutationOptions(options));
+};
+
+export const getClearSmartApplyDraftsUrl = () => {
+  return `/api/privacy/smart-apply-drafts`;
+};
+
+export const clearSmartApplyDrafts = async (
+  privacyConfirmationInput: PrivacyConfirmationInput,
+  options?: RequestInit,
+): Promise<PrivacyActionResult> => {
+  return customFetch<PrivacyActionResult>(getClearSmartApplyDraftsUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(privacyConfirmationInput),
+  });
+};
+
+export const getClearSmartApplyDraftsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearSmartApplyDrafts>>,
+    TError,
+    { data: BodyType<PrivacyConfirmationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearSmartApplyDrafts>>,
+  TError,
+  { data: BodyType<PrivacyConfirmationInput> },
+  TContext
+> => {
+  const mutationKey = ["clearSmartApplyDrafts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearSmartApplyDrafts>>,
+    { data: BodyType<PrivacyConfirmationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return clearSmartApplyDrafts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearSmartApplyDraftsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearSmartApplyDrafts>>
+>;
+export type ClearSmartApplyDraftsMutationBody =
+  BodyType<PrivacyConfirmationInput>;
+export type ClearSmartApplyDraftsMutationError = ErrorType<unknown>;
+
+export const useClearSmartApplyDrafts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearSmartApplyDrafts>>,
+    TError,
+    { data: BodyType<PrivacyConfirmationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearSmartApplyDrafts>>,
+  TError,
+  { data: BodyType<PrivacyConfirmationInput> },
+  TContext
+> => {
+  return useMutation(getClearSmartApplyDraftsMutationOptions(options));
+};
+
+export const getRegisterPushDeviceUrl = () => {
+  return `/api/privacy/push-device`;
+};
+
+export const registerPushDevice = async (
+  pushDeviceInput: PushDeviceInput,
+  options?: RequestInit,
+): Promise<PrivacyActionResult> => {
+  return customFetch<PrivacyActionResult>(getRegisterPushDeviceUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushDeviceInput),
+  });
+};
+
+export const getRegisterPushDeviceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceInput> },
+  TContext
+> => {
+  const mutationKey = ["registerPushDevice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    { data: BodyType<PushDeviceInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerPushDevice(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterPushDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerPushDevice>>
+>;
+export type RegisterPushDeviceMutationBody = BodyType<PushDeviceInput>;
+export type RegisterPushDeviceMutationError = ErrorType<unknown>;
+
+export const useRegisterPushDevice = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceInput> },
+  TContext
+> => {
+  return useMutation(getRegisterPushDeviceMutationOptions(options));
+};
+
+export const getRevokePushDevicesUrl = () => {
+  return `/api/privacy/push-device`;
+};
+
+export const revokePushDevices = async (
+  privacyConfirmationInput: PrivacyConfirmationInput,
+  options?: RequestInit,
+): Promise<PrivacyActionResult> => {
+  return customFetch<PrivacyActionResult>(getRevokePushDevicesUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(privacyConfirmationInput),
+  });
+};
+
+export const getRevokePushDevicesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokePushDevices>>,
+    TError,
+    { data: BodyType<PrivacyConfirmationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokePushDevices>>,
+  TError,
+  { data: BodyType<PrivacyConfirmationInput> },
+  TContext
+> => {
+  const mutationKey = ["revokePushDevices"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokePushDevices>>,
+    { data: BodyType<PrivacyConfirmationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return revokePushDevices(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokePushDevicesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePushDevices>>
+>;
+export type RevokePushDevicesMutationBody = BodyType<PrivacyConfirmationInput>;
+export type RevokePushDevicesMutationError = ErrorType<unknown>;
+
+export const useRevokePushDevices = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokePushDevices>>,
+    TError,
+    { data: BodyType<PrivacyConfirmationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokePushDevices>>,
+  TError,
+  { data: BodyType<PrivacyConfirmationInput> },
+  TContext
+> => {
+  return useMutation(getRevokePushDevicesMutationOptions(options));
+};
 
 /**
  * Returns server health status

@@ -7,6 +7,78 @@
  */
 import * as zod from "zod";
 
+export const GetPrivacySettingsResponse = zod.object({
+  userId: zod.string(),
+  policyVersion: zod.string(),
+  marketing: zod.boolean(),
+  optionalAnalytics: zod.boolean(),
+  notifications: zod.record(zod.string(), zod.boolean()),
+  deletionEnabled: zod.boolean(),
+});
+
+export const UpdatePrivacySettingsHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const UpdatePrivacySettingsBody = zod.object({
+  marketing: zod.boolean().optional(),
+  optionalAnalytics: zod.boolean().optional(),
+  notifications: zod.record(zod.string(), zod.boolean()).optional(),
+});
+
+export const UpdatePrivacySettingsResponse = zod.object({
+  success: zod.boolean(),
+});
+
+export const RequestPersonalDataHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const requestPersonalDataBodyPasswordMax = 1024;
+
+export const RequestPersonalDataBody = zod.object({
+  expectedAccountId: zod.string(),
+  password: zod.string().min(1).max(requestPersonalDataBodyPasswordMax),
+  confirmed: zod.boolean(),
+});
+
+export const ClearSmartApplyDraftsHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const ClearSmartApplyDraftsBody = zod.object({
+  confirmed: zod.boolean(),
+});
+
+export const ClearSmartApplyDraftsResponse = zod.object({
+  success: zod.boolean(),
+});
+
+export const RegisterPushDeviceHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const RegisterPushDeviceBody = zod.object({
+  token: zod.string(),
+  platform: zod.enum(["ios", "android"]),
+});
+
+export const RegisterPushDeviceResponse = zod.object({
+  success: zod.boolean(),
+});
+
+export const RevokePushDevicesHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const RevokePushDevicesBody = zod.object({
+  confirmed: zod.boolean(),
+});
+
+export const RevokePushDevicesResponse = zod.object({
+  success: zod.boolean(),
+});
+
 /**
  * Returns server health status
  * @summary Health check

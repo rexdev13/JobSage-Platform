@@ -5,6 +5,70 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+export type PrivacySettingsNotifications = { [key: string]: boolean };
+
+export interface PrivacySettings {
+  userId: string;
+  policyVersion: string;
+  marketing: boolean;
+  optionalAnalytics: boolean;
+  notifications: PrivacySettingsNotifications;
+  deletionEnabled: boolean;
+}
+
+export type PrivacyChoicesInputNotifications = { [key: string]: boolean };
+
+export interface PrivacyChoicesInput {
+  marketing?: boolean;
+  optionalAnalytics?: boolean;
+  notifications?: PrivacyChoicesInputNotifications;
+}
+
+export interface PrivacyVerificationInput {
+  expectedAccountId: string;
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  password: string;
+  confirmed: true;
+}
+
+export const PrivacyConfirmationInputValue = {
+  confirmed: true,
+} as const;
+export type PrivacyConfirmationInput = typeof PrivacyConfirmationInputValue;
+
+export type PushDeviceInputPlatform =
+  (typeof PushDeviceInputPlatform)[keyof typeof PushDeviceInputPlatform];
+
+export const PushDeviceInputPlatform = {
+  ios: "ios",
+  android: "android",
+} as const;
+
+export interface PushDeviceInput {
+  token: string;
+  platform: PushDeviceInputPlatform;
+}
+
+export interface PrivacyActionResult {
+  success: boolean;
+}
+
+export type PersonalDataReceiptStatus =
+  (typeof PersonalDataReceiptStatus)[keyof typeof PersonalDataReceiptStatus];
+
+export const PersonalDataReceiptStatus = {
+  requested: "requested",
+} as const;
+
+export interface PersonalDataReceipt {
+  ticketId: string;
+  status: PersonalDataReceiptStatus;
+  message: string;
+}
+
 export interface SponsorWebsiteImportPreviewUpload {
   file: Blob;
 }
