@@ -21,8 +21,8 @@ export default function PrivacyPolicyPage() {
           <h1 className="text-2xl font-bold text-foreground">JOBSAGE Privacy Policy</h1>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-10">
-          <p>Effective Date: 23 September 2026</p>
-          <p>Version: 1.1.0</p>
+          <p>Effective Date: 12 October 2026</p>
+          <p>Version: 2026-10-12</p>
         </div>
 
         <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-xs text-muted-foreground mb-10">
@@ -187,6 +187,8 @@ export default function PrivacyPolicyPage() {
             <Link href="/help#visa" className="text-primary hover:underline">Visa FAQ</Link>
             <Link href="/help#contact" className="text-primary hover:underline">Contact Us</Link>
             <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>
+            <Link href="/account-deletion" className="text-primary hover:underline">Account deletion &amp; retention</Link>
+            <Link href="/privacy-settings" className="text-primary hover:underline">Privacy settings</Link>
             <Link href="/extension-privacy" className="text-primary hover:underline">Smart Apply Extension Privacy</Link>
             <Link href="/" className="text-primary hover:underline">JOBSAGE home</Link>
           </div>

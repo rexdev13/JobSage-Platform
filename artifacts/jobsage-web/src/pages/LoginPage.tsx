@@ -67,7 +67,12 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = "/";
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const next = requestedNext === "/account-deletion" || requestedNext === "/privacy-settings"
+        ? requestedNext
+        : "/";
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+      window.location.href = `${basePath}${next}`;
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {

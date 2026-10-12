@@ -285,6 +285,10 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
             <p className="text-xs capitalize text-muted-foreground">{role ?? ""}</p>
           </div>
         </div>
+        <Link href="/privacy-settings" data-testid="link-privacy-settings" onClick={onNavigate}
+          className="mb-2 flex min-h-11 w-full items-center rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent">
+          Privacy, legal &amp; account
+        </Link>
         <AccountDeletionDisclosure />
         <button onClick={logout} data-testid="button-logout"
           className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">

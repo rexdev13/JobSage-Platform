@@ -15,6 +15,7 @@ const preferencesInput = z.object({
   notifications: z.object(Object.fromEntries(NOTIFICATION_CATEGORIES.map(key => [key, z.boolean().optional()]))).strict().optional(),
 }).strict();
 const actionInput = z.object({ expectedAccountId: z.string(), password: z.string().min(1).max(1024), confirmed: z.literal(true) }).strict();
+const confirmationInput = z.object({ confirmed: z.literal(true) }).strict();
 // Account-bound, expiry-indexed session records provide distributed rate limits, including failed challenges.
 async function rateLimitActor(id: string) {
   const { sql } = await import("drizzle-orm");
@@ -91,6 +92,7 @@ router.post("/privacy/push-device", requirePrivacyActor, async (req, res) => {
   res.json({ success: true });
 });
 router.delete("/privacy/push-device", requirePrivacyActor, async (req, res) => {
+  if (!confirmationInput.safeParse(req.body).success) { res.status(400).json({ error: "Explicit confirmation is required." }); return; }
   await db.delete(pushDevicesTable).where(eq(pushDevicesTable.userId, req.user!.id));
   res.json({ success: true });
 });

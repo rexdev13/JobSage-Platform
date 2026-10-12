@@ -38,6 +38,7 @@ import { calculateBehaviouralRanking, normalizeBehaviouralEmployer } from "./beh
 import { assessSafeguarding, safeguardingBlocksEligibility } from "./safeguarding";
 import { compareOpportunityRanking } from "./opportunityRanking";
 import { specialtyBoost } from "./sponsorVacancyRoles";
+import { isPrivacyNotificationAllowed } from "./privacyAccess";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -47,7 +48,7 @@ const MAX_ALERT_ROLES = 5;
 type AlertProcessResult = {
   sent: boolean;
   rolesIncluded: number;
-  reason?: "no_category" | "no_top_matches" | "provider_rejected" | "claim_lost";
+  reason?: "no_category" | "no_top_matches" | "provider_rejected" | "claim_lost" | "notifications_disabled";
 };
 
 type AlertCandidateRole = {
@@ -412,6 +413,9 @@ export async function processUserAlert(
   profile: typeof profilesTable.$inferSelect,
   lastAlertAt: Date | null,
 ): Promise<AlertProcessResult> {
+  if (!await isPrivacyNotificationAllowed(userId, "jobAlerts")) {
+    return { sent: false, rolesIncluded: 0, reason: "notifications_disabled" };
+  }
   const opportunityCategory = professionCategoryFor(profile.profession);
   if (!opportunityCategory) return { sent: false, rolesIncluded: 0, reason: "no_category" };
 
@@ -541,6 +545,7 @@ export async function runAlerts(): Promise<void> {
   let candidatesConsidered = 0;
   let skippedPreference = 0;
   let skippedInterval = 0;
+  let skippedPrivacy = 0;
   let emailed = 0;
   let rolesIncluded = 0;
 
@@ -574,6 +579,8 @@ export async function runAlerts(): Promise<void> {
       if (result.sent) {
         emailed += 1;
         rolesIncluded += result.rolesIncluded;
+      } else if (result.reason === "notifications_disabled") {
+        skippedPrivacy += 1;
       }
     } catch (error) {
       console.error("[alert-scheduler] Weekly job alert failed:", error instanceof Error ? error.message : error);
@@ -581,8 +588,8 @@ export async function runAlerts(): Promise<void> {
   }
 
   console.log(
-    `[alert-scheduler] Sweep complete: candidates=${candidatesConsidered}, skipped_pref_off=${skippedPreference}, ` +
-      `skipped_interval=${skippedInterval}, emailed=${emailed}, roles_included=${rolesIncluded}.`,
+      `[alert-scheduler] Sweep complete: candidates=${candidatesConsidered}, skipped_pref_off=${skippedPreference}, ` +
+        `skipped_interval=${skippedInterval}, skipped_privacy=${skippedPrivacy}, emailed=${emailed}, roles_included=${rolesIncluded}.`,
   );
 }
 

@@ -68,6 +68,8 @@ const IdentityVerificationPage  = lazy(() => import("@/pages/IdentityVerificatio
 const NotFound                  = lazy(() => import("@/pages/not-found"));
 const ExtensionPrivacyPage      = lazy(() => import("@/pages/ExtensionPrivacyPage"));
 const PrivacyPolicyPage         = lazy(() => import("@/pages/PrivacyPolicyPage"));
+const PrivacySettingsPage       = lazy(() => import("@/pages/PrivacySettingsPage"));
+const AccountDeletionPage       = lazy(() => import("@/pages/AccountDeletionPage"));
 const TermsOfServicePage        = lazy(() => import("@/pages/TermsOfServicePage"));
 const GetStartedPage            = lazy(() => import("@/pages/GetStartedPage"));
 const HelpSupportPage           = lazy(() => import("@/pages/HelpSupportPage"));
@@ -265,6 +267,8 @@ function Router() {
 
         {/* Core legal and privacy pages */}
         <Route path="/privacy" component={PrivacyPolicyPage} />
+        <Route path="/privacy-settings" component={PrivacySettingsPage} />
+        <Route path="/account-deletion" component={AccountDeletionPage} />
         <Route path="/terms" component={TermsOfServicePage} />
 
         {/* Sprint release notes — public, print-ready */}
