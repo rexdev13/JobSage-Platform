@@ -686,7 +686,7 @@ export default function RegulatoryGuidancePage() {
     }
   }, [profile]);
 
-  const showComingSoonBanner =
+  const showProfessionGuidanceUnavailable =
     profile &&
     profile.profession &&
     profile.profession.trim() !== "" &&
@@ -727,13 +727,13 @@ export default function RegulatoryGuidancePage() {
 
           <ExamPrepSupportCard compact />
 
-          {/* Coming soon banner for unmapped professions */}
-          {showComingSoonBanner && (
+          {/* Be explicit about coverage without implying a promised release date. */}
+          {showProfessionGuidanceUnavailable && (
             <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
               <span>
-                <span className="font-medium">A pathway specific to {profile!.profession.replace(/_/g, " ")} is coming soon.</span>
-                {" "}In the meantime, the General guidance below covers right-to-work, credential recognition, DBS checks, and UK visa options relevant to most professions.
+                <span className="font-medium">Profession-specific guidance for {profile!.profession.replace(/_/g, " ")} is not available here.</span>
+                {" "}The general guidance below covers right-to-work, credential recognition, DBS checks, and UK visa options. Confirm profession-specific requirements with the relevant regulator before acting.
               </span>
             </div>
           )}

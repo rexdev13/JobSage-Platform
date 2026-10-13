@@ -39,7 +39,6 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Megaphone,
   ClipboardList,
   Globe,
   Mail,
@@ -48,7 +47,6 @@ import {
   BadgeCheck,
   ShieldCheck,
   Clock,
-  DollarSign,
   Sparkles,
   FileText,
   Copy,
@@ -1208,46 +1206,6 @@ function SendCvEmployerGroup({
   );
 }
 
-function SelfPromotionCard() {
-  const [budget, setBudget] = useState("");
-  return (
-    <Card className="p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <Megaphone className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-foreground">Boost Your Profile</h3>
-            <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-            Premium candidates can promote their profile to NHS trusts and academic institutions actively recruiting in their specialty.
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-[160px]">
-              <DollarSign className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="number"
-                min="0"
-                step="10"
-                placeholder="Monthly budget"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                disabled
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background/50 text-muted-foreground cursor-not-allowed"
-              />
-            </div>
-            <Button size="sm" className="text-xs" disabled>
-              Set Budget &amp; Go Live
-            </Button>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 export default function OpportunitiesPage() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -1889,7 +1847,6 @@ export default function OpportunitiesPage() {
 
         {/* Self-promotion placeholder */}
         {activeTab === "board" && !isLoading && !isError && (
-          <SelfPromotionCard />
         )}
       </PageTransition>
 

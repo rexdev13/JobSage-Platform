@@ -1,0 +1,543 @@
+FINISH JOBSAGE FROM THE 13 OCTOBER 2026 BUILD-COMPLETENESS AUDIT
+
+The attached audit is the implementation backlog and acceptance baseline.
+
+JOBSAGE is currently assessed as NOT FULLY BUILT at 55.1%. Your task is to implement every remaining owner-independent engineering requirement identified in that audit.
+
+This is not another audit, planning or task-card creation exercise.
+
+Do not stop after:
+
+- Producing a plan
+- Producing another parity matrix
+- Creating task cards
+- Reaching a checkpoint
+- Saying “ready for review”
+- Identifying owner blockers
+- Passing only automated tests
+- Finishing only one feature group
+
+Continue through implementation, tests, failure correction and validation until no source-level engineering work remains.
+
+AUTHORISED WORK
+
+You are authorised to:
+
+- Modify the web, API, mobile and extension source.
+- Add database tables and migrations.
+- Add routes, screens, services, workers and tests.
+- Complete development-safe account deletion.
+- Add employer staff and moderator roles.
+- Remove unapproved placeholder UI.
+- Add mobile permissions and platform configuration.
+- Add compliance documentation and operational runbooks.
+- Run local and development tests and builds.
+
+You are not authorised to:
+
+- Delete real customer data.
+- Enable destructive production deletion.
+- Submit or publish an app.
+- Deploy to production.
+- Spend money.
+- Invent legal identities or credentials.
+- Invent final store identifiers.
+- Access real customer records.
+
+Keep the destructive production deletion gate closed until its release requirements are satisfied.
+
+EXECUTION LOOP
+
+For every incomplete audit requirement:
+
+1. Inspect the relevant implementation.
+2. Confirm the real gap.
+3. Implement the missing functionality.
+4. Add tests.
+5. Run the tests.
+6. Fix failures.
+7. Record evidence.
+8. Continue immediately to the next requirement.
+
+If a test or command fails, diagnose and retry it. Do not turn an ordinary engineering failure into an “external blocker.”
+
+PHASE 1 — REMOVE UNFINISHED PLACEHOLDERS
+
+Remove the visible disabled “Boost Your Profile — Coming Soon” promotion from production UI unless a complete approved workflow already exists.
+
+Do not implement billing for this promotion without an approved billing decision. It may remain behind a disabled internal feature flag, but users must not see a non-functional promotional control.
+
+For unmapped professional regulatory guidance:
+
+- Remove “coming soon” messaging.
+- Show accurate general guidance.
+- Clearly state when profession-specific guidance is unavailable.
+- Do not invent legal or regulatory advice.
+- Preserve the normal candidate navigation and existing wording.
+
+Search the entire application for other visible:
+
+- Coming soon labels
+- Disabled promotional buttons
+- Placeholder forms
+- Mock success messages
+- Hardcoded demo data
+- Empty handlers
+- Unconnected actions
+
+Remove, hide or complete them as appropriate.
+
+PHASE 2 — COMPLETE EMPLOYER STAFF FUNCTIONALITY
+
+Implement a proper employer organisation-membership model.
+
+Use these default roles unless an existing approved model is found:
+
+- `employer_owner`
+  - Full organisation control
+  - Staff invitations and removal
+  - Role management
+  - Billing visibility
+  - Ownership transfer
+  - Organisation deletion
+
+- `employer_admin`
+  - Manage jobs, candidates, applications, campaigns and staff
+  - Cannot transfer ownership
+  - Cannot delete the organisation
+  - Cannot replace the owner
+
+- `recruiter`
+  - Manage assigned jobs, applicants, messages and interviews
+  - Cannot manage billing, organisation ownership or staff permissions
+
+- `hiring_manager`
+  - View assigned jobs and candidates
+  - Submit candidate feedback
+  - Participate in interviews
+  - Cannot publish jobs or manage organisation settings
+
+- `employer_viewer`
+  - Read-only access to specifically assigned organisation resources
+
+Implement:
+
+- Organisation membership table
+- Invitation table and expiration
+- Invite, accept, decline and revoke flows
+- Role changes
+- Resource assignment
+- API-level authorisation
+- Navigation filtering
+- Staff-list management
+- Removal from organisation
+- Ownership transfer
+- Sole-owner protection
+- Organisation-deletion workflow
+- Audit events
+- Email notification adapter
+- Development fixtures
+
+Every permission must be enforced by the API, not merely hidden in the UI.
+
+Add allow/deny tests for every staff role and sensitive operation.
+
+PHASE 3 — IMPLEMENT A MODERATOR/SUPPORT ROLE
+
+Create a distinct least-privilege moderator role instead of relying entirely on admin and super-admin.
+
+The moderator role may:
+
+- View assigned reports and support cases
+- Triage reports
+- Add internal notes
+- Request escalation
+- Apply approved moderation outcomes
+- Review message and AI-content reports
+- View only the personal information required for the case
+
+The moderator role must not automatically:
+
+- Manage billing
+- Manage store configuration
+- Change system-wide roles
+- Access unrelated organisations
+- Impersonate users
+- Delete organisations
+- Access unrestricted exports
+
+Implement:
+
+- Moderator role
+- Moderator navigation
+- Queue assignment
+- Triage statuses
+- Severity
+- Escalation
+- Decisions
+- Resolution
+- Reconsideration/appeal
+- Audit history
+- Abuse and spam rate limits
+- Repeat-offender controls
+- Tests for permissions and prohibited access
+
+Complete moderation coverage across:
+
+- Profiles
+- Job listings
+- Messages
+- Attachments
+- Support requests
+- Feedback
+- Substantial AI-generated content
+- Other user-generated content discovered in the source
+
+Create:
+
+`docs/mobile-store-compliance/ugc-and-messaging.md`
+
+Document reporting, blocking, review, escalation, response operations and emergency handling.
+
+PHASE 4 — COMPLETE ACCOUNT DELETION IN DEVELOPMENT
+
+Build the complete deletion lifecycle, but keep production initiation disabled.
+
+Implement:
+
+- Authenticated deletion-request endpoint
+- Reauthentication
+- Explicit confirmation
+- Persistent request record
+- Request statuses
+- Idempotent deletion orchestration
+- Retryable cleanup outbox
+- Database ownership selectors
+- Object/file storage cleanup
+- Stored-file version cleanup
+- Search-index cleanup
+- Cache cleanup
+- AI-data cleanup
+- Email-provider cleanup
+- Calendar cleanup
+- Analytics deletion or anonymisation
+- Push-device cleanup
+- Session and token revocation
+- Sign in with Apple revocation adapter where applicable
+- Legal-hold exclusions
+- Financial-retention exclusions
+- Shared employer-record handling
+- Organisation-owner handling
+- Completion notification
+- Minimal pseudonymous deletion receipt
+- Failure monitoring and escalation
+
+Complete the source-based ownership map for every database table and object container.
+
+No user-linked table may be silently omitted. Each must be classified as:
+
+- Delete
+- Anonymise
+- Retain under documented legal rule
+- Shared organisation record
+- Not user-linked
+
+Implement backup-deletion tombstones and restore-time replay logic.
+
+Create:
+
+`docs/mobile-store-compliance/account-deletion-runbook.md`
+
+The runbook must cover:
+
+- Safe request handling
+- Retry procedures
+- Provider reconciliation
+- Backup expiry
+- Restore-time deletion replay
+- Legal holds
+- Partial failures
+- Monitoring
+- Incident escalation
+- Staging restore test
+
+Add fixture tests for:
+
+- Candidate deletion
+- Employer deletion
+- Staff deletion
+- Sole organisation owner
+- Shared records
+- Legal holds
+- Financial retention
+- Provider failures
+- Retry
+- Duplicate requests
+- Interrupted jobs
+- Backup restore replay
+- File generations
+- Device/session cleanup
+
+The production gate stays closed, but development and fixture flows must work fully.
+
+PHASE 5 — COMPLETE MOBILE ROUTE AND ROLE PARITY
+
+Use the existing parity matrix as a backlog. Do not simply rewrite it.
+
+For every web route and role:
+
+- Confirm the corresponding mobile destination.
+- Confirm navigation visibility.
+- Confirm API permission enforcement.
+- Confirm loading, empty, success and failure states.
+- Confirm logout, account change and expired-session handling.
+- Add automated tests.
+
+Cover:
+
+- Candidate
+- Employer owner
+- Employer admin
+- Recruiter
+- Hiring manager
+- Employer viewer
+- Reviewer
+- Moderator
+- Administrator
+- Super-admin
+- Marketing
+- Public user
+
+Non-candidate users may use the canonical mobile workspace, but every permitted route must function correctly in that workspace.
+
+Add route tests for both allowed and denied access.
+
+PHASE 6 — COMPLETE NATIVE MOBILE INTEGRATION
+
+Implement or complete:
+
+- File selection
+- Camera capture where documents/profile features require it
+- Camera and photo permission-denied states
+- Upload cancellation
+- Download
+- PDF viewing
+- Sharing
+- Temporary-file cleanup
+- Cleanup after cancellation
+- Cleanup after failed uploads
+- Cleanup after app termination where supported
+- Streaming cancellation
+- Offline recovery
+- Background/foreground transitions
+- Cookie/session ordering
+- Account switching
+- SSO/CAPTCHA external navigation
+
+Push notifications:
+
+- Complete the sender/event pipeline.
+- Register and revoke tokens.
+- Enforce notification preferences.
+- Remove tokens on logout, account change and deletion.
+- Add deduplication.
+- Use safe lock-screen text.
+- Validate deep-link destinations.
+- Add development-provider tests.
+
+Deep links:
+
+- Keep the custom scheme.
+- Add Universal Link and Android App Link configuration support.
+- Add templates or generated files for:
+  - `apple-app-site-association`
+  - `assetlinks.json`
+- Do not invent final domains, Apple Team ID or Android signing fingerprints.
+- Fail configuration validation clearly when required owner values are absent.
+- Add route-parsing and authorisation tests.
+
+PHASE 7 — PRIVACY AND PLATFORM MANIFESTS
+
+Perform a dependency and SDK privacy audit.
+
+Add the appropriate Expo/native configuration for:
+
+- Required iOS usage descriptions
+- Android permissions
+- Minimal permission requests
+- Push notifications
+- Camera only if actually used
+- Photo/file access only if actually used
+- Contextual permission prompts
+- Permission-denied behaviour
+- Privacy manifest generation or inclusion
+- SDK privacy requirements
+
+Do not manually create misleading empty manifests. Base declarations on actual dependencies and data flows.
+
+Reconcile:
+
+- Apple privacy-label draft
+- Google Data Safety draft
+- Privacy Policy
+- Terms
+- Account-deletion disclosure
+- Data inventory
+- Actual SDK/provider behaviour
+
+Add tests confirming legal links appear in:
+
+- Login
+- Registration
+- Settings
+- Account deletion
+- Other locations required by the specifications
+
+PHASE 8 — ACCESSIBILITY
+
+Add source-level accessibility validation for:
+
+- Labels
+- Roles
+- Focus order
+- Keyboard navigation
+- Error announcements
+- Form validation
+- Touch targets
+- Dynamic text layouts
+- Reduced-motion handling
+- Loading states
+- Empty states
+- Modal focus
+- Smart Apply assistant
+- Account-deletion confirmation
+- Moderation queues
+
+Fix the password-field-outside-form warning and investigate the deprecated shadow-style warning.
+
+Document the remaining VoiceOver and TalkBack physical-device tests without claiming they passed.
+
+PHASE 9 — BILLING SAFETY
+
+Do not invent an Apple/Google billing decision.
+
+Until the owner approves the mobile billing strategy:
+
+- Prevent an unapproved native purchase flow.
+- Do not expose prohibited or non-functional checkout controls inside the mobile application.
+- Keep existing web billing isolated from native store builds where necessary.
+- Add a clearly named billing feature gate.
+- Document every digital purchase or subscription that may require Apple In-App Purchase or Google Play Billing.
+- Add entitlement-interface tests independent of the final provider decision.
+
+Record the final billing selection as an owner blocker.
+
+PHASE 10 — BUILD AND TEST CORRECTIONS
+
+Fix the mobile build script so it does not depend on an interactive Metro port-selection prompt.
+
+Use deterministic, non-interactive build/export commands appropriate to the project.
+
+Add working scripts for:
+
+- Linting
+- Accessibility/source checks
+- Mobile pure tests
+- Mobile render tests
+- Route/permission tests
+- Production builds
+- Expo configuration validation
+
+Run:
+
+- Shared-library typecheck
+- API typecheck
+- Web typecheck
+- Mobile typecheck
+- Extension typecheck
+- API tests
+- Web tests
+- Mobile pure tests
+- Mobile render tests
+- Extension tests
+- Deletion tests
+- Moderation tests
+- Permission tests
+- Accessibility tests
+- API production build
+- Web production build
+- Extension production build
+- iOS JavaScript export
+- Android JavaScript export
+- Expo dependency/configuration checks
+
+Resolve the inbound-email test timing issue instead of merely increasing the timeout if a deterministic cause can be found.
+
+Investigate Vite chunk-size and sourcemap warnings. Fix material production issues and document harmless third-party warnings.
+
+PHASE 11 — OWNER INPUTS
+
+Create one consolidated `OWNER_INPUTS.md` covering only genuine external decisions:
+
+- Legal operator identity
+- Legal/contact addresses
+- Final EULA approval
+- Financial-year-end
+- iOS bundle identifier
+- Android package identifier
+- Apple Team ID
+- Android signing fingerprints
+- Production domains
+- EAS/store credentials
+- Reviewer credentials
+- Billing strategy
+- Store declarations
+- Physical-device acceptance
+- Production provider credentials
+
+Use safe configuration placeholders. Do not allow missing owner values to block unrelated source work.
+
+COMPLETION CONDITIONS
+
+Do not return while any item can still be labelled:
+
+- NOT BUILT
+- BROKEN
+- UI ONLY
+- BACKEND ONLY
+- PLACEHOLDER OR MOCK
+- ENGINEERING NOT COMPLETE
+
+Continue working until every owner-independent requirement is:
+
+- COMPLETE AND VERIFIED; or
+- BUILT BUT EXTERNALLY UNVERIFIED solely because it requires physical devices, production credentials, signing or store access.
+
+FINAL RESPONSE
+
+Return only after exhausting the implementation loop.
+
+Provide:
+
+1. Requirements completed.
+2. Files changed.
+3. Migrations added.
+4. Employer staff model and permission evidence.
+5. Moderator model and permission evidence.
+6. Deletion coverage by table, storage location and provider.
+7. Mobile parity gaps fixed.
+8. Native integration completed.
+9. Placeholder UI removed.
+10. Accessibility fixes.
+11. Tests added.
+12. Exact commands and results.
+13. Build results.
+14. Remaining physical-device checks.
+15. Remaining owner inputs.
+16. Remaining external-only blockers.
+
+For every remaining item, provide its precise reason and evidence.
+
+If an item still requires source changes, label it `ENGINEERING NOT COMPLETE` and continue working instead of returning.
+
+Do not produce another completeness audit before implementing the work. Begin now with the database and route inventory, then immediately implement the missing employer staff, moderator, deletion and mobile functionality.
