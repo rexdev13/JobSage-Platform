@@ -1,0 +1,562 @@
+FINISH JOBSAGE PROPERLY — EXECUTION MODE
+
+Use the completed JOBSAGE build audit dated 13 October 2026 as the authoritative current backlog.
+
+The audit concluded:
+
+- Source completion: 46.2%
+- Release readiness: 17.3%
+- JOBSAGE is not fully built.
+
+Do not perform another audit. Do not request a task export. Do not produce another plan and stop. Implement, test and fix the remaining work.
+
+The objective is to complete every owner-independent engineering requirement properly, then give me an Expo build/preview that I can test before I provide final Apple, Google, signing and store information.
+
+QUALITY RULE
+
+Speed matters, but do not simplify, fake or remove required functionality merely to finish quickly.
+
+Do not:
+
+- Replace real features with placeholders.
+- Hardcode successful responses.
+- Mark mocked providers as live.
+- Remove tests to get green results.
+- Hide failures.
+- Claim Expo web is native-device evidence.
+- Claim JavaScript exports are signed native builds.
+- Invent production identifiers or legal information.
+- Wait for store credentials before completing unrelated engineering.
+- Resume account deletion without my permission.
+
+Work continuously through the following phases.
+
+PHASE 1 — FIX CURRENT TECHNICAL INSTABILITY
+
+Diagnose the intermittent API stalls affecting:
+
+- `/api/roles`
+- `/api/roles/my-matches`
+- Any related role/profile queries
+
+Determine whether the cause is:
+
+- Slow database query
+- Missing index
+- Connection-pool exhaustion
+- Request cancellation
+- Client timeout
+- Duplicate requests
+- Authentication/session contention
+- Background jobs blocking the event loop
+- Provider timeout
+- Development workflow termination
+
+Add timing and safe diagnostic logging where required.
+
+Fix the root cause and add regression coverage. Do not merely restart the API and call it fixed.
+
+Also:
+
+- Fix the missing React key warning in the super-admin table.
+- Ensure expected missing Calendly connections do not generate misleading operational failures.
+- Keep disconnected calendar accounts clearly represented as disconnected.
+- Confirm the intended local release branch, but do not push or publish anything.
+
+PHASE 2 — COMPLETE AUTHENTICATION
+
+Implement and verify:
+
+- Registration
+- Login
+- Logout
+- Email verification
+- Verification resend
+- Forgot password
+- Password reset
+- Session restoration
+- Session expiry
+- Unauthorized-state handling
+- Account switching
+- Role switching
+- Mobile session exchange
+- Cookie/token ordering
+- Logout cleanup
+
+Use synthetic development accounts.
+
+Use development email capture or a safe provider sandbox. Do not send real messages.
+
+Test success, failure, expiry, replay and rate-limit states.
+
+PHASE 3 — COMPLETE THE CANDIDATE EXPERIENCE
+
+Exercise the real UI and fix every incomplete journey:
+
+- Onboarding
+- Dashboard
+- Candidate profile
+- Career profile
+- Employment history
+- Education
+- Skills
+- Qualifications
+- Identity
+- Eligibility/right-to-work
+- CV creation
+- CV upload
+- Cover letters
+- Documents
+- Document download
+- Opportunities
+- Search and filters
+- Job details
+- Sponsorship information
+- Saved jobs
+- Saved searches
+- Applications
+- Application tracker
+- Interviews
+- Calendar
+- Inbox
+- Notifications
+- Privacy settings
+- Data export
+- Help
+- Support
+- Feedback
+- Reporting and blocking
+- Logout and return login
+
+For each workflow, trace:
+
+UI → API → permission → validation → database/provider → response → UI state.
+
+Complete loading, empty, success and failure states.
+
+PHASE 4 — COMPLETE SMART APPLY AND EXTENSION PARITY
+
+Finish and verify:
+
+- Safe activation
+- Form detection
+- Supported ATS adapters
+- Structured field mapping
+- Remembered answers
+- Sensitive-field restrictions
+- Required-field handling
+- Dynamic fields
+- CV selection and attachment
+- Draft restoration
+- Candidate review
+- Candidate-controlled final submission
+- Cancellation
+- Navigation/redirect handling
+- Submission confirmation
+- Application-tracker update
+- Stored-memory controls
+- Keyboard handling
+- Accessibility
+- Failure recovery
+
+Use ATS fixtures and controlled browser pages for deterministic testing.
+
+Also exercise supported flows through a real development Chrome extension installation where the environment allows it.
+
+Do not claim that a unit-test fixture proves every external ATS.
+
+PHASE 5 — COMPLETE EMPLOYER AND STAFF EXPERIENCE
+
+Complete and verify:
+
+- Employer registration
+- Onboarding
+- Organisation profile
+- Dashboard
+- Job creation
+- Job editing
+- Draft/publish/close lifecycle
+- Applicant pipeline
+- Candidate review
+- Candidate feedback
+- Messaging
+- Interview creation
+- Interview participants
+- Calendar
+- Talent search
+- Campaigns
+- Analytics
+- Staff invitations
+- Invitation acceptance/decline
+- Staff listing
+- Role changes
+- Staff removal
+- Job assignments
+- Ownership transfer
+- Sole-owner safeguards
+- Organisation archive and restore
+
+Exercise all organisation roles:
+
+- Owner
+- Administrator
+- Recruiter
+- Hiring manager
+- Viewer
+
+Verify both allowed and denied API actions. Hiding a button is not permission enforcement.
+
+PHASE 6 — COMPLETE MODERATION AND ADMINISTRATION
+
+Complete:
+
+- User reporting
+- Message reporting
+- AI-output reporting
+- Blocking/unblocking
+- Moderator queue
+- Assignment and claiming
+- Internal notes
+- Triage
+- Severity
+- Escalation
+- Moderation decisions
+- Content removal
+- Account restrictions
+- Resolution
+- Appeal/reconsideration
+- Repeat-abuse controls
+- Rate limits
+- Response ownership
+- Audit trail
+- Support-ticket handling
+- Admin/reviewer/super-admin boundaries
+
+Implement safe development notification adapters for moderation events.
+
+Do not send real reporter emails during development validation.
+
+PHASE 7 — COMPLETE FILE AND DEVICE FUNCTIONALITY
+
+Finish source implementation for:
+
+- File picker
+- Camera capture where required
+- Permission prompts
+- Permission-denied states
+- Upload
+- Upload progress
+- Upload cancellation
+- Upload failure/retry
+- Download
+- PDF viewing
+- Sharing
+- Smart Apply CV attachment
+- Temporary-file cleanup
+- Cleanup after cancellation
+- Cleanup after failure
+- Cleanup on later startup after interrupted work
+- Background/foreground transitions
+- Offline recovery
+
+Add automated tests around the platform-independent logic and native integration boundaries.
+
+PHASE 8 — COMPLETE MESSAGING, CALENDAR AND PUSH
+
+Messaging:
+
+- Send and receive
+- Unread state
+- Blocking
+- Reporting
+- Candidate/employer authorization
+- Error and retry behaviour
+
+Calendar/interviews:
+
+- Candidate and employer journeys
+- Interview participants
+- Time zones
+- Cancellation/rescheduling
+- Disconnected-provider state
+- OAuth ownership boundaries
+- Safe sandbox/provider adapters
+
+Push notifications:
+
+- Permission request
+- Expo push-token registration
+- Token storage
+- Token revocation
+- Logout cleanup
+- Account-switch cleanup
+- Notification preferences
+- Event sender
+- Deduplication
+- Retry
+- Push receipts
+- Invalid-token cleanup
+- Safe lock-screen content
+- Deep-link payload validation
+
+Real APNs/FCM delivery may remain device/credential verification, but the complete application pipeline, provider interface and automated tests must be implemented now.
+
+PHASE 9 — COMPLETE MOBILE EXPERIENCE
+
+The Expo application must be usable, not merely exportable.
+
+Complete:
+
+- Correct unauthenticated entry
+- Login
+- Session restoration
+- Candidate companion screens
+- Canonical workspace
+- Non-candidate role routing
+- Back navigation
+- Error recovery
+- Offline handling
+- External navigation
+- SSO/CAPTCHA handling
+- Keyboard behaviour
+- Streaming and cancellation
+- Files
+- Smart Apply
+- Messaging
+- Calendar
+- Privacy settings
+- Logout
+- Account switching
+
+Build a route-by-role test matrix for:
+
+- Candidate
+- Employer roles
+- Moderator
+- Reviewer
+- Administrator
+- Super-admin
+- Marketing
+- Public users
+
+Fix the gaps found by the matrix. Do not stop after documenting them.
+
+PHASE 10 — EXPO TESTING WITHOUT STORE PUBLICATION
+
+Prepare testing that does not require App Store or Play Store publication.
+
+Provide:
+
+1. Expo Go QR/start instructions for Android.
+2. Expo Go QR/start instructions for iPhone where the current SDK and dependencies are compatible.
+3. Expo web fallback.
+4. Android development APK when it can be generated without Play Store publication.
+5. Clear identification of features that require a custom development build instead of Expo Go.
+6. Clear identification of features that require Apple signing before full iPhone testing.
+
+Use development identifiers where technically allowed, but keep them clearly separate from final production identifiers.
+
+Do not invent:
+
+- Production bundle ID
+- Production Android application ID
+- Apple Team ID
+- Signing fingerprints
+- EAS production project ownership
+
+Missing store values must not block:
+
+- UI implementation
+- API implementation
+- Database work
+- Mobile route work
+- Unit/integration tests
+- Expo Go testing
+- Expo web testing
+- Android local/development testing
+- Provider abstractions
+- Store-document preparation
+
+PHASE 11 — DEEP LINKS
+
+Complete source and tests for:
+
+- Custom URL scheme
+- Route parsing
+- Authentication requirements
+- Role authorization
+- Invalid links
+- Logged-out destinations
+- Logged-in destinations
+- Notification links
+- Account-specific routes
+
+Prepare Universal Link and Android App Link templates.
+
+Final domain association and certificate fingerprints may remain external blockers, but parsing, routing and authorization must be finished now.
+
+PHASE 12 — PRIVACY, EXPORT AND LEGAL PLACEMENT
+
+Complete all non-deletion privacy work:
+
+- Privacy settings
+- Consent withdrawal
+- Notification categories
+- Draft controls
+- Reauthentication
+- Private data export
+- Export manifest
+- File inclusion
+- Account isolation
+- Native download/share
+- Processor inventory
+- Legal-link placement
+- Privacy Policy links
+- Terms links
+- EULA decision placeholder
+- Support URL placement
+- Public deletion disclosure
+
+Do not resume the deletion lifecycle.
+
+Keep:
+
+DELETION_REQUESTS_ENABLED=false
+
+PHASE 13 — ACCESSIBILITY AND UI QUALITY
+
+Complete source-level and browser/device-available checks for:
+
+- Semantic structure
+- Accessible names
+- Labels
+- Keyboard navigation
+- Focus order
+- Modal focus
+- Error announcements
+- Form-error association
+- Touch targets
+- Contrast
+- Dynamic text
+- Reduced motion
+- Loading states
+- Empty states
+- Responsive layouts
+- Smart Apply
+- Legal screens
+
+Fix every source-level issue that can be resolved without physical devices.
+
+Record VoiceOver and TalkBack as final device-verification tasks only after source readiness is complete.
+
+PHASE 14 — STORE-READY SOURCE WITHOUT STORE ACCESS
+
+Prepare everything possible without store credentials:
+
+- Final configuration templates
+- Version/build strategy
+- Permission descriptions
+- iOS privacy-manifest generation/configuration
+- Android permission audit
+- Apple privacy-label draft
+- Google Data Safety draft
+- Content-rating draft
+- Age/audience draft
+- Store descriptions
+- Screenshot checklist
+- Reviewer instructions
+- Reviewer account procedure
+- Support URL
+- Privacy URL
+- Terms/EULA URL
+- Account-deletion URL
+- Release checklist
+- Signing runbook
+- Submission runbook
+
+For Google Play, prepare an Android App Bundle build path, but do not publish.
+
+For Apple, prepare the source/configuration so only the approved identifiers, Apple Team access and signing remain.
+
+Keep billing fail-closed until the owner chooses:
+
+- No mobile digital sales
+- Apple/Google native billing
+- Another policy-compliant model
+
+Do not expose an unapproved web checkout inside the native app.
+
+PHASE 15 — COMPLETE VALIDATION
+
+Run:
+
+- All package typechecks
+- Full non-destructive API tests
+- Full web tests
+- Full mobile pure tests
+- Full mobile render tests
+- Extension tests
+- Permission tests
+- Authentication tests
+- Candidate workflow tests
+- Employer/staff tests
+- Moderation tests
+- Smart Apply tests
+- Messaging/calendar tests
+- Push pipeline tests
+- File lifecycle tests
+- Deep-link tests
+- Accessibility checks
+- API production build
+- Web production build
+- Extension production build
+- Android JavaScript export
+- iOS JavaScript export
+- Expo configuration/doctor checks
+- Android development build where available
+- `git diff --check`
+
+Fix failures introduced or uncovered by the work.
+
+Do not run destructive account-deletion tests.
+
+FINAL ACCEPTANCE
+
+Do not return another plan, inventory or proposed follow-up list.
+
+Return only after all owner-independent, non-deletion work is exhausted.
+
+Provide:
+
+1. Features completed.
+2. Files changed.
+3. Migrations added or changed.
+4. Candidate journey results.
+5. Employer/staff results.
+6. Moderator/admin results.
+7. Smart Apply results.
+8. File/camera results.
+9. Messaging/calendar results.
+10. Push results.
+11. Mobile/Expo results.
+12. Accessibility results.
+13. Tests with exact commands and counts.
+14. Build results.
+15. Expo Go testing instructions for Android and iPhone.
+16. Android development build or installation instructions.
+17. Remaining physical-device checks.
+18. Remaining Apple-specific external inputs.
+19. Remaining Google Play external inputs.
+20. Genuine external blockers only.
+
+Do not label source work as an external blocker merely because store credentials are unavailable.
+
+ACCOUNT DELETION MUST REMAIN LAST
+
+After everything above is complete and verified, state:
+
+“All owner-independent non-deletion work is complete. Account deletion remains disabled and untouched. May I now proceed with account-deletion implementation and isolated lifecycle testing?”
+
+Then wait for my explicit permission.
+
+Begin implementation now. Do not perform another audit.
