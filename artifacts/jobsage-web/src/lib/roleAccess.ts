@@ -23,3 +23,14 @@ export function canDeleteLeads(role: unknown): boolean {
 export function isMarketingRole(role: unknown): boolean {
   return role === "marketing";
 }
+
+export function requiresCandidateProfile(role: unknown): boolean {
+  return role === "candidate";
+}
+
+export function getPlatformOperatorHomePath(role: unknown): string | null {
+  if (role === "moderator") return "/moderation/reports";
+  if (role === "admin") return "/admin/roles";
+  if (role === "super_admin") return "/admin/super";
+  return null;
+}

@@ -48,41 +48,57 @@ async function main(): Promise<void> {
     throw new Error("Refusing to seed: the database identity does not match the confirmed development target.");
   }
 
-  const passwords = new Map<string, string>();
-  const passwordHashes = new Map<string, string>();
-  for (const fixture of fixtureUsers) {
-    const password = randomBytes(24).toString("base64url");
-    passwords.set(fixture.key, password);
-    passwordHashes.set(fixture.key, await bcrypt.hash(password, 12));
-  }
-
+  const newCredentials: Array<{ role: string; email: string; password: string }> = [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
     const userIds = new Map<string, string>();
     for (const fixture of fixtureUsers) {
+      const existing = await client.query<{
+        id: string;
+        role: string;
+        has_password: boolean;
+        email_verified: boolean;
+        suspended_at: Date | null;
+      }>(
+        `SELECT id, role, password_hash IS NOT NULL AS has_password,
+                email_verified, suspended_at
+         FROM users WHERE email = $1`,
+        [fixture.email],
+      );
+      const current = existing.rows[0];
+      if (current) {
+        if (
+          current.role !== fixture.role
+          || !current.has_password
+          || !current.email_verified
+          || current.suspended_at
+        ) {
+          throw new Error(`Existing ${fixture.key} account is not a ready validation fixture; refusing to modify it.`);
+        }
+        userIds.set(fixture.key, current.id);
+        continue;
+      }
+
+      const password = randomBytes(24).toString("base64url");
+      const passwordHash = await bcrypt.hash(password, 12);
       const result = await client.query<{ id: string }>(
-        `INSERT INTO users (email, first_name, last_name, role, password_hash, email_verified, suspended_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, true, NULL, now())
-         ON CONFLICT (email) DO UPDATE SET
-           first_name = EXCLUDED.first_name,
-           last_name = EXCLUDED.last_name,
-           role = EXCLUDED.role,
-           password_hash = EXCLUDED.password_hash,
-           email_verified = true,
-           suspended_at = NULL,
-           updated_at = now()
+        `INSERT INTO users (email, first_name, last_name, role, password_hash, email_verified)
+         VALUES ($1, $2, $3, $4, $5, true)
+         ON CONFLICT (email) DO NOTHING
          RETURNING id`,
-        [fixture.email, fixture.firstName, fixture.lastName, fixture.role, passwordHashes.get(fixture.key)],
+        [fixture.email, fixture.firstName, fixture.lastName, fixture.role, passwordHash],
       );
       const id = result.rows[0]?.id;
-      if (!id) throw new Error(`Could not prepare ${fixture.key} fixture account.`);
+      if (!id) throw new Error(`Could not create missing ${fixture.key} fixture account.`);
       userIds.set(fixture.key, id);
+      newCredentials.push({ role: fixture.key, email: fixture.email, password });
     }
 
     const candidateId = userIds.get("candidate")!;
-    await client.query(
+    for (const fixture of fixtureUsers.filter(user => user.role !== "employer")) {
+      await client.query(
       `INSERT INTO profiles (
          user_id, profession, specialty, qualification_country, qualification_type,
          qualification_year, experience_years, registration_status, licence_ready,
@@ -95,27 +111,10 @@ async function main(): Promise<void> {
          true, ARRAY['London']::text[], 'off', ARRAY['English']::text[], 'Nigeria',
          'Synthetic owner-independent validation fixture.', now()
        )
-       ON CONFLICT (user_id) DO UPDATE SET
-         profession = EXCLUDED.profession,
-         specialty = EXCLUDED.specialty,
-         qualification_country = EXCLUDED.qualification_country,
-         qualification_type = EXCLUDED.qualification_type,
-         qualification_year = EXCLUDED.qualification_year,
-         experience_years = EXCLUDED.experience_years,
-         registration_status = EXCLUDED.registration_status,
-         licence_ready = EXCLUDED.licence_ready,
-         dbs_clearance_level = EXCLUDED.dbs_clearance_level,
-         safeguarding_training_level = EXCLUDED.safeguarding_training_level,
-         residency_status = EXCLUDED.residency_status,
-         requires_sponsorship = EXCLUDED.requires_sponsorship,
-         preferred_region = EXCLUDED.preferred_region,
-         alert_frequency = EXCLUDED.alert_frequency,
-         languages = EXCLUDED.languages,
-         country = EXCLUDED.country,
-         additional_notes = EXCLUDED.additional_notes,
-         updated_at = now()`,
-      [candidateId],
-    );
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userIds.get(fixture.key)],
+      );
+    }
 
     const employerId = userIds.get("employer_owner")!;
     await client.query(
@@ -137,11 +136,17 @@ async function main(): Promise<void> {
     await client.query(
       `INSERT INTO employer_memberships (employer_profile_id, user_id, role, status)
        VALUES ($1, $2, 'employer_owner', 'active')
-       ON CONFLICT (employer_profile_id, user_id) DO UPDATE SET role = 'employer_owner', status = 'active', updated_at = now()`,
+       ON CONFLICT (employer_profile_id, user_id) DO NOTHING`,
       [employerProfile.id, employerId],
     );
 
-    const jobResult = await client.query<{ id: number }>(
+    const existingJob = await client.query<{ id: number }>(
+      "SELECT id FROM job_listings WHERE employer_profile_id = $1 AND title = $2 LIMIT 1",
+      [employerProfile.id, "JOBSAGE synthetic validation vacancy"],
+    );
+    let jobId = existingJob.rows[0]?.id;
+    if (!jobId) {
+      const jobResult = await client.query<{ id: number }>(
       `INSERT INTO job_listings (
          employer_profile_id, title, specialty, location, sponsorship_offered, requirements,
          description, status, regulator, required_registration, target_professions,
@@ -153,35 +158,28 @@ async function main(): Promise<void> {
          'published', 'NMC', 'Nursing and Midwifery Council registration',
          $2::jsonb, $3::jsonb, 'unverified'
        )
-       ON CONFLICT DO NOTHING
        RETURNING id`,
       [employerProfile.id, JSON.stringify(["nurse"]), JSON.stringify(["London"])],
-    );
-    let jobId = jobResult.rows[0]?.id;
-    if (!jobId) {
-      const existingJob = await client.query<{ id: number }>(
-        "SELECT id FROM job_listings WHERE employer_profile_id = $1 AND title = $2 LIMIT 1",
-        [employerProfile.id, "JOBSAGE synthetic validation vacancy"],
       );
-      jobId = existingJob.rows[0]?.id;
+      jobId = jobResult.rows[0]?.id;
     }
     if (!jobId) throw new Error("Could not prepare the synthetic validation vacancy.");
-    await client.query(
-      `UPDATE job_listings SET status = 'published', liveness = 'unverified',
-       description = 'Fixture for candidate, employer, and staff access validation only.'
-       WHERE id = $1 AND employer_profile_id = $2`,
-      [jobId, employerProfile.id],
-    );
 
     for (const fixture of fixtureUsers.filter(user => user.staffRole)) {
       const staffId = userIds.get(fixture.key)!;
       await client.query(
         `INSERT INTO employer_memberships (employer_profile_id, user_id, role, status, invited_by_user_id)
          VALUES ($1, $2, $3, 'active', $4)
-         ON CONFLICT (employer_profile_id, user_id) DO UPDATE
-         SET role = EXCLUDED.role, status = 'active', invited_by_user_id = EXCLUDED.invited_by_user_id, updated_at = now()`,
+         ON CONFLICT (employer_profile_id, user_id) DO NOTHING`,
         [employerProfile.id, staffId, fixture.staffRole, employerId],
       );
+      const membership = await client.query<{ role: string; status: string }>(
+        "SELECT role, status FROM employer_memberships WHERE employer_profile_id = $1 AND user_id = $2",
+        [employerProfile.id, staffId],
+      );
+      if (membership.rows[0]?.role !== fixture.staffRole || membership.rows[0]?.status !== "active") {
+        throw new Error(`Existing membership conflicts with the ${fixture.staffRole} validation fixture.`);
+      }
       await client.query(
         `INSERT INTO employer_job_assignments (employer_profile_id, job_listing_id, user_id, assigned_by_user_id)
          VALUES ($1, $2, $3, $4)
@@ -195,19 +193,7 @@ async function main(): Promise<void> {
       "SELECT id FROM applications WHERE user_id = $1 AND role_id = $2 ORDER BY id LIMIT 1",
       [candidateId, applicationRoleId],
     );
-    if (existingApplication.rows[0]) {
-      await client.query(
-        `UPDATE applications SET application_type = 'platform', company_name = $1,
-         job_title = $2, status = 'applied', notes = $3, applied_at = now()
-         WHERE id = $4`,
-        [
-          "JOBSAGE Synthetic Validation Clinic",
-          "JOBSAGE synthetic validation vacancy",
-          "Synthetic owner-independent validation fixture.",
-          existingApplication.rows[0].id,
-        ],
-      );
-    } else {
+    if (!existingApplication.rows[0]) {
       await client.query(
         `INSERT INTO applications (user_id, role_id, application_type, company_name, job_title, status, notes)
          VALUES ($1, $2, 'platform', $3, $4, 'applied', $5)`,
@@ -233,25 +219,7 @@ async function main(): Promise<void> {
          $1, true, 'other', 'validation-fixture-01', 'new', 'normal', 'pending',
          NULL, NULL, NULL, NULL, NULL, now()
        )
-       ON CONFLICT (ticket_id) DO UPDATE SET
-         name = EXCLUDED.name,
-         email = EXCLUDED.email,
-         category = EXCLUDED.category,
-         subject = EXCLUDED.subject,
-         message = EXCLUDED.message,
-         user_id = EXCLUDED.user_id,
-         is_content_report = true,
-         reported_content_type = 'other',
-         reported_content_id = 'validation-fixture-01',
-         status = 'new',
-         severity = 'normal',
-         moderation_decision = 'pending',
-         assigned_moderator_id = NULL,
-         reviewed_by = NULL,
-         reviewed_at = NULL,
-         escalated_at = NULL,
-         admin_notes = NULL,
-         updated_at = now()`,
+       ON CONFLICT (ticket_id) DO NOTHING`,
       [candidateId],
     );
 
@@ -261,11 +229,7 @@ async function main(): Promise<void> {
       organization: "JOBSAGE Synthetic Validation Clinic",
       vacancy: "JOBSAGE synthetic validation vacancy",
       report: "VLDTEST000001",
-      credentials: fixtureUsers.map(fixture => ({
-        role: fixture.key,
-        email: fixture.email,
-        password: passwords.get(fixture.key),
-      })),
+      createdCredentials: newCredentials,
     }, null, 2));
   } catch (error) {
     await client.query("ROLLBACK");

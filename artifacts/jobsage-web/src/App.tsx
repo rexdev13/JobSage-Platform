@@ -13,7 +13,12 @@ import {
 } from "@workspace/api-client-react";
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
-import { canAccessLeads, isAdminRole } from "@/lib/roleAccess";
+import {
+  canAccessLeads,
+  getPlatformOperatorHomePath,
+  isAdminRole,
+  requiresCandidateProfile,
+} from "@/lib/roleAccess";
 import { QuickHelpMenu } from "@/components/QuickHelpMenu";
 import { useEmployerOrganizations } from "@/hooks/useEmployerOrganizations";
 import { canVisitEmployerRoute } from "@/lib/employerRouteAccess";
@@ -110,6 +115,7 @@ function Redirect({ to }: { to: string }) {
 function ProfileGate() {
   const { user } = useAuth();
   const [location] = useLocation();
+  const profileRequired = requiresCandidateProfile(user?.role);
 
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
     query: {
@@ -127,10 +133,10 @@ function ProfileGate() {
 
   const hasConsented = consentData?.hasConsented === true;
 
-  const { data: profile, isLoading: profileLoading, isError: profileError } = useGetMyProfile({
+  const { data: profile, isError: profileError } = useGetMyProfile({
     query: {
       queryKey: getGetMyProfileQueryKey(),
-      enabled: hasConsented,
+      enabled: hasConsented && profileRequired,
       // Same reason — read the cached error/data from AuthGuard's fetch, never
       // trigger a fresh fetch from this observer (on mount or window focus).
       refetchOnMount: false,
@@ -152,7 +158,11 @@ function ProfileGate() {
   if (consentData && !consentData.hasConsented) {
     return <Redirect to="/consent" />;
   }
-  if (hasConsented && (profileError || !profile?.profession)) {
+  const operatorHome = getPlatformOperatorHomePath(user?.role);
+  if (hasConsented && operatorHome) {
+    return <Redirect to={operatorHome} />;
+  }
+  if (hasConsented && profileRequired && (profileError || !profile?.profession)) {
     return <Redirect to="/onboarding" />;
   }
 
@@ -235,7 +245,7 @@ function EmployerGuard({ children }: { children: React.ReactNode }) {
   const canVisitRoute = canVisitEmployerRoute(organization?.role, location);
 
   useEffect(() => {
-    if (isLoading || organizationLoading || organizationsQuery.isError) return;
+    if (isLoading || !user || organizationLoading || !organizationsQuery.data || organizationsQuery.isError) return;
     if (!hasEmployerOrg) {
       if (user?.role === "employer" && (organizationsQuery.data?.archivedOrganizations.length ?? 0) > 0) {
         setLocation("/employer/organizations/restore");
@@ -247,7 +257,7 @@ function EmployerGuard({ children }: { children: React.ReactNode }) {
     if (organization && !canVisitRoute) {
       setLocation("/employer/dashboard");
     }
-  }, [isLoading, organizationLoading, organizationsQuery.isError, organizationsQuery.data?.archivedOrganizations, hasEmployerOrg, organization, canVisitRoute, user, setLocation]);
+  }, [isLoading, organizationLoading, organizationsQuery.data, organizationsQuery.isError, hasEmployerOrg, organization, canVisitRoute, user, setLocation]);
 
   useEffect(() => {
     if (organizations.length === 1 && !organization && !organizationsQuery.isLoading

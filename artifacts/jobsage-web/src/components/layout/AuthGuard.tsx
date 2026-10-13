@@ -7,7 +7,7 @@ import {
   getGetMyConsentQueryKey,
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
-import { isMarketingRole } from "@/lib/roleAccess";
+import { isMarketingRole, requiresCandidateProfile } from "@/lib/roleAccess";
 
 const PUBLIC_PATHS = ["/login", "/register", "/employer/register", "/forgot-password", "/reset-password", "/"];
 const MARKETING_PATHS = ["/admin/leads", "/admin/calendar"];
@@ -16,6 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
   const isMarketing = isMarketingRole(user?.role);
+  const profileRequired = requiresCandidateProfile(user?.role);
 
   const {
     data: consentData,
@@ -38,7 +39,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   } = useGetMyProfile({
     query: {
       queryKey: getGetMyProfileQueryKey(),
-      enabled: isAuthenticated && !isMarketing && consentData?.hasConsented === true,
+      enabled: isAuthenticated && profileRequired && !isMarketing && consentData?.hasConsented === true,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       retry: false,
@@ -52,7 +53,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isLoading =
     authLoading ||
     (isAuthenticated && consentLoading) ||
-    (isAuthenticated && !!consentData?.hasConsented && profileLoading);
+    (isAuthenticated && profileRequired && !!consentData?.hasConsented && profileLoading);
 
   useEffect(() => {
     if (isLoading) return;
@@ -80,7 +81,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       consentData?.hasConsented &&
       profileError &&
       location !== "/onboarding" &&
-      user?.role !== "employer"
+      profileRequired
     ) {
       setLocation("/onboarding");
       return;
@@ -90,6 +91,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isPublic,
     isAuthenticated,
     isMarketing,
+    profileRequired,
     consentData,
     profileError,
     location,
@@ -122,7 +124,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     consentData?.hasConsented &&
     profileError &&
     location !== "/onboarding" &&
-    user?.role !== "employer" &&
+    profileRequired &&
     !isPublic
   )
     return null;
