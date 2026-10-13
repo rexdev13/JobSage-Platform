@@ -9,12 +9,25 @@ const {
   hasFreshCandidateBoardSnapshotMock,
   refreshCandidateBoardVacanciesMock,
   discoverCompanySiteVacanciesMock,
-} = vi.hoisted(() => ({
-  dbResults: [] as any[],
-  hasFreshCandidateBoardSnapshotMock: vi.fn().mockReturnValue(false),
-  refreshCandidateBoardVacanciesMock: vi.fn(),
-  discoverCompanySiteVacanciesMock: vi.fn(),
-}));
+  CandidateMatchScoringError,
+} = vi.hoisted(() => {
+  class MockCandidateMatchScoringError extends Error {
+    constructor(
+      readonly partialScores: Map<number, { score: number; explanation: string }>,
+      readonly failedRoleIds: number[],
+    ) {
+      super("One or more candidate match scores could not be produced.");
+      this.name = "CandidateMatchScoringError";
+    }
+  }
+  return {
+    dbResults: [] as any[],
+    hasFreshCandidateBoardSnapshotMock: vi.fn().mockReturnValue(false),
+    refreshCandidateBoardVacanciesMock: vi.fn(),
+    discoverCompanySiteVacanciesMock: vi.fn(),
+    CandidateMatchScoringError: MockCandidateMatchScoringError,
+  };
+});
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -43,6 +56,10 @@ vi.mock("@workspace/db", () => {
       insert: () => makeChain(),
       update: () => makeChain(),
       delete: () => makeChain(),
+      transaction: async (operation: (tx: any) => Promise<unknown>) => operation({
+        delete: () => makeChain(),
+        insert: () => makeChain(),
+      }),
       execute: () => Promise.resolve({ rows: [] }),
     },
     rolesTable: {},
@@ -84,6 +101,7 @@ vi.mock("../../middlewares/consentMiddleware", () => ({
 
 vi.mock("../../lib/candidateAiMatch", () => ({
   batchScoreRoles: vi.fn().mockResolvedValue(new Map()),
+  CandidateMatchScoringError,
 }));
 
 vi.mock("../../lib/candidateBoardDiscovery", () => ({
@@ -115,6 +133,10 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
+  app.use((req, _res, next) => {
+    (req as any).log = { warn: vi.fn(), error: vi.fn(), info: vi.fn() };
+    next();
+  });
   app.use(authMiddleware);
   app.use(rolesRouter);
   return app;
@@ -164,7 +186,7 @@ describe("Admin roles CSV import — applyUrl column", () => {
 
     const app = buildApp();
     const res = await importCSV(app, csv);
-    expect(res.status).toBe(200);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.imported).toBe(1);
     expect(res.body.skipped).toBe(0);
   });
@@ -790,6 +812,46 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     const ids = res.body.matches.map((m: any) => m.roleId);
     expect(ids).toContain(1);
     expect(ids).toContain(2_000_050);
+  });
+
+  it("scores at most one 50-role batch per request and reports remaining work", async () => {
+    const { batchScoreRoles } = await import("../../lib/candidateAiMatch");
+    const roles = Array.from({ length: 75 }, (_, index) => makeRole(index + 1));
+    pushMyMatchesDb(roles, [], [], []);
+    vi.mocked(batchScoreRoles).mockImplementation(async (_profile, requestedRoles) =>
+      new Map(requestedRoles.map((role) => [
+        role.id,
+        { score: 82, explanation: "Strong specialty fit" },
+      ])),
+    );
+
+    const res = await request(buildApp()).get("/roles/my-matches").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(batchScoreRoles).toHaveBeenCalledOnce();
+    expect(vi.mocked(batchScoreRoles).mock.calls[0][1]).toHaveLength(50);
+    expect(res.body).toMatchObject({
+      scoringStatus: "pending",
+      pendingRoleCount: 25,
+      cached: false,
+    });
+  });
+
+  it("reports AI scoring failure without returning a fabricated match", async () => {
+    const { batchScoreRoles } = await import("../../lib/candidateAiMatch");
+    pushMyMatchesDb([makeRole(91)], [], [], []);
+    vi.mocked(batchScoreRoles).mockRejectedValue(
+      new CandidateMatchScoringError(new Map(), [91]),
+    );
+
+    const res = await request(buildApp()).get("/roles/my-matches").set("Authorization", AUTH);
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body).toMatchObject({
+      matches: [],
+      scoringStatus: "unavailable",
+      pendingRoleCount: 1,
+    });
   });
 
   it("uses the pre-computed pipeline score for sponsor vacancies", async () => {

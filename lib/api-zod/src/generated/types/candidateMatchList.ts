@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CandidateMatchItem } from "./candidateMatchItem";
+import type { CandidateMatchListScoringStatus } from "./candidateMatchListScoringStatus";
 
 export interface CandidateMatchList {
   matches: CandidateMatchItem[];
   dismissedRoleIds: number[];
   totalCount: number;
   cached: boolean;
+  scoringStatus: CandidateMatchListScoringStatus;
+  /** @minimum 0 */
+  pendingRoleCount: number;
 }

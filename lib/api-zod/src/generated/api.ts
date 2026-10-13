@@ -2373,6 +2373,8 @@ export const GetMyMatchesQueryParams = zod.object({
   source: zod.enum(["job_board", "company_site"]).optional(),
 });
 
+export const getMyMatchesResponsePendingRoleCountMin = 0;
+
 export const GetMyMatchesResponse = zod.object({
   matches: zod.array(
     zod.object({
@@ -2455,6 +2457,8 @@ export const GetMyMatchesResponse = zod.object({
   dismissedRoleIds: zod.array(zod.number()),
   totalCount: zod.number(),
   cached: zod.boolean(),
+  scoringStatus: zod.enum(["complete", "pending", "unavailable"]),
+  pendingRoleCount: zod.number().min(getMyMatchesResponsePendingRoleCountMin),
 });
 
 /**

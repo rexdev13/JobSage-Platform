@@ -10062,7 +10062,7 @@ components:
 
     CandidateMatchList:
       type: object
-      required: [matches, dismissedRoleIds, totalCount, cached]
+      required: [matches, dismissedRoleIds, totalCount, cached, scoringStatus, pendingRoleCount]
       properties:
         matches:
           type: array
@@ -10076,6 +10076,12 @@ components:
           type: integer
         cached:
           type: boolean
+        scoringStatus:
+          type: string
+          enum: [complete, pending, unavailable]
+        pendingRoleCount:
+          type: integer
+          minimum: 0
 
     DismissMatchRequest:
       type: object

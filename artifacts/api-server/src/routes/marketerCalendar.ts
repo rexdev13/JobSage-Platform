@@ -9,7 +9,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
-import { getCalendlySyncStatus, syncCalendlyEvents } from "../lib/calendlySync";
+import { getCalendlyConnectionIssue, getCalendlySyncStatus, syncCalendlyEvents } from "../lib/calendlySync";
 import {
   assertGoogleCalendarSlotAvailable,
   createGoogleMeetBooking,
@@ -690,12 +690,18 @@ router.post(
       const status = await getCalendlySyncStatus(marketingUserId);
       res.json({ summary, status });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Calendly synchronization failed.";
-      const unavailable = /\(401\)|\(403\)|not connected|unauthenticated/i.test(message);
-      res.status(unavailable ? 503 : 502).json({
-        error: unavailable
-          ? "Calendly is not connected with permission to read scheduled events."
-          : "Calendly could not be synchronized right now. Please try again.",
+      const connectionIssue = getCalendlyConnectionIssue(error);
+      if (connectionIssue) {
+        res.status(503).json({
+          error: connectionIssue.connectionStatus === "disconnected"
+            ? "Calendly is disconnected. Automatic event synchronization is unavailable."
+            : "Calendly needs to be reconnected before automatic event synchronization can continue.",
+          connectionStatus: connectionIssue.connectionStatus,
+        });
+        return;
+      }
+      res.status(502).json({
+        error: "Calendly could not be synchronized right now. Please try again.",
       });
     }
   },

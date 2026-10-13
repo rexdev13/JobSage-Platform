@@ -1,4 +1,5 @@
 import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb, date, foreignKey } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const sponsorLicencesTable = pgTable(
   "sponsor_licences",
@@ -23,6 +24,9 @@ export const sponsorLicencesTable = pgTable(
   },
   (t) => [
     index("sponsor_licences_name_idx").on(t.organisationName),
+    index("sponsor_licences_normalized_name_idx").on(
+      sql`lower(btrim(${t.organisationName}))`,
+    ),
     index("sponsor_licences_route_idx").on(t.route),
     index("sponsor_licences_industry_idx").on(t.industry),
     index("sponsor_licences_region_idx").on(t.region),
@@ -310,6 +314,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
   (t) => [
     index("sponsor_licence_vacancies_org_date_idx").on(t.organisationName, t.checkDate),
     index("sponsor_licence_vacancies_org_idx").on(t.organisationName),
+    index("sponsor_licence_vacancies_source_liveness_idx").on(t.sourceType, t.liveness),
     index("sponsor_licence_vacancies_liveness_idx").on(t.liveness, t.lastVerifiedAt),
     index("sponsor_licence_vacancies_discovered_idx").on(t.lastDiscoveredAt),
   ],

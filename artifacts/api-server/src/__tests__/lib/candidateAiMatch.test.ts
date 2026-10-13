@@ -14,7 +14,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   },
 }));
 
-const { batchScoreRoles } = await import("../../lib/candidateAiMatch");
+const { batchScoreRoles, CandidateMatchScoringError } = await import("../../lib/candidateAiMatch");
 
 const profile = {
   profession: "IT Professional",
@@ -67,7 +67,42 @@ describe("candidate AI category policy", () => {
     ]);
 
     expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { timeout: 6_000, maxRetries: 0 },
+    );
     expect(result.get(1)?.score).toBe(88);
+  });
+
+  it("does not convert a provider timeout into a fabricated match score", async () => {
+    createMock.mockRejectedValue(new Error("provider timeout"));
+
+    await expect(batchScoreRoles(profile, [
+      role(11, "Software Engineer", "IT"),
+    ])).rejects.toMatchObject({
+      name: "CandidateMatchScoringError",
+      failedRoleIds: [11],
+    });
+  });
+
+  it("rejects omitted or hallucinated role scores instead of treating them as successful", async () => {
+    createMock.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            scores: [{
+              roleId: 999,
+              score: 92,
+              explanation: "Hallucinated role",
+            }],
+          }),
+        },
+      }],
+    });
+
+    await expect(batchScoreRoles(profile, [
+      role(12, "Software Engineer", "IT"),
+    ])).rejects.toBeInstanceOf(CandidateMatchScoringError);
   });
 
   it("deterministically rejects a professional role from another candidate category", async () => {

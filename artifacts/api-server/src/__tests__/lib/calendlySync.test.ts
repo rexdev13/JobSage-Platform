@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyCalendlyConnectionFailure,
+  getCalendlyConnectionIssue,
   resolveCalendlyLeadId,
   resolveCalendlySyncStatus,
 } from "../../lib/calendlySync";
@@ -19,5 +21,20 @@ describe("Calendly synchronization merge rules", () => {
     expect(resolveCalendlyLeadId(42, 84)).toBe(42);
     expect(resolveCalendlyLeadId(null, 84)).toBe(84);
     expect(resolveCalendlyLeadId(null, null)).toBeNull();
+  });
+});
+
+describe("Calendly connection failure classification", () => {
+  it("treats the connector's missing-connection 404 as disconnected", () => {
+    const issue = classifyCalendlyConnectionFailure(404, "No calendly connection found");
+    expect(issue?.connectionStatus).toBe("disconnected");
+    expect(getCalendlyConnectionIssue(issue)?.connectionStatus).toBe("disconnected");
+  });
+
+  it("distinguishes revoked authorization from a missing connection", () => {
+    expect(classifyCalendlyConnectionFailure(401, "")?.connectionStatus).toBe("reauthorization_required");
+    expect(classifyCalendlyConnectionFailure(403, "")?.connectionStatus).toBe("reauthorization_required");
+    expect(classifyCalendlyConnectionFailure(502, "upstream error")).toBeNull();
+    expect(classifyCalendlyConnectionFailure(404, "event not found")).toBeNull();
   });
 });

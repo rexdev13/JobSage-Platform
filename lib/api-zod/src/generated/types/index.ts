@@ -45,6 +45,7 @@ export * from "./candidateAnalyticsReadinessBreakdown";
 export * from "./candidateAnalyticsStatusBreakdown";
 export * from "./candidateMatchItem";
 export * from "./candidateMatchList";
+export * from "./candidateMatchListScoringStatus";
 export * from "./candidateMessage";
 export * from "./candidateMessageListResponse";
 export * from "./candidateMessageMessageType";

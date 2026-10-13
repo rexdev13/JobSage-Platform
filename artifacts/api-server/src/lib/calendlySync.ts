@@ -60,8 +60,38 @@ export type CalendlySyncSummary = {
 
 const connectors = new ReplitConnectors();
 let runningSync: Promise<CalendlySyncSummary> | null = null;
+export type CalendlyConnectionStatus = "unknown" | "connected" | "disconnected" | "reauthorization_required";
+let calendlyConnectionStatus: CalendlyConnectionStatus = "unknown";
 type LocalEventStatus = "scheduled" | "cancelled" | "rescheduled" | "completed" | "no_show";
 type RemoteEventStatus = "scheduled" | "cancelled" | "rescheduled";
+
+export class CalendlyConnectionIssue extends Error {
+  constructor(readonly connectionStatus: Exclude<CalendlyConnectionStatus, "unknown" | "connected">) {
+    super(
+      connectionStatus === "disconnected"
+        ? "Calendly is not connected."
+        : "Calendly authorization needs to be renewed.",
+    );
+    this.name = "CalendlyConnectionIssue";
+  }
+}
+
+export function getCalendlyConnectionIssue(error: unknown): CalendlyConnectionIssue | null {
+  return error instanceof CalendlyConnectionIssue ? error : null;
+}
+
+export function classifyCalendlyConnectionFailure(
+  status: number,
+  detail: string,
+): CalendlyConnectionIssue | null {
+  if (status === 404 && /no calendly connection found/i.test(detail)) {
+    return new CalendlyConnectionIssue("disconnected");
+  }
+  if (status === 401 || status === 403) {
+    return new CalendlyConnectionIssue("reauthorization_required");
+  }
+  return null;
+}
 
 export function resolveCalendlySyncStatus(
   existingStatus: LocalEventStatus | null | undefined,
@@ -110,8 +140,14 @@ async function calendlyRequest<T>(path: string): Promise<T> {
   const response = await connectors.proxy("calendly", path, { method: "GET" });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`Calendly request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ""}`);
+    const issue = classifyCalendlyConnectionFailure(response.status, detail);
+    if (issue) {
+      calendlyConnectionStatus = issue.connectionStatus;
+      throw issue;
+    }
+    throw new Error(`Calendly request failed (${response.status})`);
   }
+  if (path.split("?")[0] === "/users/me") calendlyConnectionStatus = "connected";
   return response.json() as Promise<T>;
 }
 
@@ -360,6 +396,7 @@ export function syncCalendlyEvents(): Promise<CalendlySyncSummary> {
 export async function getCalendlySyncStatus(marketingUserId?: string): Promise<{
   lastSyncedAt: string | null;
   importedEvents: number;
+  connectionStatus: CalendlyConnectionStatus;
 }> {
   const where = marketingUserId
     ? and(eq(marketerEventsTable.source, "calendly"), eq(marketerEventsTable.marketingUserId, marketingUserId))
@@ -374,5 +411,6 @@ export async function getCalendlySyncStatus(marketingUserId?: string): Promise<{
   return {
     lastSyncedAt: result[0]?.lastSyncedAt?.toISOString?.() ?? null,
     importedEvents: Number(result[0]?.importedEvents ?? 0),
+    connectionStatus: calendlyConnectionStatus,
   };
 }

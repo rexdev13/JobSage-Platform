@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -989,7 +989,7 @@ export function AllUsersTab() {
                 <tr><td colSpan={12} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
               )}
               {!loading && !error && users.map((u) => (
-                <>
+                <Fragment key={u.id}>
                   <tr
                     key={u.id}
                     className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
@@ -1053,7 +1053,7 @@ export function AllUsersTab() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -2922,11 +2922,23 @@ export interface CandidateMatchItem {
   eligibilityGaps?: string[];
 }
 
+export type CandidateMatchListScoringStatus =
+  (typeof CandidateMatchListScoringStatus)[keyof typeof CandidateMatchListScoringStatus];
+
+export const CandidateMatchListScoringStatus = {
+  complete: "complete",
+  pending: "pending",
+  unavailable: "unavailable",
+} as const;
+
 export interface CandidateMatchList {
   matches: CandidateMatchItem[];
   dismissedRoleIds: number[];
   totalCount: number;
   cached: boolean;
+  scoringStatus: CandidateMatchListScoringStatus;
+  /** @minimum 0 */
+  pendingRoleCount: number;
 }
 
 export interface DismissMatchRequest {

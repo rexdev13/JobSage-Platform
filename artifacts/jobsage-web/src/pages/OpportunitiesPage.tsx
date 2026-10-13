@@ -117,6 +117,8 @@ function AiScoreBadge({ score }: { score: number }) {
 function BestMatchesStrip({
   matchesData,
   matchesLoading,
+  matchesError,
+  onRetryMatches,
   appliedRoleIds,
   localDismissedIds,
   onOpenApplication,
@@ -125,6 +127,8 @@ function BestMatchesStrip({
 }: {
   matchesData: CandidateMatchList | undefined;
   matchesLoading: boolean;
+  matchesError: boolean;
+  onRetryMatches: () => void;
   appliedRoleIds: number[];
   localDismissedIds: Set<number>;
   onOpenApplication: (url: string, match: CandidateMatchItem, vacancyIntent: boolean) => void;
@@ -161,7 +165,39 @@ function BestMatchesStrip({
     );
   }
 
-  if (!matchesData || allMatches.length === 0) return null;
+  if (matchesError && !matchesData) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900" role="status">
+        <p>We couldn&apos;t load your AI matches. Your opportunities are still available below.</p>
+        <Button type="button" size="sm" variant="outline" className="mt-3" onClick={onRetryMatches}>
+          Retry match loading
+        </Button>
+      </div>
+    );
+  }
+
+  if (!matchesData) return null;
+
+  if (allMatches.length === 0) {
+    if (matchesData.scoringStatus === "pending") {
+      return (
+        <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground" role="status" aria-live="polite">
+          AI match scoring is in progress. We&apos;ll show results as they become available.
+        </div>
+      );
+    }
+    if (matchesData.scoringStatus === "unavailable") {
+      return (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900" role="status">
+          <p>AI match scoring is temporarily unavailable. Your opportunities are still available below.</p>
+          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={onRetryMatches}>
+            Retry scoring
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  }
 
   if (visibleQueue.length === 0) {
     return (
@@ -191,6 +227,30 @@ function BestMatchesStrip({
         </div>
         <p className="text-xs text-muted-foreground">{matchesData.cached ? "Updated today" : "Just scored"}</p>
       </div>
+      {(matchesData.scoringStatus === "pending" || matchesData.scoringStatus === "unavailable" || matchesError) && (
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs ${
+            matchesData.scoringStatus === "unavailable" || matchesError
+              ? "bg-amber-50 text-amber-900"
+              : "bg-muted text-muted-foreground"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          <span>
+            {matchesError
+              ? "The latest match refresh failed; showing available results."
+              : matchesData.scoringStatus === "unavailable"
+                ? "Some new matches could not be scored. Showing available results."
+                : `Scoring ${matchesData.pendingRoleCount} more roles…`}
+          </span>
+          {(matchesData.scoringStatus === "unavailable" || matchesError) && (
+            <Button type="button" size="sm" variant="outline" onClick={onRetryMatches}>
+              Retry scoring
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <AnimatePresence mode="popLayout">
@@ -1270,9 +1330,21 @@ export default function OpportunitiesPage() {
   const regionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
-  const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
+  const {
+    data: aiMatchesData,
+    isLoading: aiMatchesLoading,
+    isError: aiMatchesError,
+    refetch: refetchAiMatches,
+  } = useGetMyMatches(
     { limit: 200, source: opportunitySource },
-    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }), enabled: isAuthenticated && !authLoading && isVacancyTab, retry: false } },
+    {
+      query: {
+        queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }),
+        enabled: isAuthenticated && !authLoading && isVacancyTab,
+        retry: false,
+        refetchInterval: (query) => query.state.data?.scoringStatus === "pending" ? 2_500 : false,
+      },
+    },
   );
   const dismissMutation = useDismissMatch();
 
@@ -1621,6 +1693,8 @@ export default function OpportunitiesPage() {
               <BestMatchesStrip
                 matchesData={filteredAiMatchesData}
                 matchesLoading={aiMatchesLoading}
+                matchesError={aiMatchesError}
+                onRetryMatches={() => { void refetchAiMatches(); }}
                 appliedRoleIds={appliedRoleIds}
                 localDismissedIds={localDismissedIds}
                 onOpenApplication={handleBestMatchOpenApplication}

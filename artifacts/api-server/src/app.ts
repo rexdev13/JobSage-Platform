@@ -2,6 +2,8 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
+import { performance } from "node:perf_hooks";
+import { pool } from "@workspace/db";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { writeAuditEvent } from "./lib/audit";
@@ -48,6 +50,49 @@ app.use(
     },
   }),
 );
+const candidateRoleRoutes = new Set(["/api/roles", "/api/roles/my-matches"]);
+app.use((req, res, next) => {
+  const route = req.path;
+  if (!candidateRoleRoutes.has(route)) {
+    next();
+    return;
+  }
+
+  const startedAt = performance.now();
+  const eventLoopStart = performance.eventLoopUtilization();
+  let logged = false;
+  const logDiagnostics = (outcome: "finished" | "client_closed_before_response" | "request_aborted") => {
+    if (logged) return;
+    logged = true;
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (outcome === "finished" && durationMs < 1_000 && pool.waitingCount === 0) return;
+
+    const eventLoop = performance.eventLoopUtilization(eventLoopStart);
+    req.log.warn(
+      {
+        route,
+        method: req.method,
+        outcome,
+        durationMs,
+        statusCode: res.statusCode,
+        pool: {
+          total: pool.totalCount,
+          idle: pool.idleCount,
+          waiting: pool.waitingCount,
+        },
+        eventLoopUtilization: Number(eventLoop.utilization.toFixed(3)),
+      },
+      "Candidate role request diagnostics",
+    );
+  };
+
+  res.once("finish", () => logDiagnostics("finished"));
+  res.once("close", () => {
+    if (!res.writableEnded) logDiagnostics("client_closed_before_response");
+  });
+  req.once("aborted", () => logDiagnostics("request_aborted"));
+  next();
+});
 app.use(cookieParser());
 app.use(
   express.json({

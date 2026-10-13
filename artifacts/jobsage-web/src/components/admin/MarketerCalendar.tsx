@@ -69,6 +69,7 @@ type EventStatus = "scheduled" | "completed" | "cancelled" | "rescheduled" | "no
 type CalendlySyncStatus = {
   lastSyncedAt: string | null;
   importedEvents: number;
+  connectionStatus: "unknown" | "connected" | "disconnected" | "reauthorization_required";
 };
 type GoogleCalendarStatus = {
   connected: boolean;
@@ -543,11 +544,13 @@ export function MarketerCalendar({
         <span>
           {googleStatusQuery.isLoading
             ? "Checking Google Calendar connection…"
-            : googleStatusQuery.data?.connected
+            : googleStatusQuery.isError
+              ? "Could not verify Google Calendar connection. Try refreshing this page."
+              : googleStatusQuery.data?.connected
               ? `Google Calendar connected: ${googleStatusQuery.data.accountEmail ?? googleStatusQuery.data.calendarName ?? "your account"}`
               : isAdmin && selectedMarketerId
                 ? "This marketer has not connected Google Calendar yet."
-                : "Connect your Google Calendar to enable Google Meet bookings."}
+                : "Google Calendar is disconnected. Manual scheduling is still available."}
         </span>
         {googleStatusQuery.data?.connected && bookingLinkQuery.data ? (
           <button
@@ -563,7 +566,7 @@ export function MarketerCalendar({
           >
             <Copy className="h-3.5 w-3.5" /> Copy public booking link
           </button>
-        ) : !isAdmin && !googleStatusQuery.data?.connected ? (
+        ) : !isAdmin && googleStatusQuery.isSuccess && !googleStatusQuery.data?.connected ? (
           <a
             href={`${BASE}/api/marketer/calendar/google/connect`}
             className="font-semibold text-primary hover:underline"
@@ -571,9 +574,30 @@ export function MarketerCalendar({
             Connect my Google Calendar
           </a>
         ) : (
-          <span>Google Meet links and guest invitations use the marketer’s own account.</span>
+          <span>
+            {googleStatusQuery.isError
+              ? "Connection status is unknown."
+              : isAdmin && !selectedMarketerId
+                ? "Select a marketer to inspect their booking connection."
+                : googleStatusQuery.data?.connected
+                  ? "Google Meet links and guest invitations use the marketer’s own account."
+                  : "Manual scheduling remains available while Google Calendar is disconnected."}
+          </span>
         )}
       </div>
+      <p className="text-xs text-muted-foreground" role="status">
+        {calendlyStatusQuery.isLoading
+          ? "Checking Calendly connection…"
+          : calendlyStatusQuery.isError
+            ? "Could not check Calendly connection. Its sync state is unknown."
+            : calendlyStatusQuery.data?.connectionStatus === "connected"
+              ? "Calendly is connected. Scheduled events sync automatically."
+              : calendlyStatusQuery.data?.connectionStatus === "disconnected"
+                ? "Calendly is disconnected. Automatic event synchronization is unavailable."
+                : calendlyStatusQuery.data?.connectionStatus === "reauthorization_required"
+                  ? "Calendly needs to be reconnected before automatic synchronization can continue."
+                  : "Calendly connection has not been verified yet."}
+      </p>
       {syncMessage && (
         <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" role="status">
           {syncMessage}

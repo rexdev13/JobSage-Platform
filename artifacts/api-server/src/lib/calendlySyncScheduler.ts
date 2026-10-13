@@ -1,7 +1,28 @@
 import cron from "node-cron";
-import { syncCalendlyEvents } from "./calendlySync";
+import { getCalendlyConnectionIssue, syncCalendlyEvents } from "./calendlySync";
+import { logger } from "./logger";
 
 let started = false;
+let lastReportedConnectionIssue: string | null = null;
+
+function reportSyncFailure(error: unknown, source: "scheduled" | "initial"): void {
+  const connectionIssue = getCalendlyConnectionIssue(error);
+  if (connectionIssue) {
+    if (lastReportedConnectionIssue !== connectionIssue.connectionStatus) {
+      logger.warn(
+        { connectionStatus: connectionIssue.connectionStatus },
+        "Calendly sync is waiting for a valid connection",
+      );
+    }
+    lastReportedConnectionIssue = connectionIssue.connectionStatus;
+    return;
+  }
+
+  logger.error(
+    { source, errorKind: error instanceof Error ? error.name : "unknown" },
+    "Calendly synchronization failed",
+  );
+}
 
 export function startCalendlySyncScheduler(): void {
   if (started) return;
@@ -11,28 +32,38 @@ export function startCalendlySyncScheduler(): void {
     void syncCalendlyEvents()
       .then((summary) => {
         if (!summary.alreadyRunning) {
-          console.log(
-            `[calendly-sync] Scheduled synchronization complete: scanned=${summary.scanned} imported=${summary.imported} updated=${summary.updated} unmapped=${summary.skippedUnmappedHost}`,
+          lastReportedConnectionIssue = null;
+          logger.info(
+            {
+              scanned: summary.scanned,
+              imported: summary.imported,
+              updated: summary.updated,
+              skippedUnmappedHost: summary.skippedUnmappedHost,
+            },
+            "Scheduled Calendly synchronization completed",
           );
         }
       })
-      .catch((error) => {
-        console.error("[calendly-sync] Scheduled synchronization failed:", error);
-      });
+      .catch((error) => reportSyncFailure(error, "scheduled"));
   });
 
   const initialSync = setTimeout(() => {
     void syncCalendlyEvents()
       .then((summary) => {
         if (!summary.alreadyRunning) {
-          console.log(
-            `[calendly-sync] Initial synchronization complete: scanned=${summary.scanned} imported=${summary.imported} updated=${summary.updated} unmapped=${summary.skippedUnmappedHost}`,
+          lastReportedConnectionIssue = null;
+          logger.info(
+            {
+              scanned: summary.scanned,
+              imported: summary.imported,
+              updated: summary.updated,
+              skippedUnmappedHost: summary.skippedUnmappedHost,
+            },
+            "Initial Calendly synchronization completed",
           );
         }
       })
-      .catch((error) => {
-        console.error("[calendly-sync] Initial synchronization failed:", error);
-      });
+      .catch((error) => reportSyncFailure(error, "initial"));
   }, 15_000);
   initialSync.unref();
 }

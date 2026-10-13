@@ -444,7 +444,42 @@ export async function fetchSponsorVacanciesAsRoles(
     conditions.push(gt(sponsorLicenceVacanciesTable.createdAt, options.since));
   }
   const rows = await db
-    .select({ vac: sponsorLicenceVacanciesTable, lic: sponsorLicencesTable })
+    .select({
+      vac: {
+        id: sponsorLicenceVacanciesTable.id,
+        sourceType: sponsorLicenceVacanciesTable.sourceType,
+        title: sponsorLicenceVacanciesTable.title,
+        organisationName: sponsorLicenceVacanciesTable.organisationName,
+        location: sponsorLicenceVacanciesTable.location,
+        targetRegions: sponsorLicenceVacanciesTable.targetRegions,
+        sourceMetadata: sponsorLicenceVacanciesTable.sourceMetadata,
+        liveness: sponsorLicenceVacanciesTable.liveness,
+        lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+        lastDiscoveredAt: sponsorLicenceVacanciesTable.lastDiscoveredAt,
+        sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+        sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+        closesAt: sponsorLicenceVacanciesTable.closesAt,
+        expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+        closedReason: sponsorLicenceVacanciesTable.closedReason,
+        companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
+        description: sponsorLicenceVacanciesTable.description,
+        applicationUrl: sponsorLicenceVacanciesTable.applicationUrl,
+        url: sponsorLicenceVacanciesTable.url,
+        livenessReason: sponsorLicenceVacanciesTable.livenessReason,
+        requiredDbsClearanceLevel: sponsorLicenceVacanciesTable.requiredDbsClearanceLevel,
+        requiredSafeguardingLevel: sponsorLicenceVacanciesTable.requiredSafeguardingLevel,
+        createdAt: sponsorLicenceVacanciesTable.createdAt,
+        boardName: sponsorLicenceVacanciesTable.boardName,
+        externalListingId: sponsorLicenceVacanciesTable.externalListingId,
+      },
+      lic: {
+        industry: sponsorLicencesTable.industry,
+        contactEmail: sponsorLicencesTable.contactEmail,
+        contactPhone: sponsorLicencesTable.contactPhone,
+        website: sponsorLicencesTable.website,
+      },
+    })
     .from(sponsorLicenceVacanciesTable)
     .leftJoin(
       sponsorLicencesTable,

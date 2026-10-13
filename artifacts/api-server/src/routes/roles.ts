@@ -1,4 +1,5 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
+import { performance } from "node:perf_hooks";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { db } from "@workspace/db";
@@ -25,7 +26,7 @@ import {
 import { eq, desc, and, inArray, gte, or, isNotNull, ne, sql } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
-import { batchScoreRoles } from "../lib/candidateAiMatch";
+import { batchScoreRoles, CandidateMatchScoringError } from "../lib/candidateAiMatch";
 import { careerProfilesTable } from "@workspace/db";
 import { runApplyUrlBackfill, getLastBackfillSummary } from "../lib/applyUrlBackfill";
 import { runSponsorVacancyApplyUrlBackfill, getLastSponsorVacancyBackfillSummary } from "../lib/sponsorVacancyApplyUrlBackfill";
@@ -98,6 +99,27 @@ const READINESS_CHECK_TTL_DAYS = 7;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
+const MAX_MATCH_ROLES_PER_REQUEST = 50;
+
+async function measureRoleStage<T>(
+  req: Request,
+  route: "roles" | "my-matches",
+  stage: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (durationMs >= 250) {
+      req.log.warn(
+        { route, stage, durationMs },
+        "Slow candidate role request stage",
+      );
+    }
+  }
+}
 
 /**
  * Drizzle WHERE clause that restricts to roles that have at least one real
@@ -373,7 +395,9 @@ router.get("/roles", async (req, res): Promise<void> => {
     return;
   }
 
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  const [profile] = await measureRoleStage(req, "roles", "candidate_profile", () =>
+    db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
+  );
 
   if (!profile) {
     res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: true });
@@ -385,20 +409,26 @@ router.get("/roles", async (req, res): Promise<void> => {
     res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: false });
     return;
   }
-  const [decision] = await db
-    .select()
-    .from(decisionRecordsTable)
-    .where(eq(decisionRecordsTable.userId, userId))
-    .orderBy(desc(decisionRecordsTable.createdAt))
-    .limit(1);
+  const [decision] = await measureRoleStage(req, "roles", "eligibility_decision", () =>
+    db
+      .select()
+      .from(decisionRecordsTable)
+      .where(eq(decisionRecordsTable.userId, userId))
+      .orderBy(desc(decisionRecordsTable.createdAt))
+      .limit(1),
+  );
 
-  const allRoles = await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO));
+  const allRoles = await measureRoleStage(req, "roles", "curated_role_catalog", () =>
+    db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO)),
+  );
 
-  const publishedJobListings = await db
-    .select({ job: jobListingsTable, emp: employerProfilesTable })
-    .from(jobListingsTable)
-    .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
-    .where(eq(jobListingsTable.status, "published"));
+  const publishedJobListings = await measureRoleStage(req, "roles", "published_employer_jobs", () =>
+    db
+      .select({ job: jobListingsTable, emp: employerProfilesTable })
+      .from(jobListingsTable)
+      .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+      .where(eq(jobListingsTable.status, "published")),
+  );
 
   const employerJobsAsRoles = publishedJobListings
     .filter((row) => {
@@ -450,11 +480,13 @@ router.get("/roles", async (req, res): Promise<void> => {
   // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
-  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
-    sourceType: sourceFilter,
-    requireSpecificVacancyUrl: sourceFilter != null,
-    onlyVerifiedLive: sourceFilter != null,
-  }))
+  let sponsorVacancyRoles = (await measureRoleStage(req, "roles", "sponsor_vacancies", () =>
+    fetchSponsorVacanciesAsRoles(opportunityCategory, {
+      sourceType: sourceFilter,
+      requireSpecificVacancyUrl: sourceFilter != null,
+      onlyVerifiedLive: sourceFilter != null,
+    }),
+  ))
     .filter((role) => roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion));
   if (
     sourceFilter === "job_board" &&
@@ -558,7 +590,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     roleFavourites,
     sponsorBookmarks,
     activeCareerProfiles,
-  ] = await Promise.all([
+  ] = await measureRoleStage(req, "roles", "candidate_opportunity_state", () => Promise.all([
     db
       .select({
         roleId: applicationsTable.roleId,
@@ -614,7 +646,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       .from(careerProfilesTable)
       .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
       .limit(1),
-  ]);
+  ]));
   const activeCareerProfile = activeCareerProfiles[0];
   const legacySpeculativeVacancyKeys = new Set(
     vacancySpecificSpeculative
@@ -802,26 +834,47 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     return;
   }
 
-  const [[profile], [activeCareerProfile]] = await Promise.all([
-    db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
-    db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true))),
-  ]);
+  const [[profile], [activeCareerProfile]] = await measureRoleStage(
+    req,
+    "my-matches",
+    "candidate_profile",
+    () => Promise.all([
+      db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
+      db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true))),
+    ]),
+  );
   if (!profile) {
-    res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
+    res.status(200).json({
+      matches: [],
+      dismissedRoleIds: [],
+      totalCount: 0,
+      cached: false,
+      scoringStatus: "complete",
+      pendingRoleCount: 0,
+    });
     return;
   }
 
   const opportunityCategory = professionCategoryFor(profile.profession);
   if (!opportunityCategory) {
-    res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
+    res.status(200).json({
+      matches: [],
+      dismissedRoleIds: [],
+      totalCount: 0,
+      cached: false,
+      scoringStatus: "complete",
+      pendingRoleCount: 0,
+    });
     return;
   }
-  const [decision] = await db
-    .select()
-    .from(decisionRecordsTable)
-    .where(eq(decisionRecordsTable.userId, userId))
-    .orderBy(desc(decisionRecordsTable.createdAt))
-    .limit(1);
+  const [decision] = await measureRoleStage(req, "my-matches", "eligibility_decision", () =>
+    db
+      .select()
+      .from(decisionRecordsTable)
+      .where(eq(decisionRecordsTable.userId, userId))
+      .orderBy(desc(decisionRecordsTable.createdAt))
+      .limit(1),
+  );
 
   const isRegistered =
     profile.registrationStatus != null &&
@@ -829,12 +882,16 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const isLicenceReady = profile.licenceReady === true;
   const userIsEligible = decision?.outcome === "eligible";
 
-  const allRoles = await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO));
-  const publishedJobListings = await db
-    .select({ job: jobListingsTable, emp: employerProfilesTable })
-    .from(jobListingsTable)
-    .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
-    .where(eq(jobListingsTable.status, "published"));
+  const allRoles = await measureRoleStage(req, "my-matches", "curated_role_catalog", () =>
+    db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO)),
+  );
+  const publishedJobListings = await measureRoleStage(req, "my-matches", "published_employer_jobs", () =>
+    db
+      .select({ job: jobListingsTable, emp: employerProfilesTable })
+      .from(jobListingsTable)
+      .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+      .where(eq(jobListingsTable.status, "published")),
+  );
 
   const employerJobsAsRoles = publishedJobListings
       .filter((row) => {
@@ -880,11 +937,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
-  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
-    sourceType: sourceFilter,
-    requireSpecificVacancyUrl: sourceFilter != null,
-    onlyVerifiedLive: sourceFilter != null,
-  }))
+  let sponsorVacancyRoles = (await measureRoleStage(req, "my-matches", "sponsor_vacancies", () =>
+    fetchSponsorVacanciesAsRoles(opportunityCategory, {
+      sourceType: sourceFilter,
+      requireSpecificVacancyUrl: sourceFilter != null,
+      onlyVerifiedLive: sourceFilter != null,
+    }),
+  ))
     .filter((role) => roleMatchesPreferredRegions(role.location, role.targetRegions, profile.preferredRegion));
   if (
     sourceFilter === "job_board" &&
@@ -967,7 +1026,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
   if (regulatorRoles.length === 0) {
-    res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
+    res.json({
+      matches: [],
+      dismissedRoleIds: [],
+      totalCount: 0,
+      cached: false,
+      scoringStatus: "complete",
+      pendingRoleCount: 0,
+    });
     return;
   }
 
@@ -1035,36 +1101,88 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // by the nightly pipeline, so a new sponsor vacancy must never trigger a
   // full AI re-score of the whole catalogue here.
   const allCovered = curatedRoles.every((r) => cachedRoleIds.has(r.id));
+  let scoringStatus: "complete" | "pending" | "unavailable" = "complete";
+  let pendingRoleCount = 0;
 
   if (curatedRoles.length === 0 || (allCovered && cachedScores.length > 0)) {
     scoreMap = new Map(cachedScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]));
     cached = true;
   } else {
-    scoreMap = await batchScoreRoles(
-      {
-        profession: profile.profession,
-        specialty: profile.specialty,
-        experienceYears: profile.experienceYears,
-        qualificationCountry: profile.qualificationCountry,
-        registrationStatus: profile.registrationStatus,
-        requiresSponsorship: profile.requiresSponsorship,
-      },
-      curatedRoles,
-    );
+    const missingScores = curatedRoles.filter((role) => !cachedRoleIds.has(role.id));
+    const batchToScore = missingScores.slice(0, MAX_MATCH_ROLES_PER_REQUEST);
+    const batchScores = new Map<number, { score: number; explanation: string }>();
+    scoreMap = new Map(cachedScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]));
+    pendingRoleCount = missingScores.length - batchToScore.length;
 
-    await db.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.userId, userId));
-    // Only persist rows the AI actually scored — never store the placeholder
-    // fallback (50) as if it were a real match score, which inflates the strip.
-    const actuallyScored = curatedRoles.filter((r) => scoreMap.has(r.id));
-    if (actuallyScored.length > 0) {
-      await db.insert(candidateMatchScoresTable).values(
-        actuallyScored.map((r) => ({
-          userId,
-          roleId: r.id,
-          score: scoreMap.get(r.id)!.score,
-          aiExplanation: scoreMap.get(r.id)!.explanation,
-        })),
-      );
+    if (batchToScore.length > 0) {
+      try {
+        const scored = await measureRoleStage(req, "my-matches", "ai_scoring", () =>
+          batchScoreRoles(
+            {
+              profession: profile.profession,
+              specialty: profile.specialty,
+              experienceYears: profile.experienceYears,
+              qualificationCountry: profile.qualificationCountry,
+              registrationStatus: profile.registrationStatus,
+              requiresSponsorship: profile.requiresSponsorship,
+            },
+            batchToScore,
+          ),
+        );
+        const unreturnedRoleIds = batchToScore
+          .filter((role) => !scored.has(role.id))
+          .map((role) => role.id);
+        if (unreturnedRoleIds.length > 0) {
+          throw new CandidateMatchScoringError(scored, unreturnedRoleIds);
+        }
+        for (const [roleId, value] of scored) batchScores.set(roleId, value);
+      } catch (error) {
+        if (error instanceof CandidateMatchScoringError) {
+          for (const [roleId, value] of error.partialScores) batchScores.set(roleId, value);
+          req.log.warn(
+            {
+              stage: "ai_scoring",
+              requestedRoleCount: batchToScore.length,
+              scoredRoleCount: error.partialScores.size,
+              failedRoleCount: error.failedRoleIds.length,
+            },
+            "Candidate match scoring returned an incomplete batch",
+          );
+        } else {
+          req.log.warn(
+            { stage: "ai_scoring", requestedRoleCount: batchToScore.length },
+            "Candidate match scoring failed",
+          );
+        }
+        scoringStatus = "unavailable";
+      }
+
+      for (const [roleId, value] of batchScores) scoreMap.set(roleId, value);
+      const newlyScoredRoles = batchToScore.filter((role) => batchScores.has(role.id));
+      pendingRoleCount += batchToScore.length - newlyScoredRoles.length;
+
+      if (newlyScoredRoles.length > 0) {
+        await db.transaction(async (tx) => {
+          const roleIds = newlyScoredRoles.map((role) => role.id);
+          await tx
+            .delete(candidateMatchScoresTable)
+            .where(and(
+              eq(candidateMatchScoresTable.userId, userId),
+              inArray(candidateMatchScoresTable.roleId, roleIds),
+            ));
+          await tx.insert(candidateMatchScoresTable).values(
+            newlyScoredRoles.map((role) => ({
+              userId,
+              roleId: role.id,
+              score: batchScores.get(role.id)!.score,
+              aiExplanation: batchScores.get(role.id)!.explanation,
+            })),
+          );
+        });
+      }
+      if (scoringStatus !== "unavailable" && pendingRoleCount > 0) {
+        scoringStatus = "pending";
+      }
     }
   }
 
@@ -1186,7 +1304,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const totalCount = allSortedMatches.length;
   const matches = allSortedMatches.slice(offset, offset + limit);
 
-  res.json({ matches, dismissedRoleIds, totalCount, cached });
+  res.json({
+    matches,
+    dismissedRoleIds,
+    totalCount,
+    cached,
+    scoringStatus,
+    pendingRoleCount,
+  });
 });
 
 // ── GET /opportunities/recommended — top-N matched roles for the dashboard ────

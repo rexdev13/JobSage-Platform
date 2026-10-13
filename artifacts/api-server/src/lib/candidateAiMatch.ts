@@ -28,6 +28,17 @@ export interface CandidateProfileForScoring {
 }
 
 const BATCH_SIZE = 50;
+const AI_REQUEST_TIMEOUT_MS = 6_000;
+
+export class CandidateMatchScoringError extends Error {
+  constructor(
+    readonly partialScores: Map<number, { score: number; explanation: string }>,
+    readonly failedRoleIds: number[],
+  ) {
+    super("One or more candidate match scores could not be produced.");
+    this.name = "CandidateMatchScoringError";
+  }
+}
 
 async function scoreSingleBatch(
   profile: CandidateProfileForScoring,
@@ -68,13 +79,16 @@ ${vacancyLines}
 Return ONLY valid JSON:
 {"scores":[{"roleId":<integer>,"score":<0-100>,"explanation":"<string>"}]}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: Math.min(8000, roles.length * 80 + 300),
-    temperature: 0.2,
-    response_format: { type: "json_object" },
-  });
+  const response = await openai.chat.completions.create(
+    {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: Math.min(8000, roles.length * 80 + 300),
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+    },
+    { timeout: AI_REQUEST_TIMEOUT_MS, maxRetries: 0 },
+  );
 
   const raw = response.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as { scores?: unknown[] };
@@ -90,8 +104,17 @@ Return ONLY valid JSON:
         "explanation" in item
       ) {
         const entry = item as { roleId: number; score: number; explanation: string };
+        const score = Number(entry.score);
+        if (
+          !Number.isInteger(entry.roleId) ||
+          !roles.some((role) => role.id === entry.roleId) ||
+          !Number.isFinite(score) ||
+          typeof entry.explanation !== "string"
+        ) {
+          continue;
+        }
         result.set(entry.roleId, {
-          score: Math.min(100, Math.max(0, Math.round(Number(entry.score)))),
+          score: Math.min(100, Math.max(0, Math.round(score))),
           explanation: String(entry.explanation).slice(0, 120),
         });
       }
@@ -132,18 +155,22 @@ export async function batchScoreRoles(
     chunks.push(rolesForAi.slice(i, i + BATCH_SIZE));
   }
 
+  const failedRoleIds: number[] = [];
   for (const chunk of chunks) {
     try {
       const chunkMap = await scoreSingleBatch(profile, chunk);
       for (const [k, v] of chunkMap) merged.set(k, v);
+      failedRoleIds.push(...chunk.filter((role) => !chunkMap.has(role.id)).map((role) => role.id));
     } catch {
-      for (const role of chunk) {
-        merged.set(role.id, {
-          score: role.sponsorshipOffered && profile.requiresSponsorship ? 60 : 45,
-          explanation: "Match based on your profile and role requirements.",
-        });
-      }
+      failedRoleIds.push(...chunk.map((role) => role.id));
     }
+  }
+
+  if (failedRoleIds.length > 0) {
+    throw new CandidateMatchScoringError(
+      merged,
+      [...new Set(failedRoleIds)],
+    );
   }
 
   return merged;
