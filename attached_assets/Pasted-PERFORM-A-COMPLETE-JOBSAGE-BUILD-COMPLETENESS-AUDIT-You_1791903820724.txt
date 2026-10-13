@@ -1,0 +1,304 @@
+PERFORM A COMPLETE JOBSAGE BUILD-COMPLETENESS AUDIT
+
+Your task is to determine, using direct source-code and test evidence, whether every part of the JOBSAGE web and mobile application has actually been built.
+
+This is an audit first. Do not claim completion based on plans, task cards, comments, screenshots, generated documentation or the existence of components alone.
+
+AUDIT RULES
+
+1. Read both original JOBSAGE specifications completely.
+2. Inspect the current authoritative source code, database schema, migrations, APIs, workers, tests, mobile configuration and documentation.
+3. Inspect pending, completed and unassigned task cards.
+4. Search for:
+   - TODO and FIXME comments
+   - Placeholder screens
+   - “Coming soon” content
+   - Mock data
+   - Hardcoded success responses
+   - Empty handlers
+   - Disabled feature flags
+   - Unconnected buttons and forms
+   - Routes without screens
+   - Screens without routes
+   - APIs without UI consumers
+   - UI actions without working APIs
+   - Missing loading, empty and error states
+   - Tests that mock away the feature being claimed
+5. Do not modify source code during this audit.
+6. Do not describe a feature as complete unless its UI, API, database behaviour, permissions and tests are connected.
+7. Separate source implementation from physical-device, production-provider and store verification.
+8. Do not claim real-device verification from browser previews, automated tests or emulators.
+9. Do not claim store readiness without store assets, declarations, signing and review requirements.
+10. Never expose credentials or customer data.
+
+REQUIRED STATUS LABELS
+
+Give every requirement exactly one status:
+
+- COMPLETE AND VERIFIED
+- BUILT BUT NOT VERIFIED
+- PARTIALLY BUILT
+- UI ONLY
+- BACKEND ONLY
+- PLACEHOLDER OR MOCK
+- NOT BUILT
+- BROKEN
+- EXTERNAL BLOCKER
+- NOT APPLICABLE
+
+For each status, provide direct evidence:
+
+- Requirement/specification reference
+- Feature name
+- Relevant route
+- UI file
+- API endpoint
+- Backend file
+- Database tables
+- Permission checks
+- Tests
+- Test result
+- Missing work
+
+AUDIT ALL ROLES
+
+Audit every role independently:
+
+- Candidate
+- Employer
+- Employer staff
+- Administrator
+- Moderator/support staff
+- Any additional role found in the source
+
+Confirm that each role:
+
+- Sees the correct navigation.
+- Can open every permitted screen.
+- Cannot access unauthorized screens or APIs.
+- Has complete mobile and web workflows.
+- Receives correct loading, success, empty and error states.
+- Can log in, log out and change accounts safely.
+
+AUDIT ALL FEATURES
+
+At minimum, inspect:
+
+1. Authentication
+
+- Registration
+- Login
+- Logout
+- Password reset
+- Email verification
+- Social login
+- Sign in with Apple
+- Session restoration
+- Expired sessions
+- Account switching
+- Role switching
+- CAPTCHA and employer SSO
+
+2. Candidate features
+
+- Onboarding
+- Candidate profile
+- Career profile
+- Education and employment history
+- Skills and qualifications
+- Identity/right-to-work information
+- CV creation
+- CV upload
+- Cover letters
+- Documents
+- Job search
+- Job details
+- Saved jobs
+- Saved searches
+- Applications
+- Application tracking
+- Smart Apply
+- Interviews
+- Calendar
+- Messages
+- Notifications
+- Sponsorship-related features
+- Reports, help and feedback
+
+3. Employer features
+
+- Employer onboarding
+- Organisation profile
+- Staff invitations
+- Staff permissions
+- Job creation
+- Job editing
+- Job publishing
+- Applicant management
+- Candidate review
+- Messaging
+- Interviews
+- Calendar
+- Employer analytics
+- Subscription/billing UI
+- Organisation ownership transfer
+- Organisation deletion
+
+4. Administration and moderation
+
+- Admin authentication and permissions
+- User management
+- Employer management
+- Job moderation
+- Report handling
+- Blocking
+- Moderator queues
+- Triage
+- Escalation
+- Assignment
+- Resolution
+- Appeals
+- Abuse controls
+- Audit history
+
+5. Privacy and account deletion
+
+- Privacy settings
+- Data access/export requests
+- Account-deletion initiation
+- Reauthentication
+- Deletion-request tracking
+- Database cleanup
+- File cleanup
+- AI-data cleanup
+- Email/provider cleanup
+- Search/cache cleanup
+- Calendar cleanup
+- Analytics cleanup
+- Device-token cleanup
+- Shared employer records
+- Legal holds
+- Retention exceptions
+- Backup expiry
+- Restore-time deletion replay
+- User completion notification
+- Production safety gate
+
+6. Mobile application
+
+- Route-by-role parity with the website
+- Mobile navigation
+- Responsive layouts
+- Deep links
+- Push notifications
+- File selection
+- Camera access
+- Uploads
+- Streaming and cancellation
+- Temporary-file cleanup
+- Network interruption
+- Background/foreground behaviour
+- Permissions
+- Accessibility
+- iOS configuration
+- Android configuration
+
+7. Store readiness
+
+- Bundle identifier/application ID
+- Versioning
+- Icons
+- Splash screens
+- Permission descriptions
+- Privacy manifest
+- Google Data Safety information
+- Apple App Privacy information
+- Privacy Policy
+- Terms/EULA
+- Account-deletion URL
+- Support URL
+- Age/content rating
+- Reviewer instructions
+- Reviewer account
+- Screenshots
+- Signing configuration
+- Release builds
+
+END-TO-END CONNECTION CHECK
+
+For every important workflow, trace the entire path:
+
+User action
+→ UI component
+→ route
+→ API request
+→ authentication
+→ authorization
+→ validation
+→ database/provider operation
+→ response
+→ UI success/error state
+→ logging/monitoring
+→ automated test
+
+A screen or button is not complete if this chain is broken.
+
+VALIDATION
+
+Run all relevant existing:
+
+- Unit tests
+- Integration tests
+- API tests
+- Permission tests
+- Deletion tests
+- Moderation tests
+- Mobile tests
+- Accessibility tests
+- Typechecks
+- Lint checks
+- Web production build
+- API production build
+- Available iOS/Android build validation
+
+Report exact commands, pass/fail counts and errors. Do not hide failing tests.
+
+FINAL REPORT
+
+Return:
+
+1. Overall completion verdict.
+2. Completion percentage based on specification requirements, not file count.
+3. Complete feature list.
+4. Partial feature list.
+5. Missing feature list.
+6. Broken or disconnected feature list.
+7. Placeholder/mock list.
+8. Web/mobile parity gaps.
+9. Role and permission gaps.
+10. Privacy/deletion gaps.
+11. Moderation gaps.
+12. Store-release gaps.
+13. Tests and builds run.
+14. Physical-device tests still required.
+15. External owner/provider blockers.
+16. Prioritised engineering work required to finish.
+
+Include a table with:
+
+| Requirement | Role | Web | Mobile | API | Database | Permissions | Tests | Device Evidence | Status | Missing Work |
+
+COMPLETION RULE
+
+You may declare the app fully built only if every applicable specification requirement is either:
+
+- COMPLETE AND VERIFIED; or
+- BUILT BUT NOT VERIFIED solely because physical devices, production credentials or store access are unavailable.
+
+If any applicable requirement is PARTIALLY BUILT, UI ONLY, BACKEND ONLY, PLACEHOLDER OR MOCK, NOT BUILT or BROKEN, the correct conclusion is:
+
+“JOBSAGE IS NOT FULLY BUILT.”
+
+Do not implement fixes during this audit. Produce the evidence-backed audit first so the remaining work can be assigned precisely.
+
+Begin now. Do not return another plan for conducting the audit—perform the audit and return the completed report.
