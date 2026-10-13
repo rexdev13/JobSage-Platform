@@ -13,6 +13,7 @@
     "seed:test-email-vacancy": "tsx src/scripts/seedTestEmailVacancy.ts",
     "seed:k6-fixture": "NODE_ENV=development tsx src/scripts/seedK6Fixture.ts",
     "seed:employer-staff-fixtures": "NODE_ENV=development tsx src/scripts/seedEmployerStaffFixtures.ts",
+    "seed:owner-independent-validation": "NODE_ENV=development tsx src/scripts/seedOwnerIndependentValidation.ts",
     "promote:sponsor-websites:dev": "NODE_ENV=development tsx src/scripts/runSponsorWebsitePromotion.ts --apply-dev",
     "vacancy:sponsor-websites": "tsx src/scripts/runSponsorWebsiteVacancyPipeline.ts",
     "backfill:healthcare-vacancy-contacts": "tsx src/scripts/healthcareVacancyContactBackfill.ts",
