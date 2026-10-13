@@ -1,0 +1,225 @@
+STOP AND PROVIDE AN EVIDENCE-BASED PROGRESS CHECKPOINT
+
+Do not make additional source changes yet.
+
+I need to see exactly what you have implemented since the previous JOBSAGE build-completeness audit before you continue.
+
+This is not a request for another full audit, another plan, or another long explanation. Compare the current project against the 13 October 2026 audit baseline and show the actual engineering delta.
+
+The previous audit concluded:
+
+- JOBSAGE was not fully built.
+- Estimated completion was 55.1%.
+- Account deletion was partial and disabled.
+- Several mobile, moderation, role, permission and store requirements remained.
+- Existing tests and builds had the results recorded in that audit.
+
+Spend no more than 20 minutes collecting evidence.
+
+1. IDENTIFY EVERYTHING CHANGED
+
+Inspect:
+
+- Git status
+- Git diff
+- Recent commits/checkpoints
+- Files added, edited or deleted
+- Database migrations
+- New routes
+- New APIs
+- New screens/components
+- New services/workers
+- New tests
+- Configuration changes
+- Documentation changes
+- Task cards actually applied
+
+Show every file changed during the recent work.
+
+For each changed file, state:
+
+- What changed
+- Why it changed
+- Which audit requirement it addresses
+- Whether the change is complete
+- Whether it is connected to the real UI/API/database
+- Whether it is tested
+
+Do not count generated files, formatting, documentation or test fixtures as complete product features.
+
+2. EXPLAIN THE THREE HOURS OF DELETION WORK
+
+Give a precise account of what was implemented during the deletion work.
+
+Show:
+
+- Database tables now covered
+- Ownership selectors added
+- Files and object-storage paths covered
+- Providers covered
+- Cleanup adapters added
+- Orchestrator wiring completed
+- Retry behaviour
+- Idempotency
+- Shared-record handling
+- Legal-hold handling
+- Backup tombstones
+- Restore-time replay
+- Notifications
+- Tests added
+- Remaining gaps
+- Whether deletion requests are still disabled
+
+Distinguish:
+
+- Implemented and connected
+- Implemented but disconnected
+- Fixture-tested only
+- Documented only
+- Still missing
+- Blocked externally
+
+Do not describe deletion as complete if the request flow remains disabled or if schema/provider coverage is incomplete.
+
+3. CHECK WHETHER OTHER FEATURES IMPROVED
+
+Compare the current source against the previous audit for:
+
+- Candidate workflows
+- Employer workflows
+- Employer staff functionality
+- Role permissions
+- Moderator functionality
+- Mobile route parity
+- Native sessions
+- Smart Apply
+- Documents and uploads
+- Camera/file selection
+- Push notifications
+- Deep links
+- Messaging
+- Calendar/interviews
+- Accessibility
+- Privacy controls
+- Store configuration
+- Build reliability
+
+Use this table:
+
+| Requirement | Previous status | Current status | Actual change | Evidence | Remaining work |
+
+If nothing changed for a requirement, say “No improvement.”
+
+4. RUN THE APPLICATION
+
+Start the actual JOBSAGE development environment.
+
+Verify:
+
+- API starts
+- Website starts
+- Database connection works
+- Login page opens
+- Candidate routes render
+- Employer routes render
+- Mobile workspace starts
+- No immediate blank screen or fatal runtime error
+
+Provide the working preview URL.
+
+The preview is evidence for inspection, not a replacement for completing the application.
+
+If startup fails, report the exact command and error. Do not hide it or call the app demonstrable.
+
+5. PERFORM A SHORT SMOKE TEST
+
+Using synthetic development accounts only, check:
+
+Candidate:
+
+- Login
+- Dashboard
+- Profile
+- Opportunities
+- Job details
+- Save job
+- Applications
+- Smart Apply entry
+- Documents
+- Inbox
+- Calendar
+- Privacy settings
+- Logout
+
+Employer:
+
+- Login
+- Dashboard
+- Organisation profile
+- Jobs
+- Create/edit job
+- Applicants
+- Messages
+- Calendar
+- Logout
+
+Record:
+
+| Role | Journey | Result | Evidence | Problem |
+
+Do not claim external ATS submission, email delivery, push delivery or native-device success unless actually verified.
+
+6. RERUN RELEVANT VALIDATION
+
+Run tests for packages affected by the recent work.
+
+At minimum:
+
+- Typecheck changed packages
+- Deletion/privacy tests
+- API tests directly affected by changes
+- Web tests directly affected by changes
+- Mobile tests directly affected by changes
+- Relevant builds
+
+Report exact commands, passed/failed counts and errors.
+
+Do not silently increase timeouts or remove assertions merely to obtain green results.
+
+7. CALCULATE THE REAL IMPROVEMENT
+
+Use the same 42-area scoring method from the previous audit so the result is comparable.
+
+Report:
+
+- Previous completion: 55.1%
+- Current calculated completion
+- Percentage-point improvement
+- Requirements that genuinely moved status
+- Requirements that became worse or broke
+- Whether the three hours produced meaningful product progress
+
+Do not increase the completion percentage because of documentation, plans, proposed cards or unconnected code.
+
+8. FINAL CHECKPOINT RESPONSE
+
+Return:
+
+1. Plain-language verdict.
+2. Current completion percentage.
+3. Improvement from 55.1%.
+4. Exact work completed in the last three hours.
+5. Files changed.
+6. Features genuinely improved.
+7. Features not improved.
+8. Deletion work completed and still missing.
+9. Test and build results.
+10. Working preview URL.
+11. Candidate/employer smoke-test results.
+12. Current broken or disconnected features.
+13. Remaining engineering backlog in priority order.
+14. Owner/external blockers separately.
+
+If the work produced little or no usable improvement, say so directly.
+
+Do not create more task cards, continue deletion work or begin a new feature before returning this checkpoint. I need to review the real current state first.
