@@ -1,16 +1,18 @@
-import { safeInternalPath } from "@workspace/mobile-core";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { workspaceEntryPath } from "@/lib/workspace-entry-path";
 import { WORKSPACE_START_PATH, workspaceUrl } from "@/lib/workspace-config";
 
-/** react-native-webview cannot render on web: send visitors to the canonical website. */
+/** react-native-webview cannot render on web: send visitors to a useful website route. */
 export default function WorkspaceWeb() {
   const colors = useColors();
   const params = useLocalSearchParams<{ path?: string }>();
-  const path = (typeof params.path === "string" && safeInternalPath(params.path)) || WORKSPACE_START_PATH;
+  const path = workspaceEntryPath(
+    typeof params.path === "string" ? params.path : WORKSPACE_START_PATH,
+  );
   const target = workspaceUrl(path);
 
   useEffect(() => {

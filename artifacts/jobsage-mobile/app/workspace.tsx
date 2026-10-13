@@ -35,6 +35,7 @@ import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, u
 import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal } from "@/lib/external-links";
 import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
+import { workspaceEntryPath } from "@/lib/workspace-entry-path";
 import {
   NativeProof,
   WORKSPACE_ORIGIN,
@@ -135,7 +136,13 @@ export default function WorkspaceScreen() {
     initialized.current = true;
     const existing = getNativeSessionToken();
     if (!existing) {
-      setSource({ uri: startUrl });
+      const entryUrl = workspaceUrl(workspaceEntryPath(startPath));
+      if (!entryUrl) {
+        initialized.current = false;
+        setLoadError("The sign-in page is unavailable. Please check the workspace configuration.");
+        return;
+      }
+      setSource({ uri: entryUrl });
       return;
     }
     let alive = true;
