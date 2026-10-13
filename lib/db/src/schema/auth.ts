@@ -24,7 +24,7 @@ export const usersTable = pgTable("users", {
   googleCalendarRefreshToken: text("google_calendar_refresh_token"),
   googleCalendarAccountEmail: varchar("google_calendar_account_email"),
   googleCalendarConnectedAt: timestamp("google_calendar_connected_at", { withTimezone: true }),
-  role: varchar("role", { enum: ["candidate", "admin", "reviewer", "employer", "super_admin", "marketing"] }).notNull().default("candidate"),
+  role: varchar("role", { enum: ["candidate", "admin", "reviewer", "moderator", "employer", "super_admin", "marketing"] }).notNull().default("candidate"),
   plan: varchar("plan", { enum: ["free", "pro"] }).notNull().default("free"),
   bonusReadinessChecks: integer("bonus_readiness_checks").notNull().default(0),
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),

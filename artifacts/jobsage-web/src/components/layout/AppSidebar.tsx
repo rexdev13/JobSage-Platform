@@ -5,7 +5,7 @@ import {
   ArrowRight, BarChart2, BookOpen, Briefcase, Building2, CalendarDays,
   CheckCircle2, ChevronRight, ClipboardList, FileText, GraduationCap, HelpCircle,
   Home, Inbox, LayoutDashboard, List, LogOut, Map, MessageSquareText, Plus,
-  Search, Shield, ShieldAlert, ShieldCheck, Sparkles, Star, User, UserCog,
+  Search, Shield, ShieldAlert, ShieldCheck, Sparkles, Star, User, UserCog, UserPlus,
   Users, RefreshCw, Bookmark,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -20,6 +20,8 @@ import { CareerJourneyCard } from "@/components/CareerJourneyCard";
 import { CANDIDATE_NAVIGATION, getUnreadBadgeText, isNavigationItemActive } from "@/lib/candidateNavigation";
 import { deriveCareerJourney } from "@/lib/candidateJourney";
 import { MARKETING_NAVIGATION } from "@/lib/roleAccess";
+import { useEmployerOrganizations, type EmployerStaffRole } from "@/hooks/useEmployerOrganizations";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -29,12 +31,8 @@ type OtherNavItem = { name: string; href: string; icon: LucideIcon; roles: strin
 const otherRoleNavigation: OtherNavItem[] = [
   { name: "Help & Support", href: "/help", icon: HelpCircle, roles: ["employer", "marketing", "super_admin"] },
   { name: "Feedback", href: "/feedback", icon: MessageSquareText, roles: ["employer", "super_admin"] },
-  { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },
-  { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer", "admin"] },
-  { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["employer", "admin"] },
-  { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["employer", "admin"] },
-  { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer", "admin"] },
   { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
+  { name: "Moderation Reports", href: "/moderation/reports", icon: ShieldAlert, roles: ["moderator"] },
   { name: "Learning Library", href: "/admin/learning-videos", icon: BookOpen, roles: ["admin", "super_admin"] },
   { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin", "super_admin"] },
   { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin", "super_admin"] },
@@ -50,6 +48,20 @@ const otherRoleNavigation: OtherNavItem[] = [
   { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
   { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
   { name: "Sponsor Data Import", href: "/admin/sponsor-import", icon: Shield, roles: ["super_admin"] },
+];
+
+const employerNavigation: Array<{
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  roles: EmployerStaffRole[];
+}> = [
+  { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer_owner", "employer_admin", "recruiter", "hiring_manager", "employer_viewer"] },
+  { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer_owner", "employer_admin"] },
+  { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["employer_owner", "employer_admin"] },
+  { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["employer_owner", "employer_admin"] },
+  { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer_owner", "employer_admin"] },
+  { name: "Organisation Staff", href: "/employer/staff", icon: UserPlus, roles: ["employer_owner", "employer_admin"] },
 ];
 
 const legacyCandidateGroups = [
@@ -102,8 +114,7 @@ const legacyCandidateGroups = [
   {
     label: "Operations",
     items: [
-      "Review Queue", "Learning Library", "Employer Dashboard", "Post a Job",
-      "Talent Search", "Campaigns", "Organisation Profile", "Ruleset Management",
+      "Review Queue", "Learning Library", "Ruleset Management",
       "Role Management", "Audit Logs", "User Management", "Waitlist Leads", "Calendar",
     ].map((name) => otherRoleNavigation.find((item) => item.name === name)!)
       .map((item) => ({ ...item, roles: item.name === "Review Queue" ? ["reviewer", "admin"] : ["admin"] })),
@@ -134,8 +145,13 @@ const iconForCandidateItem: Record<string, LucideIcon> = {
 export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { toast } = useToast();
+  const employerOrganizations = useEmployerOrganizations(!!user);
   const role = user?.role;
   const isCandidate = role === "candidate";
+  const selectedEmployerRole = employerOrganizations.activeOrganization?.role
+    ?? (employerOrganizations.organizations.length === 1 ? employerOrganizations.organizations[0]?.role : null);
+  const employerLinks = employerNavigation.filter(item => !selectedEmployerRole || item.roles.includes(selectedEmployerRole));
   const { data: inboxData } = useGetInboxUnreadCount({
     query: {
       queryKey: getGetInboxUnreadCountQueryKey(),
@@ -218,6 +234,29 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JOBSAGE" className="h-12 w-auto object-contain" />
       </div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+        {employerOrganizations.organizations.length > 1 && (
+          <div className="mb-3 px-1">
+            <label htmlFor="employer-organization-switcher" className="mb-1 block px-2 text-xs font-medium text-muted-foreground">
+              Employer organisation
+            </label>
+            <select id="employer-organization-switcher" data-testid="select-employer-organization"
+              className="min-h-11 w-full rounded-lg border border-sidebar-border bg-background px-3 text-sm text-foreground"
+              value={employerOrganizations.activeOrganization?.id ?? ""}
+              disabled={employerOrganizations.isSelectingOrganization}
+              onChange={event => {
+                const id = Number(event.currentTarget.value);
+                if (!Number.isInteger(id)) return;
+                void employerOrganizations.selectOrganization(id).catch(() =>
+                  toast({ title: "Organisation not selected", description: "Your access could not be confirmed.", variant: "destructive" }),
+                );
+              }}>
+              <option value="" disabled>Choose organisation</option>
+              {employerOrganizations.organizations.map(org => (
+                <option key={org.id} value={org.id}>{org.companyName}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {isCandidate ? (
           <div className="space-y-4">
             {CANDIDATE_NAVIGATION.map((section) => (
@@ -237,23 +276,20 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
                         </button>
                       );
                     }
-                    if (item.kind === "coming-soon") {
-                      const Icon = iconForCandidateItem[item.label];
-                      return (
-                        <div key={item.label} aria-disabled="true" aria-label={`${item.label}, Coming soon`}
-                          className="flex min-h-11 cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/75">
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 leading-snug">{item.label}</span>
-                          <span className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[9px] font-medium">Coming soon</span>
-                        </div>
-                      );
-                    }
                     return renderLink(item.label, item.href, iconForCandidateItem[item.label],
                       item.badge === "unread-messages" ? inboxData?.unreadCount : undefined);
                   })}
                 </div>
               </section>
             ))}
+            {employerOrganizations.organizations.length > 0 && (
+              <section aria-label="Employer workspace">
+                <h2 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground/75">Employer Workspace</h2>
+                <div className="space-y-0.5">
+                  {employerLinks.map(item => renderLink(item.name, item.href, item.icon))}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -270,6 +306,14 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
                 renderLink(item.name, item.href, item.icon),
               )}
             </div>}
+            {employerOrganizations.organizations.length > 0 && (
+              <section aria-label="Employer workspace">
+                <h2 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground/75">Employer Workspace</h2>
+                <div className="space-y-0.5">
+                  {employerLinks.map(item => renderLink(item.name, item.href, item.icon))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </nav>

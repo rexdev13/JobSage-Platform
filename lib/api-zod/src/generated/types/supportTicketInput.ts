@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SupportTicketInputCategory } from "./supportTicketInputCategory";
+import type { SupportTicketInputReportedContentType } from "./supportTicketInputReportedContentType";
 
 export interface SupportTicketInput {
   /**
@@ -28,4 +29,12 @@ export interface SupportTicketInput {
   message: string;
   /** @minimum 1 */
   reportedMessageId?: number;
+  reportedContentType?: SupportTicketInputReportedContentType;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  reportedContentId?: string;
+  /** @minimum 1 */
+  reportedContextId?: number;
 }

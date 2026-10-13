@@ -95,6 +95,20 @@ describe("native download cache isolation", () => {
     expect(result.filename).toBe("JOBSAGE-personal-data.zip");
     expect(mockFiles.has(result.uri)).toBe(false);
   });
+  it("forwards a single-use email proof for a passwordless private export", async () => {
+    global.fetch = jest.fn(async () => responseFixture("application/zip")) as typeof fetch;
+    const proof = "privacy-proof-fixture-token-value-1234567890abcdef";
+    await downloadAndShare({
+      url: "https://fixture.jobsage.example/api/privacy/export",
+      filename: "JOBSAGE-personal-data.zip",
+      token: mockToken,
+      privateExport: { expectedAccountId: "candidate-a", emailCodeProof: proof, confirmed: true },
+    });
+    expect(global.fetch).toHaveBeenLastCalledWith("https://fixture.jobsage.example/api/privacy/export", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ expectedAccountId: "candidate-a", emailCodeProof: proof, confirmed: true }),
+    }));
+  });
   it("blocks a different-account or non-export password request before creating a grant", async () => {
     await expect(downloadAndShare({
       url: fixtureUrl, token: mockToken,

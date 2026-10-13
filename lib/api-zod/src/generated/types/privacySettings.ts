@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PrivacySettingsNotifications } from "./privacySettingsNotifications";
+import type { PrivacySettingsReauthenticationMethod } from "./privacySettingsReauthenticationMethod";
 
 export interface PrivacySettings {
   userId: string;
@@ -14,4 +15,5 @@ export interface PrivacySettings {
   optionalAnalytics: boolean;
   notifications: PrivacySettingsNotifications;
   deletionEnabled: boolean;
+  reauthenticationMethod: PrivacySettingsReauthenticationMethod;
 }

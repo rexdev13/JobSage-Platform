@@ -10,6 +10,11 @@ const fixtures = vi.hoisted(() => ({
   execute: vi.fn(),
   compare: vi.fn(),
   mail: vi.fn(),
+  privacyCodeMail: vi.fn(),
+  createPrivacyCode: vi.fn(),
+  verifyPrivacyCode: vi.fn(),
+  consumePrivacyProof: vi.fn(),
+  clearPrivacyCode: vi.fn(),
   archive: vi.fn(),
   auth: true,
   impersonating: false,
@@ -44,7 +49,22 @@ vi.mock("@workspace/db", async () => {
   };
 });
 vi.mock("bcryptjs", () => ({ default: { compare: fixtures.compare } }));
-vi.mock("../../lib/email", () => ({ sendSupportTicketNotification: fixtures.mail }));
+vi.mock("../../lib/email", () => ({
+  sendSupportTicketNotification: fixtures.mail,
+  sendPrivacyReauthenticationCode: fixtures.privacyCodeMail,
+}));
+vi.mock("../../lib/privacyReauthentication", () => ({
+  PERSONAL_DATA_REAUTH_PURPOSE: "personal_data",
+  createPrivacyEmailCode: fixtures.createPrivacyCode,
+  verifyPrivacyEmailCode: fixtures.verifyPrivacyCode,
+  consumePrivacyEmailProof: fixtures.consumePrivacyProof,
+  clearPrivacyEmailCode: fixtures.clearPrivacyCode,
+  getPrivacyAuthenticationBinding: (req: any) => {
+    const authorization = req.get("authorization");
+    const cookie = req.get("cookie");
+    return authorization?.startsWith("Bearer ") ? "fixture-auth-binding" : cookie ? "fixture-cookie-binding" : null;
+  },
+}));
 vi.mock("../../lib/privacyExport/service", () => ({ buildPersonalDataArchive: fixtures.archive }));
 vi.mock("../../lib/accountDeletion/crypto", () => ({
   encryptDeletionResource: () => { throw new Error("Fixture: encryption not provisioned"); },
@@ -52,7 +72,11 @@ vi.mock("../../lib/accountDeletion/crypto", () => ({
 
 const { default: privacyRouter } = await import("../../routes/privacy");
 const { verifyPrivacyReauthentication, isPrivacyNotificationAllowed } = await import("../../lib/privacyAccess");
-const actor = { id: "fixture-privacy-user", role: "candidate", passwordHash: "fixture-hash", suspendedAt: null };
+const actor = {
+  id: "fixture-privacy-user", role: "candidate", passwordHash: "fixture-hash", suspendedAt: null,
+  email: "fixture@privacy.invalid", emailVerified: true,
+};
+const fixtureProofToken = "privacy-proof-fixture-token-value-1234567890abcdef";
 const app = express();
 app.use(express.json());
 app.use((req, _res, next) => {
@@ -74,6 +98,11 @@ beforeEach(() => {
   fixtures.auth = true;
   fixtures.impersonating = false;
   fixtures.compare.mockResolvedValue(true);
+  fixtures.privacyCodeMail.mockResolvedValue(undefined);
+  fixtures.createPrivacyCode.mockResolvedValue("123456");
+  fixtures.verifyPrivacyCode.mockResolvedValue(fixtureProofToken);
+  fixtures.consumePrivacyProof.mockResolvedValue(true);
+  fixtures.clearPrivacyCode.mockResolvedValue(undefined);
   fixtures.execute.mockResolvedValue({ rows: [{ count: 1 }] });
   fixtures.deletedWhere.mockResolvedValue({});
   fixtures.mail.mockResolvedValue({ success: true });
@@ -82,7 +111,7 @@ beforeEach(() => {
 
 describe("account-bound privacy routes (fixtures only)", () => {
   it("delivers a private attachment only after password verification and fresh account checks", async () => {
-    for (let i = 0; i < 5; i++) freshActor();
+    for (let i = 0; i < 6; i++) freshActor();
     const response = await action("post", "export").send({ expectedAccountId: actor.id, password: "fixture-password", confirmed: true });
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toContain("application/zip");
@@ -92,13 +121,13 @@ describe("account-bound privacy routes (fixtures only)", () => {
     expect(fixtures.mail).not.toHaveBeenCalled();
   });
   it("does not prepare a file when password verification fails", async () => {
-    freshActor(); freshActor(); freshActor();
+    freshActor(); freshActor(); freshActor(); freshActor();
     fixtures.compare.mockResolvedValue(false);
     expect((await action("post", "export").send({ expectedAccountId: actor.id, password: "wrong-password", confirmed: true })).status).toBe(403);
     expect(fixtures.archive).not.toHaveBeenCalled();
   });
   it("discards prepared bytes if the account was quarantined during preparation", async () => {
-    for (let i = 0; i < 4; i++) freshActor();
+    for (let i = 0; i < 5; i++) freshActor();
     fixtures.reads.push([{ ...actor, suspendedAt: new Date() }]);
     expect((await action("post", "export").send({ expectedAccountId: actor.id, password: "fixture-password", confirmed: true })).status).toBe(403);
   });
@@ -126,10 +155,28 @@ describe("account-bound privacy routes (fixtures only)", () => {
   it("returns defaults without exposing credentials or push tokens", async () => {
     freshActor();
     fixtures.reads.push([]);
+    freshActor();
     const response = await request(app).get("/api/privacy/settings");
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ userId: actor.id, marketing: false, deletionEnabled: false, notifications: { jobAlerts: true } });
+    expect(response.body).toMatchObject({
+      userId: actor.id, marketing: false, deletionEnabled: false,
+      reauthenticationMethod: "password", notifications: { jobAlerts: true },
+    });
     expect(JSON.stringify(response.body)).not.toContain("fixture-hash");
+  });
+
+  it("exposes email-code reauthentication only for verified passwordless accounts", async () => {
+    const passwordless = { ...actor, passwordHash: null };
+    fixtures.reads.push([passwordless], [], [passwordless]);
+    const eligible = await request(app).get("/api/privacy/settings");
+    expect(eligible.status).toBe(200);
+    expect(eligible.body.reauthenticationMethod).toBe("email_code");
+
+    const unverified = { ...passwordless, emailVerified: false };
+    fixtures.reads.push([unverified], [], [unverified]);
+    const unavailable = await request(app).get("/api/privacy/settings");
+    expect(unavailable.status).toBe(200);
+    expect(unavailable.body.reauthenticationMethod).toBe("unavailable");
   });
 
   it("merges a notification update without erasing other saved choices", async () => {
@@ -159,7 +206,7 @@ describe("account-bound privacy routes (fixtures only)", () => {
   });
 
   it("records only a reauthenticated export-request receipt, not an export", async () => {
-    freshActor(); freshActor(); freshActor();
+    freshActor(); freshActor(); freshActor(); freshActor(); freshActor();
     fixtures.reads.push([{ email: "fixture@privacy.invalid", firstName: "Fixture", lastName: "User" }]);
     const response = await action("post", "data-request").send({ expectedAccountId: actor.id, password: "fixture-password", confirmed: true });
     expect(response.status).toBe(201);
@@ -177,6 +224,61 @@ describe("account-bound privacy routes (fixtures only)", () => {
     expect((await action("post", "data-request").send({ expectedAccountId: actor.id, password: "fixture", confirmed: true })).status).toBe(429);
     expect(fixtures.compare).not.toHaveBeenCalled();
     expect(fixtures.values).not.toHaveBeenCalled();
+  });
+
+  it("sends a one-time code only to a verified passwordless account and issues a short-lived proof", async () => {
+    const passwordless = { ...actor, passwordHash: null };
+    fixtures.reads.push([passwordless], [passwordless]);
+    const started = await action("post", "reauthentication/start").send({
+      expectedAccountId: actor.id, purpose: "personal_data",
+    });
+    expect(started.status).toBe(202);
+    expect(fixtures.createPrivacyCode).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: actor.id, email: actor.email, sessionBinding: "fixture-auth-binding",
+    }));
+    expect(fixtures.privacyCodeMail).toHaveBeenCalledWith(actor.email, "123456");
+
+    fixtures.reads.push([passwordless], [passwordless]);
+    const verified = await action("post", "reauthentication/verify").send({
+      expectedAccountId: actor.id, purpose: "personal_data", code: "123456",
+    });
+    expect(verified.status).toBe(200);
+    expect(verified.body).toMatchObject({ verified: true, proofToken: fixtureProofToken, expiresInSeconds: 300 });
+    expect(fixtures.verifyPrivacyCode).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: actor.id, email: actor.email, code: "123456", sessionBinding: "fixture-auth-binding",
+    }));
+  });
+
+  it("accepts a passwordless export proof once and rejects a wrong email code", async () => {
+    const passwordless = { ...actor, passwordHash: null };
+    for (let i = 0; i < 6; i++) fixtures.reads.push([passwordless]);
+    const exported = await action("post", "export").send({
+      expectedAccountId: actor.id, emailCodeProof: fixtureProofToken, confirmed: true,
+    });
+    expect(exported.status).toBe(200);
+    expect(fixtures.consumePrivacyProof).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: actor.id, email: actor.email, proofToken: fixtureProofToken,
+    }));
+
+    fixtures.verifyPrivacyCode.mockResolvedValueOnce(null);
+    fixtures.reads.push([passwordless], [passwordless]);
+    const rejected = await action("post", "reauthentication/verify").send({
+      expectedAccountId: actor.id, purpose: "personal_data", code: "000000",
+    });
+    expect(rejected.status).toBe(403);
+  });
+
+  it("rejects an export request that supplies both reauthentication methods", async () => {
+    freshActor();
+    const response = await action("post", "export").send({
+      expectedAccountId: actor.id,
+      password: "fixture-password",
+      emailCodeProof: fixtureProofToken,
+      confirmed: true,
+    });
+    expect(response.status).toBe(400);
+    expect(fixtures.archive).not.toHaveBeenCalled();
+    expect(fixtures.consumePrivacyProof).not.toHaveBeenCalled();
   });
 
   it("fails push registration closed when secure encryption is unavailable", async () => {

@@ -533,6 +533,54 @@ export async function sendVerificationEmail(to: string, token: string, baseUrl: 
   });
 }
 
+export async function sendPrivacyReauthenticationCode(to: string, code: string): Promise<void> {
+  assertEmailConfiguration("Privacy reauthentication");
+  const result = await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to,
+    subject: "JOBSAGE: Your privacy request verification code",
+    text: `Your JOBSAGE privacy verification code is ${code}. It expires in 10 minutes and can be used once. If you did not request it, you can ignore this email.`,
+    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#162436;line-height:1.6">
+      <h1 style="font-size:20px">Verify your privacy request</h1>
+      <p>Enter this code in the signed-in JOBSAGE account:</p>
+      <p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeEmailHtml(code)}</p>
+      <p>This code expires in 10 minutes and can be used once. If you did not request it, you can ignore this email.</p>
+    </body></html>`,
+  });
+  if (result.error) throw new Error(result.error.message || "Privacy verification email could not be sent.");
+}
+
+export async function sendEmployerInvitationEmail(opts: {
+  to: string;
+  companyName: string;
+  role: string;
+  acceptUrl: string;
+}): Promise<void> {
+  assertEmailConfiguration("Employer staff invitation");
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  })[char] ?? char);
+  const companyName = escapeHtml(opts.companyName);
+  const role = escapeHtml(opts.role.replaceAll("_", " "));
+  const acceptUrl = escapeHtml(opts.acceptUrl);
+  const result = await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to: opts.to,
+    subject: `Invitation to join ${opts.companyName} on JOBSAGE`,
+    html: `<!doctype html><html lang="en"><body style="font-family:Arial,sans-serif;color:#172033;line-height:1.6">
+      <h1>You have been invited to JOBSAGE</h1>
+      <p><strong>${companyName}</strong> invited you to join its employer workspace as ${role}.</p>
+      <p><a href="${acceptUrl}">Review invitation</a></p>
+      <p>This invitation expires in seven days. If you were not expecting it, you can ignore this email.</p>
+    </body></html>`,
+  });
+  if (result.error) throw new Error("The invitation email could not be delivered.");
+}
+
 export async function sendCandidateContactEmail(opts: {
   to: string;
   candidateFirstName: string;

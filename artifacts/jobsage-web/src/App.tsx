@@ -1,6 +1,6 @@
 import { MobileAssistedWorkspaceHost } from "@/components/MobileAssistedWorkspaceHost";
 import { NativeWorkspaceBridge } from "@/components/NativeWorkspaceBridge";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +15,8 @@ import {
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { canAccessLeads, isAdminRole } from "@/lib/roleAccess";
 import { QuickHelpMenu } from "@/components/QuickHelpMenu";
+import { useEmployerOrganizations } from "@/hooks/useEmployerOrganizations";
+import { canVisitEmployerRoute } from "@/lib/employerRouteAccess";
 
 // --- Lazy page imports (code-split per route) ---
 // Everything below is loaded on-demand when the user navigates to that route.
@@ -29,6 +31,7 @@ const SponsorWebsiteImportPage = lazy(() => import("@/pages/admin/SponsorWebsite
 const AdminLeadsPage        = lazy(() => import("@/pages/admin/AdminLeadsPage"));
 const AdminCalendarPage     = lazy(() => import("@/pages/admin/AdminCalendarPage"));
 const AdminLoginPage        = lazy(() => import("@/pages/admin/AdminLoginPage"));
+const ModeratorReportsPage  = lazy(() => import("@/pages/ModeratorReportsPage"));
 const ImpersonatePage       = lazy(() => import("@/pages/ImpersonatePage"));
 const EmployerOnboardingPage = lazy(() => import("@/pages/employer/EmployerOnboardingPage"));
 const EmployerRegisterPage  = lazy(() => import("@/pages/employer/EmployerRegisterPage"));
@@ -37,6 +40,9 @@ const EmployerJobFormPage   = lazy(() => import("@/pages/employer/EmployerJobFor
 const EmployerJobDetailPage = lazy(() => import("@/pages/employer/EmployerJobDetailPage"));
 const TalentSearchPage      = lazy(() => import("@/pages/employer/TalentSearchPage"));
 const CampaignsPage         = lazy(() => import("@/pages/employer/CampaignsPage"));
+const EmployerStaffPage     = lazy(() => import("@/pages/employer/EmployerStaffPage"));
+const EmployerInvitationPage = lazy(() => import("@/pages/employer/EmployerInvitationPage"));
+const EmployerOrganizationRestorePage = lazy(() => import("@/pages/employer/EmployerOrganizationRestorePage"));
 
 const LandingPage               = lazy(() => import("@/pages/LandingPage"));
 const LoginPage                 = lazy(() => import("@/pages/LoginPage"));
@@ -218,16 +224,81 @@ function AdminUsersRoute() {
 
 function EmployerGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [selectionError, setSelectionError] = useState("");
+  const [autoSelectAttempted, setAutoSelectAttempted] = useState(false);
+  const organizationsQuery = useEmployerOrganizations(!isLoading && !!user);
+  const organization = organizationsQuery.activeOrganization;
+  const organizations = organizationsQuery.organizations;
+  const organizationLoading = organizationsQuery.isLoading;
+  const hasEmployerOrg = organizations.length > 0;
+  const canVisitRoute = canVisitEmployerRoute(organization?.role, location);
 
   useEffect(() => {
-    if (!isLoading && user && (user.role as string) !== "employer" && (user.role as string) !== "admin") {
-      setLocation("/employer/onboarding");
+    if (isLoading || organizationLoading || organizationsQuery.isError) return;
+    if (!hasEmployerOrg) {
+      if (user?.role === "employer" && (organizationsQuery.data?.archivedOrganizations.length ?? 0) > 0) {
+        setLocation("/employer/organizations/restore");
+      } else {
+        setLocation(user?.role === "employer" ? "/employer/onboarding" : "/");
+      }
+      return;
     }
-  }, [isLoading, user, setLocation]);
+    if (organization && !canVisitRoute) {
+      setLocation("/employer/dashboard");
+    }
+  }, [isLoading, organizationLoading, organizationsQuery.isError, organizationsQuery.data?.archivedOrganizations, hasEmployerOrg, organization, canVisitRoute, user, setLocation]);
 
-  if (isLoading) return null;
-  if (!user || ((user.role as string) !== "employer" && (user.role as string) !== "admin")) return null;
+  useEffect(() => {
+    if (organizations.length === 1 && !organization && !organizationsQuery.isLoading
+      && !organizationsQuery.isSelectingOrganization && !autoSelectAttempted) {
+      setAutoSelectAttempted(true);
+      void organizationsQuery.selectOrganization(organizations[0]!.id)
+        .catch(() => setSelectionError("The organisation could not be selected. Please try again."));
+    }
+  }, [organizations, organization, organizationsQuery.isLoading, organizationsQuery.isSelectingOrganization, organizationsQuery.selectOrganization, autoSelectAttempted]);
+
+  if (isLoading || organizationLoading || organizationsQuery.isSelectingOrganization) return <LoadingScreen />;
+  if (!user) return null;
+  if (organizationsQuery.isError) {
+    return (
+      <main className="mx-auto mt-20 max-w-lg rounded-2xl border bg-card p-6 text-card-foreground">
+        <h1 className="text-lg font-semibold">Employer workspace unavailable</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Your organisation access could not be checked.</p>
+        <button className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground" type="button"
+          onClick={() => void organizationsQuery.refetch()} data-testid="button-retry-employer-access">Try again</button>
+      </main>
+    );
+  }
+  if (!hasEmployerOrg) return null;
+  if (!organization) {
+    return (
+      <main className="mx-auto mt-16 max-w-xl space-y-4 rounded-2xl border bg-card p-6 text-card-foreground">
+        <div>
+          <h1 className="text-xl font-semibold">Choose an organisation</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Select which employer workspace you want to open.</p>
+        </div>
+        {selectionError && <p role="alert" className="text-sm text-destructive">{selectionError}</p>}
+        {organizations.map(item => (
+          <button type="button" key={item.id} data-testid={`button-select-employer-${item.id}`}
+            disabled={organizationsQuery.isSelectingOrganization}
+            onClick={() => {
+              setSelectionError("");
+              void organizationsQuery.selectOrganization(item.id)
+                .catch(() => setSelectionError("The organisation could not be selected. Please try again."));
+            }}
+            className="flex min-h-14 w-full items-center justify-between rounded-xl border px-4 text-left hover:bg-muted">
+            <span>
+              <span className="block font-medium">{item.companyName}</span>
+              <span className="block text-xs capitalize text-muted-foreground">{item.role.replaceAll("_", " ")}</span>
+            </span>
+            <span aria-hidden="true">→</span>
+          </button>
+        ))}
+      </main>
+    );
+  }
+  if (!canVisitRoute) return null;
   return <>{children}</>;
 }
 
@@ -243,6 +314,18 @@ function ReviewerGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) return null;
   if (!user || (user.role !== "admin" && user.role !== "reviewer")) return null;
+  return <>{children}</>;
+}
+
+function ModeratorGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "moderator") setLocation("/");
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading || !user || user.role !== "moderator") return null;
   return <>{children}</>;
 }
 
@@ -314,6 +397,9 @@ function Router() {
                 <Route path="/review-queue">
                   <ReviewerGuard><ReviewQueuePage /></ReviewerGuard>
                 </Route>
+                <Route path="/moderation/reports">
+                  <ModeratorGuard><ModeratorReportsPage /></ModeratorGuard>
+                </Route>
                 <Route path="/admin/roles">
                   <AdminGuard><AdminRolesPage /></AdminGuard>
                 </Route>
@@ -364,6 +450,13 @@ function Router() {
                 <Route path="/employer/campaigns">
                   <EmployerGuard><CampaignsPage /></EmployerGuard>
                 </Route>
+                <Route path="/employer/staff">
+                  <EmployerGuard><EmployerStaffPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/invitations/:token">
+                  <EmployerInvitationPage />
+                </Route>
+                <Route path="/employer/organizations/restore" component={EmployerOrganizationRestorePage} />
 
                 <Route component={NotFound} />
               </Switch>

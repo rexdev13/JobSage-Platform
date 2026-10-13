@@ -18,4 +18,4 @@ Google Play login/app-access instructions must provide a working reviewer path f
 
 ## Not proven
 
-Native account creation/login parity, verification/reset links, passwordless reauthentication, role-specific review access, account switching and physical-device sign-out/session isolation have not received full end-to-end acceptance. In particular, the native session exchange is not proof of the recent reauthentication needed for deletion.
+Native account creation/login parity, verification/reset links, passwordless email-code reauthentication, role-specific review access, account switching and physical-device sign-out/session isolation have not received full end-to-end acceptance. Passwordless email-code reauthentication is implemented for personal-data export/access requests only; it does not enable deletion. In particular, the native session exchange is not proof of the recent reauthentication needed for deletion.

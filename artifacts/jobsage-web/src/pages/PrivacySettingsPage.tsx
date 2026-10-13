@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
-import { getGetPrivacySettingsQueryKey, useClearSmartApplyDrafts, useDownloadPersonalData, useGetPrivacySettings, useRequestPersonalData, useRevokePushDevices, useUpdatePrivacySettings } from "@workspace/api-client-react";
+import { getGetPrivacySettingsQueryKey, useClearSmartApplyDrafts, useDownloadPersonalData, useGetPrivacySettings, useRequestPersonalData, useRevokePushDevices, useStartPrivacyReauthentication, useUpdatePrivacySettings, useVerifyPrivacyReauthentication } from "@workspace/api-client-react";
 import { nativeWorkspaceAvailable, notifyNative } from "@/lib/nativeWorkspace";
 import { useAuth } from "@workspace/auth-web";
 import { ArrowLeft, Bell, Check, CircleAlert, Download, LockKeyhole, Megaphone, RotateCcw, Shield, Smartphone, Trash2 } from "lucide-react";
@@ -66,6 +66,8 @@ export default function PrivacySettingsPage() {
   const [revokeConfirmed, setRevokeConfirmed] = useState(false);
   const [downloadRequested, setDownloadRequested] = useState(false);
   const [downloadFailure, setDownloadFailure] = useState<string | null>(null);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailCodeProof, setEmailCodeProof] = useState<string | null>(null);
   const exportForm = useForm<ExportFormValues>({ defaultValues: { password: "", confirmed: false } });
 
   const updateMutation = useUpdatePrivacySettings({
@@ -82,6 +84,12 @@ export default function PrivacySettingsPage() {
     request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
   });
   const revokeMutation = useRevokePushDevices({
+    request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
+  });
+  const startReauthenticationMutation = useStartPrivacyReauthentication({
+    request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
+  });
+  const verifyReauthenticationMutation = useVerifyPrivacyReauthentication({
     request: { headers: { "x-jobsage-privacy-account": user?.id ?? "" } },
   });
 
@@ -104,12 +112,16 @@ export default function PrivacySettingsPage() {
     setRevokeConfirmed(false);
     setDownloadRequested(false);
     setDownloadFailure(null);
+    setEmailCode("");
+    setEmailCodeProof(null);
     exportForm.reset({ password: "", confirmed: false });
     updateMutation.reset();
     exportMutation.reset();
     downloadMutation.reset();
     clearMutation.reset();
     revokeMutation.reset();
+    startReauthenticationMutation.reset();
+    verifyReauthenticationMutation.reset();
     void queryClient.invalidateQueries({ queryKey });
     return () => {
       exportAbort.abort();
@@ -120,6 +132,8 @@ export default function PrivacySettingsPage() {
       exportMutation.reset();
       clearMutation.reset();
       revokeMutation.reset();
+      startReauthenticationMutation.reset();
+      verifyReauthenticationMutation.reset();
     };
   }, [user?.id]);
 
@@ -133,25 +147,63 @@ export default function PrivacySettingsPage() {
     );
   };
 
+  const reauthenticationInput = (password: string) => {
+    if (settings?.reauthenticationMethod === "password") return { password };
+    if (settings?.reauthenticationMethod === "email_code" && emailCodeProof) return { emailCodeProof };
+    return null;
+  };
+
+  const requestEmailCode = () => {
+    if (!user?.id || settings?.reauthenticationMethod !== "email_code") return;
+    setEmailCodeProof(null);
+    setEmailCode("");
+    startReauthenticationMutation.reset();
+    startReauthenticationMutation.mutate({
+      data: { expectedAccountId: user.id, purpose: "personal_data" },
+    });
+  };
+
+  const verifyEmailCode = () => {
+    if (!user?.id || settings?.reauthenticationMethod !== "email_code" || !/^\d{6}$/.test(emailCode)) return;
+    verifyReauthenticationMutation.reset();
+    verifyReauthenticationMutation.mutate({
+      data: { expectedAccountId: user.id, purpose: "personal_data", code: emailCode },
+    }, {
+      onSuccess: (result) => {
+        setEmailCode("");
+        setEmailCodeProof(result.proofToken);
+      },
+    });
+  };
+
   const submitExport = exportForm.handleSubmit(({ password, confirmed }) => {
     if (!user?.id || !confirmed) return;
+    const reauthentication = reauthenticationInput(password);
+    if (!reauthentication) return;
+    setEmailCodeProof(null);
     exportMutation.mutate({
-      data: { expectedAccountId: user.id, password, confirmed: true },
-    }, { onSuccess: () => exportForm.reset({ password: "", confirmed: false }) });
+      data: { expectedAccountId: user.id, ...reauthentication, confirmed: true },
+    }, {
+      onSuccess: () => exportForm.reset({ password: "", confirmed: false }),
+      onError: () => setEmailCodeProof(null),
+    });
   });
 
   const downloadExport = exportForm.handleSubmit(({ password, confirmed }) => {
     if (!user?.id || !confirmed) return;
+    const reauthentication = reauthenticationInput(password);
+    if (!reauthentication) return;
     setDownloadRequested(false);
     setDownloadFailure(null);
+    setEmailCodeProof(null);
     if (nativeWorkspaceAvailable()) {
-      notifyNative("privacy-export", { expectedAccountId: user.id, password, confirmed: true });
+      notifyNative("privacy-export", { expectedAccountId: user.id, ...reauthentication, confirmed: true });
       exportForm.reset({ password: "", confirmed: false });
       setDownloadRequested(true);
       return;
     }
     const requestedAccount = user.id;
-    downloadMutation.mutate({ data: { expectedAccountId: user.id, password, confirmed: true } }, {
+    downloadMutation.mutate({ data: { expectedAccountId: user.id, ...reauthentication, confirmed: true } }, {
       onSuccess: (blob) => {
         // Don't deliver a previous account's bytes following an auth transition.
         if (accountRef.current !== requestedAccount) return;
@@ -171,7 +223,10 @@ export default function PrivacySettingsPage() {
         if (accountRef.current === requestedAccount) setDownloadFailure(error instanceof Error ? error.message : "No archive could be safely delivered. Try again or request a full export.");
       },
       // Release mutation-held password/Blob references instead of leaving an export in Query's cache.
-      onSettled: () => downloadMutation.reset(),
+      onSettled: () => {
+        setEmailCodeProof(null);
+        downloadMutation.reset();
+      },
     });
   });
 
@@ -277,14 +332,45 @@ export default function PrivacySettingsPage() {
               <Form {...exportForm}>
                 <form onSubmit={submitExport} className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
                   <input type="text" name="username" value={user.email ?? ""} autoComplete="username" readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
-                  <FormField control={exportForm.control} name="password" rules={{ required: "Enter your password to verify your account." }} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm your password</FormLabel>
-                      <FormControl><Input data-testid="input-export-password" type="password" autoComplete="current-password" placeholder="Your account password" {...field} /></FormControl>
-                      <FormDescription>Used to verify this request.</FormDescription>
-                      {exportForm.formState.errors.password && <p role="alert" data-testid="error-export-password" className="text-sm text-destructive">{exportForm.formState.errors.password.message}</p>}
-                    </FormItem>
-                  )} />
+                  {settings?.reauthenticationMethod === "password" && (
+                    <FormField control={exportForm.control} name="password" rules={{ required: "Enter your password to verify your account." }} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm your password</FormLabel>
+                        <FormControl><Input data-testid="input-export-password" type="password" autoComplete="current-password" placeholder="Your account password" {...field} /></FormControl>
+                        <FormDescription>Used to verify this request.</FormDescription>
+                        {exportForm.formState.errors.password && <p role="alert" data-testid="error-export-password" className="text-sm text-destructive">{exportForm.formState.errors.password.message}</p>}
+                      </FormItem>
+                    )} />
+                  )}
+                  {settings?.reauthenticationMethod === "email_code" && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Verify your account email</p>
+                      <p className="text-xs leading-5 text-muted-foreground">Get a six-digit code at your verified email address. The resulting proof is single-use and expires after five minutes.</p>
+                      <button type="button" data-testid="button-send-privacy-code" onClick={requestEmailCode} disabled={startReauthenticationMutation.isPending} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold disabled:opacity-60">
+                        {startReauthenticationMutation.isPending ? "Sending code…" : startReauthenticationMutation.isSuccess ? "Send a new code" : "Email me a code"}
+                      </button>
+                      {startReauthenticationMutation.isSuccess && <p role="status" data-testid="status-privacy-code-sent" className="text-xs text-muted-foreground">{startReauthenticationMutation.data.message}</p>}
+                      {startReauthenticationMutation.isError && <p role="alert" data-testid="error-privacy-code-send" className="text-xs text-destructive">We couldn’t send a code. Try again later.</p>}
+                      <div className="flex gap-2">
+                        <Input
+                          data-testid="input-privacy-code"
+                          aria-label="Six-digit email verification code"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={emailCode}
+                          onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="000000"
+                        />
+                        <button type="button" data-testid="button-verify-privacy-code" onClick={verifyEmailCode} disabled={!/^\d{6}$/.test(emailCode) || verifyReauthenticationMutation.isPending} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-secondary px-4 text-sm font-semibold text-secondary-foreground disabled:opacity-50">
+                          {verifyReauthenticationMutation.isPending ? "Verifying…" : "Verify code"}
+                        </button>
+                      </div>
+                      {emailCodeProof && <p role="status" data-testid="status-privacy-code-verified" className="text-xs text-emerald-800 dark:text-emerald-200">Email verified. Submit within five minutes; this verification can be used once.</p>}
+                      {verifyReauthenticationMutation.isError && <p role="alert" data-testid="error-privacy-code-verify" className="text-xs text-destructive">That code could not be verified. Request a new code and try again.</p>}
+                    </div>
+                  )}
+                  {settings?.reauthenticationMethod === "unavailable" && <p role="alert" data-testid="error-privacy-reauth-unavailable" className="text-sm text-destructive">Verify your account email before requesting an export.</p>}
                   <FormField control={exportForm.control} name="confirmed" rules={{ validate: (value) => value || "Please confirm your request." }} render={({ field }) => (
                     <FormItem className="space-y-2">
                       <div className="flex min-h-11 items-center gap-3">
@@ -295,15 +381,15 @@ export default function PrivacySettingsPage() {
                     </FormItem>
                   )} />
                   <div className="flex flex-col gap-2">
-                    <button type="button" data-testid="button-download-export" onClick={() => void downloadExport()} disabled={downloadMutation.isPending || exportMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{downloadMutation.isPending ? "Preparing private archive…" : "Download my archive"}</button>
-                    <button type="submit" data-testid="button-request-export" disabled={exportMutation.isPending || exportMutation.isSuccess || downloadMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : exportMutation.isSuccess ? "Request received" : "Request full export"}</button>
+                    <button type="button" data-testid="button-download-export" onClick={() => void downloadExport()} disabled={settings?.reauthenticationMethod === "unavailable" || (settings?.reauthenticationMethod === "email_code" && !emailCodeProof) || downloadMutation.isPending || exportMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{downloadMutation.isPending ? "Preparing private archive…" : "Download my archive"}</button>
+                    <button type="submit" data-testid="button-request-export" disabled={settings?.reauthenticationMethod === "unavailable" || (settings?.reauthenticationMethod === "email_code" && !emailCodeProof) || exportMutation.isPending || exportMutation.isSuccess || downloadMutation.isPending} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold disabled:opacity-60">{exportMutation.isPending ? "Sending request…" : exportMutation.isSuccess ? "Request received" : "Request full export"}</button>
                   </div>
                 </form>
               </Form>
               {downloadRequested && <StatusMessage testId="status-export-download">Your download or device share request was started. Keep any saved copy private; independently saved copies are not erased by JOBSAGE account deletion.</StatusMessage>}
               {downloadFailure && <StatusMessage kind="error" testId="status-export-download-error">{downloadFailure}</StatusMessage>}
               {exportMutation.isSuccess && exportMutation.data && <div role="status" data-testid="status-export-requested" className="mt-5 rounded-xl border border-primary/20 bg-card p-4"><p className="font-semibold text-foreground">Request received · {exportMutation.data.status}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{exportMutation.data.message}</p><p className="mt-2 font-mono text-xs text-muted-foreground">Receipt {exportMutation.data.ticketId}</p><p className="mt-2 text-xs font-medium text-primary">This receipt confirms a support request only. No export file has been generated or delivered.</p></div>}
-              {exportMutation.isError && <StatusMessage kind="error" testId="status-export-error">We couldn’t submit the request. Please check your password and try again.</StatusMessage>}
+              {exportMutation.isError && <StatusMessage kind="error" testId="status-export-error">We couldn’t submit the request. Check your password or request a new verification code, then try again.</StatusMessage>}
             </section>
           </>
         )}

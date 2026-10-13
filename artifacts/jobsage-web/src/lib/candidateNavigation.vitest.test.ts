@@ -35,7 +35,7 @@ describe("candidate navigation configuration", () => {
     expect(all.find((item) => item.label === "CV Enhancement")).toMatchObject({
       kind: "action", action: "enhance-cv",
     });
-    expect(all.filter((item) => item.kind === "coming-soon")).toEqual([]);
+    expect(all.every((item) => item.kind === "route" || item.kind === "action")).toBe(true);
   });
 
   it("handles root and nested active routes", () => {
@@ -53,14 +53,12 @@ describe("candidate navigation configuration", () => {
     expect(getUnreadBadgeText(0)).toBeNull();
   });
 
-  it("invokes the action callback and keeps disabled items inaccessible as links", () => {
+  it("invokes the available action callback", () => {
     const onEnhance = vi.fn();
     const enhancement = CANDIDATE_NAVIGATION.flatMap((section) => section.items)
       .find((item) => item.kind === "action");
     if (enhancement?.kind === "action") onEnhance();
     expect(onEnhance).toHaveBeenCalledOnce();
-    expect(CANDIDATE_NAVIGATION.flatMap((section) => section.items)
-      .filter((item) => item.kind === "coming-soon").every((item) => !("href" in item))).toBe(true);
   });
 });
 

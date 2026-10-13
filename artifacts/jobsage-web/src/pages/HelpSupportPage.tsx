@@ -6,6 +6,7 @@ import type { SupportTicketInput } from "@workspace/api-client-react";
 import { Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
 import { nativeWorkspaceAvailable } from "@/lib/nativeWorkspace";
+import { ContentReportDialog } from "@/components/ContentReportDialog";
 import {
   ArrowRight,
   CheckCircle2,
@@ -258,7 +259,15 @@ export default function HelpSupportPage() {
                  <div><label htmlFor="support-message" className="mb-1.5 block text-sm font-semibold">Message</label><textarea id="support-message" data-testid="textarea-support-message" rows={5} value={form.message} onChange={(event) => updateField("message", event.target.value)} required minLength={10} maxLength={5000} className="field-support resize-y" placeholder="Describe the issue or question." /></div>
                  <p className="text-xs text-muted-foreground">All fields are required. Your message must be at least 10 characters.</p>
                 {formError && <p className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert" data-testid="status-support-error">{formError}</p>}
-                {ticketId && <p className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status" data-testid="status-support-success"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Ticket {ticketId} is with our team.</p>}
+                {ticketId && <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" data-testid="status-support-success">
+                  <p className="flex items-start gap-2" role="status"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Ticket {ticketId} is with our team.</p>
+                  <ContentReportDialog
+                    contentType="support_request"
+                    contentId={ticketId}
+                    context={`Your support request ${ticketId}`}
+                    label="Flag this request for privacy or safety review"
+                  />
+                </div>}
                  <Button type="submit" data-testid="button-submit-support" disabled={ticketMutation.isPending} className="w-full">{ticketMutation.isPending ? "Sending…" : "Send message"}<ArrowRight className="ml-2 h-4 w-4" /></Button>
               </form>
               <p className="mt-4 text-center text-xs text-muted-foreground">Please do not include passwords or full payment card details.</p>

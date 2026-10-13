@@ -36,7 +36,14 @@ export const workspaceMessage = z.discriminatedUnion("type", [
   z.object({ ...base, type: z.literal("application"), applicationId: z.number().int().positive() }).strict(),
   z.object({ ...base, type: z.literal("logout") }).strict(),
   z.object({ ...base, type: z.literal("download"), downloadUrl: z.string().max(4096), filename: z.string().max(150) }).strict(),
-  z.object({ ...base, type: z.literal("privacy-export"), expectedAccountId: z.string().min(1).max(150), password: z.string().min(1).max(1024), confirmed: z.literal(true) }).strict(),
+  z.object({
+    ...base,
+    type: z.literal("privacy-export"),
+    expectedAccountId: z.string().min(1).max(150),
+    password: z.string().min(1).max(1024).optional(),
+    emailCodeProof: z.string().min(40).max(128).optional(),
+    confirmed: z.literal(true),
+  }).strict(),
   z.object({ ...base, type: z.literal("open-url"), destination: z.string().max(4096) }).strict(),
 ]);
 export type WorkspaceMessage = z.infer<typeof workspaceMessage>;
@@ -49,6 +56,11 @@ export function validateWorkspaceMessage(raw: string, options: {
   if (raw.length > 12_000) return null;
   try {
     const message = workspaceMessage.parse(JSON.parse(raw));
+    if (message.type === "privacy-export") {
+      const hasPassword = typeof message.password === "string";
+      const hasEmailCodeProof = typeof message.emailCodeProof === "string";
+      if (hasPassword === hasEmailCodeProof) return null;
+    }
     const now = options.now ?? Date.now();
     if (message.channel !== options.channel || Math.abs(now - message.timestamp) > 60_000
       || new URL(message.url).origin !== options.origin

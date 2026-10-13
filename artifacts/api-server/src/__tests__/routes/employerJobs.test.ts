@@ -4,7 +4,10 @@ import cookieParser from "cookie-parser";
 import request from "supertest";
 
 // ── hoisted DB results queue ──────────────────────────────────────────────────
-const { dbResults } = vi.hoisted(() => ({ dbResults: [] as any[] }));
+const { dbResults, employerContexts } = vi.hoisted(() => ({
+  dbResults: [] as any[],
+  employerContexts: new WeakMap<object, any>(),
+}));
 
 const EMPLOYER_PROFILE = {
   id: 10,
@@ -82,6 +85,23 @@ vi.mock("../../lib/linkVerification", () => ({
 
 vi.mock("../../lib/ai", () => ({
   generateText: vi.fn().mockResolvedValue("Generated description"),
+}));
+
+// Keep these focused CRUD tests independent from membership lookup details.
+// Real middleware authorization is exercised in employerAccess.test.ts.
+vi.mock("../../middlewares/employerAccess", () => ({
+  getEmployerContext: (req: object) => employerContexts.get(req),
+  requireEmployer: () => (req: any, res: any, next: () => void) => {
+    if (!req.isAuthenticated?.() || !req.user) return res.status(401).json({ error: "Not authenticated." });
+    if (!["employer", "admin"].includes(req.user.role)) return res.status(403).json({ error: "Not an employer." });
+    employerContexts.set(req, {
+      employerProfileId: 10,
+      ownerUserId: req.user.id,
+      actingUserId: req.user.id,
+      role: "employer_owner",
+    });
+    next();
+  },
 }));
 
 const employerRouter = (await import("../../routes/employer")).default;

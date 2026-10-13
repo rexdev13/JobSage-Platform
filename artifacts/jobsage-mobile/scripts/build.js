@@ -23,6 +23,9 @@ function findWorkspaceRoot(startDir) {
 
 const workspaceRoot = findWorkspaceRoot(projectRoot);
 const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
+const staticBuildDir = process.env.STATIC_BUILD_DIR
+  ? path.resolve(projectRoot, process.env.STATIC_BUILD_DIR)
+  : path.join(projectRoot, "static-build");
 
 function exitWithError(message) {
   console.error(message);
@@ -78,7 +81,7 @@ function getDeploymentDomain() {
 function prepareDirectories(timestamp) {
   console.log("Preparing build directories...");
 
-  const staticBuild = path.join(projectRoot, "static-build");
+  const staticBuild = staticBuildDir;
   if (fs.existsSync(staticBuild)) {
     fs.rmSync(staticBuild, { recursive: true });
   }
@@ -264,7 +267,7 @@ async function downloadBundle(platform, timestamp) {
   url.searchParams.set("minify", "true");
 
   const output = path.join(
-    "static-build",
+    staticBuildDir,
     timestamp,
     "_expo",
     "static",
@@ -331,7 +334,7 @@ async function downloadBundlesAndManifests(timestamp) {
 }
 
 function extractAssets(timestamp) {
-  const staticBuild = path.join(projectRoot, "static-build");
+  const staticBuild = staticBuildDir;
   const bundles = {
     ios: fs.readFileSync(
       path.join(staticBuild, timestamp, "_expo", "static", "js", "ios", "bundle.js"),
@@ -405,7 +408,7 @@ async function downloadAssets(assets, timestamp) {
 
     const outputDir = path.join(
       projectRoot,
-      "static-build",
+      staticBuildDir,
       timestamp,
       "_expo",
       "static",
@@ -453,8 +456,7 @@ async function downloadAssets(assets, timestamp) {
 function updateBundleUrls(timestamp, baseUrl) {
   const updateForPlatform = (platform) => {
     const bundlePath = path.join(
-      projectRoot,
-      "static-build",
+      staticBuildDir,
       timestamp,
       "_expo",
       "static",
@@ -521,7 +523,7 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
     }
 
     fs.writeFileSync(
-      path.join(projectRoot, "static-build", platform, "manifest.json"),
+      path.join(staticBuildDir, platform, "manifest.json"),
       JSON.stringify(manifest, null, 2),
     );
   };

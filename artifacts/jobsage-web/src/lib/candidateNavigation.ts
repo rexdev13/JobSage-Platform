@@ -1,7 +1,6 @@
 export type CandidateNavEntry =
   | { label: string; href: string; kind: "route"; badge?: "unread-messages" }
-  | { label: string; kind: "action"; action: "enhance-cv" }
-  | { label: string; kind: "coming-soon" };
+  | { label: string; kind: "action"; action: "enhance-cv" };
 
 export interface CandidateNavSection {
   label: string;

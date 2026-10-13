@@ -3,9 +3,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { empResults, blockWrites, predicates, blockedMock } = vi.hoisted(() => ({
+const { empResults, blockWrites, predicates, blockedMock, employerContexts } = vi.hoisted(() => ({
   empResults: [] as any[], blockWrites: [] as any[], predicates: [] as any[],
   blockedMock: vi.fn().mockResolvedValue(false),
+  employerContexts: new WeakMap<object, any>(),
 }));
 
 vi.mock("@workspace/db", async () => {
@@ -68,6 +69,24 @@ vi.mock("../../lib/auth", async () => {
 
 vi.mock("../../lib/audit", () => ({
   writeAuditEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// These route tests cover handler behavior. The middleware's real organization,
+// assignment and role checks are covered separately in employerAccess.test.ts.
+vi.mock("../../middlewares/employerAccess", () => ({
+  getEmployerContext: (req: object) => employerContexts.get(req),
+  requireEmployer: () => (req: any, res: any, next: () => void) => {
+    if (!req.isAuthenticated?.() || !req.user) return res.status(401).json({ error: "Not authenticated." });
+    if (!["employer", "admin"].includes(req.user.role)) return res.status(403).json({ error: "Not an employer." });
+    const employerProfileId = req.path === "/employer/contact-candidate" ? 12 : 5;
+    employerContexts.set(req, {
+      employerProfileId,
+      ownerUserId: req.user.id,
+      actingUserId: req.user.id,
+      role: "employer_owner",
+    });
+    next();
+  },
 }));
 
 const employerRouter = (await import("../../routes/employer")).default;

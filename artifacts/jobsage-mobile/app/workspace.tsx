@@ -319,9 +319,16 @@ export default function WorkspaceScreen() {
         }
         const target = workspaceUrl("/api/privacy/export");
         if (!target) return;
+        const verification = typeof message.emailCodeProof === "string"
+          ? { emailCodeProof: message.emailCodeProof }
+          : typeof message.password === "string" ? { password: message.password } : null;
+        if (!verification) {
+          Alert.alert("Export blocked", "Verify your account before downloading.");
+          return;
+        }
         void downloadAndShare({
           url: target, filename: "JOBSAGE-personal-data.zip", token: tokenRef.current,
-          privateExport: { expectedAccountId: message.expectedAccountId, password: message.password, confirmed: true },
+          privateExport: { expectedAccountId: message.expectedAccountId, ...verification, confirmed: true },
         }).catch(e => Alert.alert("Export failed", e instanceof DownloadError ? e.message : "No export could be delivered."));
         return;
       }

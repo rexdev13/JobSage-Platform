@@ -37,6 +37,8 @@ vi.mock("@workspace/db", async () => {
   function makeSelectChain(results: any[]): any {
     const chain: any = {
       from() { return chain; },
+      innerJoin() { return chain; },
+      leftJoin() { return chain; },
       where() { return chain; },
       orderBy() { return chain; },
       limit() { return chain; },
@@ -158,6 +160,9 @@ function supportTicketRow(overrides: Record<string, unknown> = {}) {
     userId: null,
     isContentReport: false,
     reportedMessageId: null,
+    reportedContentType: null,
+    reportedContentId: null,
+    reportedContextId: null,
     appealOfTicketId: null,
     status: "new",
     severity: "normal",
@@ -237,6 +242,7 @@ describe("support ticket routes", () => {
       userId: "candidate-1", email: "reporter@example.test", name: "Reporter Fixture",
       category: "Other", subject: "AI content report",
       message: "Private answer excerpt fixture.", isContentReport: true,
+      reportedContentType: "ai_content", reportedContentId: null,
     });
     expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private answer excerpt");
   });
@@ -250,7 +256,7 @@ describe("support ticket routes", () => {
 
     expect(response.status).toBe(201);
     expect(writeAuditEventMock).toHaveBeenCalledWith("candidate-1", "candidate_content_report", response.body.ticketId, {
-      reportType: "ai",
+      reportType: "ai_content",
     });
     expect(requestLogErrorMock).toHaveBeenCalledWith(
       { ticketId: response.body.ticketId },
@@ -277,6 +283,7 @@ describe("support ticket routes", () => {
     expect(txInsertedValues[0]).toMatchObject({
       userId: "candidate-1", subject: "Message content report", email: "reporter@example.test",
       isContentReport: true, reportedMessageId: 77, appealOfTicketId: null,
+      reportedContentType: "inbox_message", reportedContentId: "77",
     });
     expect(sendSupportTicketNotificationMock.mock.calls[0][0].message).not.toContain("Private message excerpt");
   });
@@ -290,6 +297,210 @@ describe("support ticket routes", () => {
     expect(response.status).toBe(404);
     expect(txInsertedValues).toHaveLength(0);
     expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a visible application context before accepting a candidate-profile report", async () => {
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "candidate_profile",
+        reportedContentId: "candidate-2",
+      });
+    expect(response.status).toBe(400);
+    expect(dbResults).toHaveLength(0);
+    expect(txInsertedValues).toHaveLength(0);
+  });
+
+  it("accepts a profile report only when its candidate applied to an employer job visible to the reporter", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push(
+      [{ userId: "candidate-2" }],
+      [{
+        jobId: 17,
+        employerProfileId: 23,
+        ownerUserId: "employer-owner",
+        memberUserId: "employer-1",
+        memberRole: "employer_admin",
+      }],
+    );
+    txExecuteResults.push([], [{ count: 0 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "candidate_profile",
+        reportedContentId: "candidate-2",
+        reportedContextId: 91,
+      });
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      userId: "employer-1",
+      reportedContentType: "candidate_profile",
+      reportedContentId: "candidate-2",
+      reportedContextId: 91,
+    });
+  });
+
+  it("rejects candidate-profile reports when the application is outside the employer relationship", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push([{ userId: "candidate-2" }], []);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "candidate_profile",
+        reportedContentId: "candidate-2",
+        reportedContextId: 91,
+      });
+    expect(response.status).toBe(404);
+    expect(txInsertedValues).toHaveLength(0);
+    expect(sendSupportTicketNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("requires an assignment when a recruiter reports a candidate profile", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push(
+      [{ userId: "candidate-2" }],
+      [{
+        jobId: 17,
+        employerProfileId: 23,
+        ownerUserId: "employer-owner",
+        memberUserId: "employer-1",
+        memberRole: "recruiter",
+      }],
+      [],
+    );
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "candidate_profile",
+        reportedContentId: "candidate-2",
+        reportedContextId: 91,
+      });
+    expect(response.status).toBe(404);
+    expect(txInsertedValues).toHaveLength(0);
+  });
+
+  it("accepts a job-listing report only when the published listing matches its context", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push([{
+      id: 17,
+      employerProfileId: 23,
+      ownerUserId: "employer-owner",
+      memberUserId: "employer-1",
+      memberRole: "employer_admin",
+    }]);
+    txExecuteResults.push([], [{ count: 0 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "job_listing",
+        reportedContentId: "17",
+        reportedContextId: 17,
+      });
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      reportedContentType: "job_listing",
+      reportedContentId: "17",
+      reportedContextId: 17,
+    });
+  });
+
+  it("rejects a job-listing report when the target ID and context ID differ", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "job_listing",
+        reportedContentId: "17",
+        reportedContextId: 18,
+      });
+    expect(response.status).toBe(404);
+    expect(txResults).toHaveLength(0);
+    expect(txInsertedValues).toHaveLength(0);
+  });
+
+  it("requires an attachment to be the candidate CV on the exact visible application", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push(
+      [{ id: 98, userId: "candidate-2" }],
+      [{
+        jobId: 17,
+        employerProfileId: 23,
+        ownerUserId: "employer-owner",
+        memberUserId: "employer-1",
+        memberRole: "employer_admin",
+      }],
+    );
+    txExecuteResults.push([], [{ count: 0 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "attachment",
+        reportedContentId: "98",
+        reportedContextId: 91,
+      });
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      reportedContentType: "attachment",
+      reportedContentId: "98",
+      reportedContextId: 91,
+    });
+  });
+
+  it("requires employer feedback reports to target another staff member's feedback for the same application", async () => {
+    dbResults.push([{ email: "employer@example.test", firstName: "Employer", lastName: "Staff" }]);
+    txResults.push(
+      [{ id: 5, authorUserId: "another-staff", employerProfileId: 23, applicationId: 91 }],
+      [{ userId: "candidate-2" }],
+      [{
+        jobId: 17,
+        employerProfileId: 23,
+        ownerUserId: "employer-owner",
+        memberUserId: "employer-1",
+        memberRole: "hiring_manager",
+      }],
+      [{ id: 301 }],
+    );
+    txExecuteResults.push([], [{ count: 0 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("employer"))
+      .set("X-Jobsage-Report-User", "employer-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "employer_feedback",
+        reportedContentId: "5",
+        reportedContextId: 91,
+      });
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      reportedContentType: "employer_feedback",
+      reportedContentId: "5",
+      reportedContextId: 91,
+    });
+  });
+
+  it("binds support-request reports to the reporter's own original ticket", async () => {
+    dbResults.push([{ email: "reporter@example.test", firstName: "Reporter", lastName: "Fixture" }]);
+    txResults.push([{ id: 41 }]);
+    txExecuteResults.push([], [{ count: 0 }]);
+    const response = await request(buildApp()).post("/support/ticket").set(authAs("candidate"))
+      .set("X-Jobsage-Report-User", "candidate-1")
+      .send({
+        ...ticketInput,
+        reportedContentType: "support_request",
+        reportedContentId: "JS-ABCDEF1234",
+      });
+    expect(response.status).toBe(201);
+    expect(txInsertedValues[0]).toMatchObject({
+      reportedContentType: "support_request",
+      reportedContentId: "JS-ABCDEF1234",
+      reportedContextId: null,
+    });
   });
 
   it("creates a rate-limited appeal linked to the reporter's own original report", async () => {

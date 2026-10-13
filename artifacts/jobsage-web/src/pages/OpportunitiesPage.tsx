@@ -1845,9 +1845,6 @@ export default function OpportunitiesPage() {
           </div>
         )}
 
-        {/* Self-promotion placeholder */}
-        {activeTab === "board" && !isLoading && !isError && (
-        )}
       </PageTransition>
 
       {/* Role detail modal */}

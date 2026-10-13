@@ -15,11 +15,19 @@ import {
   UpdateAdminSupportTicketParams,
   UpdateAdminSupportTicketResponse,
 } from "@workspace/api-zod";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
+  applicationsTable,
   candidateMessagesTable,
   db,
   auditEventsTable,
+  documentsTable,
+  employerCandidateFeedbackTable,
+  employerJobAssignmentsTable,
+  employerMembershipsTable,
+  employerProfilesTable,
+  jobListingsTable,
+  profilesTable,
   supportTicketRepliesTable,
   supportTicketsTable,
   usersTable,
@@ -75,21 +83,61 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     return;
   }
 
-  const { reportedMessageId, ...requestTicketData } = parsed.data;
+  const {
+    reportedMessageId,
+    reportedContentType: requestedContentType,
+    reportedContentId: requestedContentId,
+    reportedContextId: contextId,
+    ...requestTicketData
+  } = parsed.data;
   const isAIReport = req.get("x-jobsage-ai-report") === "1";
   const isMessageReport = req.get("x-jobsage-message-report") === "1";
   if (isAIReport && isMessageReport) {
     res.status(400).json({ error: "Choose one content-report type." });
     return;
   }
-  const isContentReport = isAIReport || isMessageReport;
+  const legacyContentType = isMessageReport ? "inbox_message" : isAIReport ? "ai_content" : undefined;
+  if (requestedContentType && legacyContentType && requestedContentType !== legacyContentType) {
+    res.status(400).json({ error: "The content-report type does not match the report request." });
+    return;
+  }
+  const reportType = requestedContentType ?? legacyContentType;
+  const reportContentId = requestedContentId?.trim() || undefined;
+  const isContentReport = reportType !== undefined;
+  const contextualTypes = ["candidate_profile", "job_listing", "attachment", "employer_feedback"] as const;
+  if (
+    (contextId !== undefined && (!Number.isSafeInteger(contextId) || contextId < 1))
+    || (!isContentReport && (reportedMessageId !== undefined || reportContentId !== undefined || contextId !== undefined))
+    || (reportType === "ai_content" && reportContentId !== undefined)
+    || (reportType === "other" && contextId !== undefined)
+    || (reportType && contextualTypes.includes(reportType as typeof contextualTypes[number]) && contextId === undefined)
+    || (reportType && !contextualTypes.includes(reportType as typeof contextualTypes[number])
+      && reportType !== "inbox_message" && contextId !== undefined)
+  ) {
+    res.status(400).json({ error: "The content report context is invalid." });
+    return;
+  }
+  if (!isContentReport && (reportedMessageId !== undefined || reportContentId !== undefined)) {
+    res.status(400).json({ error: "A content target requires a content report." });
+    return;
+  }
   if (isContentReport && (!req.user || req.isImpersonating
     || req.get("x-jobsage-report-user") !== req.user.id)) {
     res.status(403).json({ error: "Sign in with the reporting account before sending this report." });
     return;
   }
-  if ((isMessageReport && !reportedMessageId) || (!isMessageReport && reportedMessageId !== undefined)) {
-    res.status(400).json({ error: "A message report must identify exactly one inbox message." });
+  const messageId = reportType === "inbox_message"
+    ? reportedMessageId ?? (reportContentId && /^\d+$/.test(reportContentId) ? Number(reportContentId) : undefined)
+    : undefined;
+  if (
+    (reportType === "inbox_message" && (!Number.isSafeInteger(messageId) || Number(messageId) < 1))
+    || (reportType !== "inbox_message" && reportedMessageId !== undefined)
+    || (reportedMessageId !== undefined && reportContentId !== undefined && String(reportedMessageId) !== reportContentId)
+    || (reportType && reportType !== "ai_content" && reportType !== "other" && !reportContentId && reportType !== "inbox_message")
+    || (reportType === "other" && reportContentId !== undefined)
+    || (reportContentId !== undefined && reportContentId.length > 200)
+  ) {
+    res.status(400).json({ error: "The content report target is invalid." });
     return;
   }
   // Tagged reports bind contact details to the authenticated actor. Public
@@ -105,7 +153,18 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     ticketData = {
       ...requestTicketData,
       name: [actor.firstName, actor.lastName].filter(Boolean).join(" ").slice(0, 120) || "JOBSAGE user",
-      email: actor.email, category: "Other", subject: isMessageReport ? "Message content report" : "AI content report",
+      email: actor.email,
+      category: "Other",
+      subject: ({
+        ai_content: "AI content report",
+        inbox_message: "Message content report",
+        candidate_profile: "Candidate profile report",
+        job_listing: "Job listing report",
+        attachment: "Attachment report",
+        support_request: "Support request report",
+        employer_feedback: "Employer feedback report",
+        other: "Other content report",
+      } as const)[reportType!],
     };
   }
 
@@ -115,21 +174,186 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
     ...ticketData,
     userId: req.user?.id ?? null,
     isContentReport,
-    reportedMessageId: isMessageReport ? reportedMessageId! : null,
+    reportedMessageId: reportType === "inbox_message" ? Number(messageId) : null,
+    reportedContentType: reportType ?? null,
+    reportedContentId: reportType === "inbox_message" ? String(messageId) : reportContentId ?? null,
+    reportedContextId: contextId ?? null,
     appealOfTicketId: null,
   };
   if (isContentReport) {
     const insertResult = await db.transaction(async (tx) => {
-      if (isMessageReport) {
-        const [reportedMessage] = await tx
-          .select({ id: candidateMessagesTable.id })
-          .from(candidateMessagesTable)
-          .where(and(
-            eq(candidateMessagesTable.id, reportedMessageId!),
-            eq(candidateMessagesTable.recipientUserId, req.user!.id),
+      const targetId = reportContentId;
+      async function getEmployerApplicationAccess(applicationId: number, candidateUserId: string, documentId?: number) {
+        const where = [
+          eq(applicationsTable.id, applicationId),
+          eq(applicationsTable.userId, candidateUserId),
+          isNull(employerProfilesTable.deletedAt),
+          or(
+            eq(employerProfilesTable.userId, req.user!.id),
+            eq(employerMembershipsTable.userId, req.user!.id),
+          ),
+          ...(documentId === undefined ? [] : [eq(applicationsTable.cvDocumentId, documentId)]),
+        ];
+        const [access] = await tx.select({
+          jobId: jobListingsTable.id,
+          employerProfileId: employerProfilesTable.id,
+          ownerUserId: employerProfilesTable.userId,
+          memberUserId: employerMembershipsTable.userId,
+          memberRole: employerMembershipsTable.role,
+        }).from(applicationsTable)
+          .innerJoin(jobListingsTable, eq(applicationsTable.roleId, sql`${jobListingsTable.id} + 1000000`))
+          .innerJoin(employerProfilesTable, eq(employerProfilesTable.id, jobListingsTable.employerProfileId))
+          .leftJoin(employerMembershipsTable, and(
+            eq(employerMembershipsTable.employerProfileId, employerProfilesTable.id),
+            eq(employerMembershipsTable.userId, req.user!.id),
+            eq(employerMembershipsTable.status, "active"),
           ))
-          .for("update");
-        if (!reportedMessage) return "message_not_found" as const;
+          .where(and(...where));
+        if (!access) return null;
+        const role = access.ownerUserId === req.user!.id ? "employer_owner" : access.memberRole;
+        if (role && ["recruiter", "hiring_manager", "employer_viewer"].includes(role)) {
+          const [assignment] = await tx.select({ id: employerJobAssignmentsTable.id })
+            .from(employerJobAssignmentsTable).where(and(
+              eq(employerJobAssignmentsTable.employerProfileId, access.employerProfileId),
+              eq(employerJobAssignmentsTable.jobListingId, access.jobId),
+              eq(employerJobAssignmentsTable.userId, req.user!.id),
+            ));
+          if (!assignment) return null;
+        }
+        return { ...access, role };
+      }
+      let targetAvailable = true;
+      switch (reportType) {
+        case "inbox_message": {
+          const [target] = await tx.select({ id: candidateMessagesTable.id })
+            .from(candidateMessagesTable).where(and(
+              eq(candidateMessagesTable.id, Number(messageId)),
+              eq(candidateMessagesTable.recipientUserId, req.user!.id),
+            )).for("update");
+          targetAvailable = !!target;
+          break;
+        }
+        case "candidate_profile": {
+          const [target] = await tx.select({ userId: profilesTable.userId })
+            .from(profilesTable).where(and(
+              eq(profilesTable.userId, targetId!),
+              sql`${profilesTable.userId} <> ${req.user!.id}`,
+            ));
+          const applicationAccess = target
+            ? await getEmployerApplicationAccess(Number(contextId), target.userId)
+            : null;
+          targetAvailable = !!applicationAccess;
+          break;
+        }
+        case "job_listing": {
+          const jobId = Number(targetId);
+          if (!Number.isSafeInteger(jobId) || jobId < 1 || contextId !== jobId) {
+            targetAvailable = false;
+            break;
+          }
+          const [target] = await tx.select({
+            id: jobListingsTable.id,
+            employerProfileId: employerProfilesTable.id,
+            ownerUserId: employerProfilesTable.userId,
+            memberUserId: employerMembershipsTable.userId,
+            memberRole: employerMembershipsTable.role,
+          })
+            .from(jobListingsTable)
+            .innerJoin(employerProfilesTable, eq(employerProfilesTable.id, jobListingsTable.employerProfileId))
+            .leftJoin(employerMembershipsTable, and(
+              eq(employerMembershipsTable.employerProfileId, employerProfilesTable.id),
+              eq(employerMembershipsTable.userId, req.user!.id),
+              eq(employerMembershipsTable.status, "active"),
+            ))
+            .where(and(
+              eq(jobListingsTable.id, jobId),
+              eq(jobListingsTable.status, "published"),
+              isNull(employerProfilesTable.deletedAt),
+              or(
+                eq(employerProfilesTable.userId, req.user!.id),
+                eq(employerMembershipsTable.userId, req.user!.id),
+              ),
+            ));
+          if (!target) {
+            targetAvailable = false;
+            break;
+          }
+          const role = target.ownerUserId === req.user!.id ? "employer_owner" : target.memberRole;
+          if (role && ["recruiter", "hiring_manager", "employer_viewer"].includes(role)) {
+            const [assignment] = await tx.select({ id: employerJobAssignmentsTable.id })
+              .from(employerJobAssignmentsTable).where(and(
+                eq(employerJobAssignmentsTable.employerProfileId, target.employerProfileId),
+                eq(employerJobAssignmentsTable.jobListingId, target.id),
+                eq(employerJobAssignmentsTable.userId, req.user!.id),
+              ));
+            targetAvailable = !!assignment;
+          }
+          break;
+        }
+        case "attachment": {
+          const documentId = Number(targetId);
+          if (!Number.isSafeInteger(documentId) || documentId < 1) {
+            targetAvailable = false;
+            break;
+          }
+          const [target] = await tx.select({ id: documentsTable.id, userId: documentsTable.userId })
+            .from(documentsTable).where(and(
+              eq(documentsTable.id, documentId),
+            ));
+          const applicationAccess = target
+            ? await getEmployerApplicationAccess(Number(contextId), target.userId, documentId)
+            : null;
+          targetAvailable = !!applicationAccess;
+          break;
+        }
+        case "support_request": {
+          if (!targetId || !/^JS-[A-F0-9]{10}$/.test(targetId)) {
+            targetAvailable = false;
+            break;
+          }
+          const [target] = await tx.select({ id: supportTicketsTable.id })
+            .from(supportTicketsTable).where(and(
+              eq(supportTicketsTable.ticketId, targetId),
+              eq(supportTicketsTable.userId, req.user!.id),
+              eq(supportTicketsTable.isContentReport, false),
+            ));
+          targetAvailable = !!target;
+          break;
+        }
+        case "employer_feedback": {
+          const feedbackId = Number(targetId);
+          if (!Number.isSafeInteger(feedbackId) || feedbackId < 1) {
+            targetAvailable = false;
+            break;
+          }
+          const [feedback] = await tx.select({
+            id: employerCandidateFeedbackTable.id,
+            authorUserId: employerCandidateFeedbackTable.authorUserId,
+            employerProfileId: employerCandidateFeedbackTable.employerProfileId,
+            applicationId: employerCandidateFeedbackTable.applicationId,
+          }).from(employerCandidateFeedbackTable).where(eq(employerCandidateFeedbackTable.id, feedbackId));
+          if (!feedback || feedback.authorUserId === req.user!.id || feedback.applicationId !== contextId) {
+            targetAvailable = false;
+            break;
+          }
+          const [application] = await tx.select({ userId: applicationsTable.userId })
+            .from(applicationsTable).where(eq(applicationsTable.id, feedback.applicationId));
+          const access = application
+            ? await getEmployerApplicationAccess(feedback.applicationId, application.userId)
+            : null;
+          targetAvailable = !!access
+            && access.employerProfileId === feedback.employerProfileId
+            && ["employer_owner", "employer_admin", "hiring_manager"].includes(access.role ?? "");
+          break;
+        }
+        case "ai_content":
+        case "other":
+          break;
+        default:
+          targetAvailable = false;
+      }
+      if (!targetAvailable) {
+        return "target_not_available" as const;
       }
       // Serialize per reporter so concurrent requests cannot bypass the daily cap.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`content-report:${req.user!.id}`}))`);
@@ -144,8 +368,8 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
       await tx.insert(supportTicketsTable).values(newTicket);
       return "inserted" as const;
     });
-    if (insertResult === "message_not_found") {
-      res.status(404).json({ error: "That inbox message is not available to this account." });
+    if (insertResult === "target_not_available") {
+      res.status(404).json({ error: "That content is not available to this account." });
       return;
     }
     if (insertResult === "rate_limited") {
@@ -170,7 +394,7 @@ router.post("/support/ticket", async (req, res): Promise<void> => {
   }
   if (isContentReport) {
     const recorded = await writeAuditEvent(req.user!.id, "candidate_content_report", ticketId, {
-        reportType: isMessageReport ? "message" : "ai",
+        reportType,
       });
     if (!recorded) {
       req.log.error({ ticketId }, "Content report was saved but its audit event could not be recorded");
@@ -250,6 +474,9 @@ router.post("/support/ticket/:ticketId/appeal", async (req, res): Promise<void> 
       userId: req.user!.id,
       isContentReport: true,
       reportedMessageId: original.reportedMessageId,
+      reportedContentType: original.reportedContentType,
+      reportedContentId: original.reportedContentId,
+      reportedContextId: original.reportedContextId,
       appealOfTicketId: original.id,
     });
     return { kind: "saved" as const };

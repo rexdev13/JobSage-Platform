@@ -21,6 +21,7 @@ This file contains decisions, facts, credentials, and evidence that cannot be sa
 
 - Supply the Apple Developer team/account identity and Google Play account identity.
 - Approve the final iOS bundle identifier and Android application ID; do not invent or silently replace them.
+- Provide the Apple Team ID, public production website hostname, and Android release signing certificate SHA-256 fingerprint(s) for Universal/App Links. These are public association values, not signing credentials.
 - Configure the EAS project/account and signing credentials through the secure platform secrets flow, not in chat or this file.
 - Provide approved production website/API domains and production provider configuration, including any owner-controlled domain association required for Universal Links or Android App Links.
 - Create a reviewer account through the approved account workflow and deliver access through a secure channel; do not place reviewer credentials in source or documentation.

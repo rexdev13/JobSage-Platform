@@ -111,4 +111,4 @@
 - [Native reauthentication](native-reauthentication.md) — a newly exchanged capability is not proof of recent user reauthentication for account erasure.
 - [Approved deletion policy](account-deletion-policy.md) — owner-approved 30-day erasure, 90-day backup limit, restricted legal retention and shared-record safeguards.
 - [Mobile compliance safety scope](mobile-compliance-safety.md) — keep deletion disabled and limit this work to source/fixture checks; no production/customer/store actions.
-- [Employer staff permissions](employer-staff-permissions.md) — do not invent an employer-member role or permissions until the owner defines them.
+- [Employer staff permissions](employer-staff-permissions.md) — implement the five owner-approved organization roles with API authorization and no implied platform-wide powers.

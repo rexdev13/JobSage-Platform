@@ -6,12 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Supply the account password or a one-use email-code proof, plus explicit confirmation.
+ */
 export interface PrivacyVerificationInput {
   expectedAccountId: string;
   /**
    * @minLength 1
    * @maxLength 1024
    */
-  password: string;
+  password?: string;
+  /**
+   * @minLength 40
+   * @maxLength 128
+   */
+  emailCodeProof?: string;
   confirmed: true;
 }

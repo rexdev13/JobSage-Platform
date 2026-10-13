@@ -15,6 +15,17 @@ export const supportTicketCategories = [
 
 export const supportTicketStatuses = ["new", "in_review", "attended", "resolved"] as const;
 export const supportTicketSeverities = ["low", "normal", "high", "urgent"] as const;
+export const moderationDecisions = ["pending", "no_action", "escalated"] as const;
+export const contentReportTypes = [
+  "ai_content",
+  "inbox_message",
+  "candidate_profile",
+  "job_listing",
+  "attachment",
+  "support_request",
+  "employer_feedback",
+  "other",
+] as const;
 
 export const supportTicketsTable = pgTable(
   "support_tickets",
@@ -29,9 +40,13 @@ export const supportTicketsTable = pgTable(
     userId: varchar("user_id").references(() => usersTable.id, { onDelete: "set null" }),
     isContentReport: boolean("is_content_report").notNull().default(false),
     reportedMessageId: integer("reported_message_id"),
+    reportedContentType: varchar("reported_content_type", { enum: contentReportTypes }),
+    reportedContentId: text("reported_content_id"),
+    reportedContextId: integer("reported_context_id"),
     appealOfTicketId: integer("appeal_of_ticket_id"),
     status: varchar("status", { enum: supportTicketStatuses }).notNull().default("new"),
     severity: varchar("severity", { enum: supportTicketSeverities }).notNull().default("normal"),
+    moderationDecision: varchar("moderation_decision", { enum: moderationDecisions }).notNull().default("pending"),
     assignedModeratorId: varchar("assigned_moderator_id").references(() => usersTable.id, { onDelete: "set null" }),
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     adminNotes: text("admin_notes"),
@@ -49,8 +64,13 @@ export const supportTicketsTable = pgTable(
     index("support_tickets_user_id_idx").on(table.userId),
     index("support_tickets_moderation_queue_idx").on(table.isContentReport, table.status, table.severity, table.createdAt),
     index("support_tickets_reported_message_id_idx").on(table.reportedMessageId),
+    index("support_tickets_reported_content_idx").on(table.isContentReport, table.reportedContentType, table.status, table.createdAt),
     index("support_tickets_appeal_of_ticket_id_idx").on(table.appealOfTicketId),
     check("support_tickets_severity_check", sql`${table.severity} IN ('low', 'normal', 'high', 'urgent')`),
+    check("support_tickets_moderation_decision_check", sql`${table.moderationDecision} IN ('pending', 'no_action', 'escalated')`),
+    check("support_tickets_reported_content_type_check", sql`${table.reportedContentType} IS NULL OR ${table.reportedContentType} IN ('ai_content', 'inbox_message', 'candidate_profile', 'job_listing', 'attachment', 'support_request', 'employer_feedback', 'other')`),
+    check("support_tickets_reported_content_id_check", sql`${table.reportedContentType} IS NULL OR (${table.reportedContentType} IN ('ai_content', 'other') OR (${table.reportedContentId} IS NOT NULL AND char_length(${table.reportedContentId}) BETWEEN 1 AND 200))`),
+    check("support_tickets_reported_context_id_check", sql`${table.reportedContextId} IS NULL OR ${table.reportedContextId} > 0`),
   ],
 );
 

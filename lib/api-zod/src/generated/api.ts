@@ -14,6 +14,7 @@ export const GetPrivacySettingsResponse = zod.object({
   optionalAnalytics: zod.boolean(),
   notifications: zod.record(zod.string(), zod.boolean()),
   deletionEnabled: zod.boolean(),
+  reauthenticationMethod: zod.enum(["password", "email_code", "unavailable"]),
 });
 
 export const UpdatePrivacySettingsHeader = zod.object({
@@ -30,17 +31,68 @@ export const UpdatePrivacySettingsResponse = zod.object({
   success: zod.boolean(),
 });
 
+export const StartPrivacyReauthenticationHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const StartPrivacyReauthenticationBody = zod.object({
+  expectedAccountId: zod.string(),
+  purpose: zod.enum(["personal_data"]),
+});
+
+export const VerifyPrivacyReauthenticationHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const verifyPrivacyReauthenticationBodyCodeRegExp = new RegExp(
+  "^[0-9]{6}$",
+);
+
+export const VerifyPrivacyReauthenticationBody = zod.object({
+  expectedAccountId: zod.string(),
+  purpose: zod.enum(["personal_data"]),
+  code: zod.string().regex(verifyPrivacyReauthenticationBodyCodeRegExp),
+});
+
+export const verifyPrivacyReauthenticationResponseProofTokenMin = 40;
+export const verifyPrivacyReauthenticationResponseProofTokenMax = 128;
+
+export const VerifyPrivacyReauthenticationResponse = zod.object({
+  verified: zod.boolean(),
+  proofToken: zod
+    .string()
+    .min(verifyPrivacyReauthenticationResponseProofTokenMin)
+    .max(verifyPrivacyReauthenticationResponseProofTokenMax),
+  expiresInSeconds: zod.number(),
+});
+
 export const DownloadPersonalDataHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
 });
 
 export const downloadPersonalDataBodyPasswordMax = 1024;
 
-export const DownloadPersonalDataBody = zod.object({
-  expectedAccountId: zod.string(),
-  password: zod.string().min(1).max(downloadPersonalDataBodyPasswordMax),
-  confirmed: zod.boolean(),
-});
+export const downloadPersonalDataBodyEmailCodeProofMin = 40;
+export const downloadPersonalDataBodyEmailCodeProofMax = 128;
+
+export const DownloadPersonalDataBody = zod
+  .object({
+    expectedAccountId: zod.string(),
+    password: zod
+      .string()
+      .min(1)
+      .max(downloadPersonalDataBodyPasswordMax)
+      .optional(),
+    emailCodeProof: zod
+      .string()
+      .min(downloadPersonalDataBodyEmailCodeProofMin)
+      .max(downloadPersonalDataBodyEmailCodeProofMax)
+      .optional(),
+    confirmed: zod.boolean(),
+  })
+  .describe(
+    "Supply the account password or a one-use email-code proof, plus explicit confirmation.",
+  );
 
 export const RequestPersonalDataHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
@@ -48,11 +100,27 @@ export const RequestPersonalDataHeader = zod.object({
 
 export const requestPersonalDataBodyPasswordMax = 1024;
 
-export const RequestPersonalDataBody = zod.object({
-  expectedAccountId: zod.string(),
-  password: zod.string().min(1).max(requestPersonalDataBodyPasswordMax),
-  confirmed: zod.boolean(),
-});
+export const requestPersonalDataBodyEmailCodeProofMin = 40;
+export const requestPersonalDataBodyEmailCodeProofMax = 128;
+
+export const RequestPersonalDataBody = zod
+  .object({
+    expectedAccountId: zod.string(),
+    password: zod
+      .string()
+      .min(1)
+      .max(requestPersonalDataBodyPasswordMax)
+      .optional(),
+    emailCodeProof: zod
+      .string()
+      .min(requestPersonalDataBodyEmailCodeProofMin)
+      .max(requestPersonalDataBodyEmailCodeProofMax)
+      .optional(),
+    confirmed: zod.boolean(),
+  })
+  .describe(
+    "Supply the account password or a one-use email-code proof, plus explicit confirmation.",
+  );
 
 export const ClearSmartApplyDraftsHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
@@ -116,6 +184,7 @@ export const GetCurrentAuthUserResponse = zod.object({
           "candidate",
           "admin",
           "reviewer",
+          "moderator",
           "employer",
           "super_admin",
           "marketing",
@@ -192,6 +261,7 @@ export const RedeemMobileSessionGrantResponse = zod.object({
         "candidate",
         "admin",
         "reviewer",
+        "moderator",
         "employer",
         "super_admin",
         "marketing",
@@ -333,6 +403,7 @@ export const LoginWithEmailResponse = zod.object({
           "candidate",
           "admin",
           "reviewer",
+          "moderator",
           "employer",
           "super_admin",
           "marketing",
@@ -1702,6 +1773,8 @@ export const createSupportTicketBodySubjectMax = 180;
 export const createSupportTicketBodyMessageMin = 10;
 export const createSupportTicketBodyMessageMax = 5000;
 
+export const createSupportTicketBodyReportedContentIdMax = 200;
+
 export const CreateSupportTicketBody = zod.object({
   name: zod.string().min(1).max(createSupportTicketBodyNameMax),
   email: zod.string().email().max(createSupportTicketBodyEmailMax),
@@ -1718,6 +1791,24 @@ export const CreateSupportTicketBody = zod.object({
     .min(createSupportTicketBodyMessageMin)
     .max(createSupportTicketBodyMessageMax),
   reportedMessageId: zod.number().min(1).optional(),
+  reportedContentType: zod
+    .enum([
+      "ai_content",
+      "inbox_message",
+      "candidate_profile",
+      "job_listing",
+      "attachment",
+      "support_request",
+      "employer_feedback",
+      "other",
+    ])
+    .optional(),
+  reportedContentId: zod
+    .string()
+    .min(1)
+    .max(createSupportTicketBodyReportedContentIdMax)
+    .optional(),
+  reportedContextId: zod.number().min(1).optional(),
 });
 
 /**
@@ -1796,6 +1887,21 @@ export const ListAdminSupportTicketsResponseItem = zod.object({
   userId: zod.string().nullable(),
   isContentReport: zod.boolean(),
   reportedMessageId: zod.number().nullable(),
+  reportedContentType: zod
+    .union([
+      zod.literal("ai_content"),
+      zod.literal("inbox_message"),
+      zod.literal("candidate_profile"),
+      zod.literal("job_listing"),
+      zod.literal("attachment"),
+      zod.literal("support_request"),
+      zod.literal("employer_feedback"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullable(),
+  reportedContentId: zod.string().nullable(),
+  reportedContextId: zod.number().nullable(),
   appealOfTicketId: zod.number().nullable(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
   severity: zod.enum(["low", "normal", "high", "urgent"]),
@@ -1837,6 +1943,21 @@ export const GetAdminSupportTicketResponse = zod.object({
     userId: zod.string().nullable(),
     isContentReport: zod.boolean(),
     reportedMessageId: zod.number().nullable(),
+    reportedContentType: zod
+      .union([
+        zod.literal("ai_content"),
+        zod.literal("inbox_message"),
+        zod.literal("candidate_profile"),
+        zod.literal("job_listing"),
+        zod.literal("attachment"),
+        zod.literal("support_request"),
+        zod.literal("employer_feedback"),
+        zod.literal("other"),
+        zod.literal(null),
+      ])
+      .nullable(),
+    reportedContentId: zod.string().nullable(),
+    reportedContextId: zod.number().nullable(),
     appealOfTicketId: zod.number().nullable(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
     severity: zod.enum(["low", "normal", "high", "urgent"]),
@@ -1910,6 +2031,21 @@ export const UpdateAdminSupportTicketResponse = zod.object({
   userId: zod.string().nullable(),
   isContentReport: zod.boolean(),
   reportedMessageId: zod.number().nullable(),
+  reportedContentType: zod
+    .union([
+      zod.literal("ai_content"),
+      zod.literal("inbox_message"),
+      zod.literal("candidate_profile"),
+      zod.literal("job_listing"),
+      zod.literal("attachment"),
+      zod.literal("support_request"),
+      zod.literal("employer_feedback"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullable(),
+  reportedContentId: zod.string().nullable(),
+  reportedContextId: zod.number().nullable(),
   appealOfTicketId: zod.number().nullable(),
   status: zod.enum(["new", "in_review", "attended", "resolved"]),
   severity: zod.enum(["low", "normal", "high", "urgent"]),
@@ -1956,6 +2092,21 @@ export const ReplyToAdminSupportTicketResponse = zod.object({
     userId: zod.string().nullable(),
     isContentReport: zod.boolean(),
     reportedMessageId: zod.number().nullable(),
+    reportedContentType: zod
+      .union([
+        zod.literal("ai_content"),
+        zod.literal("inbox_message"),
+        zod.literal("candidate_profile"),
+        zod.literal("job_listing"),
+        zod.literal("attachment"),
+        zod.literal("support_request"),
+        zod.literal("employer_feedback"),
+        zod.literal("other"),
+        zod.literal(null),
+      ])
+      .nullable(),
+    reportedContentId: zod.string().nullable(),
+    reportedContextId: zod.number().nullable(),
     appealOfTicketId: zod.number().nullable(),
     status: zod.enum(["new", "in_review", "attended", "resolved"]),
     severity: zod.enum(["low", "normal", "high", "urgent"]),
@@ -3840,6 +3991,9 @@ export const ListJobApplicantsResponse = zod.object({
       ]),
       appliedAt: zod.date(),
       notes: zod.string().nullish(),
+      interviewDate: zod.date().nullable(),
+      interviewNotes: zod.string().nullable(),
+      cvDocumentId: zod.number().nullable(),
     }),
   ),
   job: zod.object({
@@ -5085,6 +5239,7 @@ export const ActivateImpersonationTokenResponse = zod.object({
         "candidate",
         "admin",
         "reviewer",
+        "moderator",
         "employer",
         "super_admin",
         "marketing",
@@ -5592,4 +5747,424 @@ export const StreamLearningVideoMediaParams = zod.object({
 
 export const StreamLearningVideoMediaHeader = zod.object({
   Range: zod.string().optional(),
+});
+
+/**
+ * @summary List organizations the authenticated user may access
+ */
+
+export const ListEmployerOrganizationsResponse = zod.object({
+  organizations: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyName: zod.string(),
+      role: zod.enum([
+        "employer_owner",
+        "employer_admin",
+        "recruiter",
+        "hiring_manager",
+        "employer_viewer",
+      ]),
+    }),
+  ),
+  activeOrganizationId: zod.number().nullable(),
+  archivedOrganizations: zod.array(
+    zod.object({
+      id: zod.number().min(1),
+      companyName: zod.string(),
+      archivedAt: zod.date(),
+      restoreUntil: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Select an organization after verifying active membership
+ */
+
+export const SelectEmployerOrganizationBody = zod.object({
+  employerProfileId: zod.number().min(1),
+});
+
+export const SelectEmployerOrganizationResponse = zod.object({
+  organization: zod.object({
+    id: zod.number(),
+    companyName: zod.string(),
+    role: zod.enum([
+      "employer_owner",
+      "employer_admin",
+      "recruiter",
+      "hiring_manager",
+      "employer_viewer",
+    ]),
+  }),
+});
+
+/**
+ * @summary List organization members, invitations, and job assignments
+ */
+export const ListEmployerStaffResponse = zod.object({
+  members: zod.array(
+    zod.object({
+      userId: zod.string(),
+      role: zod.enum([
+        "employer_owner",
+        "employer_admin",
+        "recruiter",
+        "hiring_manager",
+        "employer_viewer",
+      ]),
+      status: zod.enum(["active", "removed", "suspended"]),
+      createdAt: zod.date(),
+      email: zod.string().email(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+    }),
+  ),
+  invitations: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string().email(),
+      role: zod.enum([
+        "employer_admin",
+        "recruiter",
+        "hiring_manager",
+        "employer_viewer",
+      ]),
+      expiresAt: zod.date(),
+      createdAt: zod.date(),
+    }),
+  ),
+  assignments: zod.array(
+    zod.object({
+      jobListingId: zod.number(),
+      userId: zod.string(),
+      title: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Invite an employer staff member
+ */
+export const createEmployerStaffInvitationBodyEmailMax = 254;
+
+export const CreateEmployerStaffInvitationBody = zod.object({
+  email: zod.string().email().max(createEmployerStaffInvitationBodyEmailMax),
+  role: zod.enum([
+    "employer_admin",
+    "recruiter",
+    "hiring_manager",
+    "employer_viewer",
+  ]),
+});
+
+/**
+ * @summary Revoke a pending staff invitation
+ */
+export const RevokeEmployerStaffInvitationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RevokeEmployerStaffInvitationResponse = zod.object({
+  revoked: zod.boolean().optional(),
+  removed: zod.boolean().optional(),
+  transferred: zod.boolean().optional(),
+  restored: zod.boolean().optional(),
+  ownerUserId: zod.string().optional(),
+});
+
+/**
+ * @summary Change a member's organization role
+ */
+export const UpdateEmployerStaffRoleParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const UpdateEmployerStaffRoleBody = zod.object({
+  role: zod.enum([
+    "employer_admin",
+    "recruiter",
+    "hiring_manager",
+    "employer_viewer",
+  ]),
+});
+
+export const UpdateEmployerStaffRoleResponse = zod.object({
+  member: zod.object({
+    userId: zod.string(),
+    role: zod.enum([
+      "employer_admin",
+      "recruiter",
+      "hiring_manager",
+      "employer_viewer",
+    ]),
+  }),
+});
+
+/**
+ * @summary Remove an active organization staff member
+ */
+export const RemoveEmployerStaffMemberParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const RemoveEmployerStaffMemberResponse = zod.object({
+  revoked: zod.boolean().optional(),
+  removed: zod.boolean().optional(),
+  transferred: zod.boolean().optional(),
+  restored: zod.boolean().optional(),
+  ownerUserId: zod.string().optional(),
+});
+
+/**
+ * @summary Assign or unassign a job for an active staff member
+ */
+
+export const AssignEmployerJobBody = zod.object({
+  jobListingId: zod.number().min(1),
+  userId: zod.string().min(1),
+  assigned: zod.boolean(),
+});
+
+export const AssignEmployerJobResponse = zod.object({
+  assigned: zod.boolean(),
+});
+
+/**
+ * @summary Transfer organization ownership to an active staff member
+ */
+
+export const TransferEmployerOwnershipBody = zod.object({
+  userId: zod.string().min(1),
+});
+
+export const TransferEmployerOwnershipResponse = zod.object({
+  revoked: zod.boolean().optional(),
+  removed: zod.boolean().optional(),
+  transferred: zod.boolean().optional(),
+  restored: zod.boolean().optional(),
+  ownerUserId: zod.string().optional(),
+});
+
+/**
+ * @summary Reversibly archive the organization after exact-name confirmation
+ */
+export const archiveEmployerOrganizationBodyConfirmCompanyNameMax = 180;
+
+export const ArchiveEmployerOrganizationBody = zod.object({
+  confirmCompanyName: zod
+    .string()
+    .min(1)
+    .max(archiveEmployerOrganizationBodyConfirmCompanyNameMax),
+});
+
+export const ArchiveEmployerOrganizationResponse = zod.object({
+  archived: zod.boolean(),
+  restoreUntil: zod.date(),
+});
+
+/**
+ * @summary Restore the owner's organization within its restore window
+ */
+export const RestoreEmployerOrganizationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RestoreEmployerOrganizationResponse = zod.object({
+  revoked: zod.boolean().optional(),
+  removed: zod.boolean().optional(),
+  transferred: zod.boolean().optional(),
+  restored: zod.boolean().optional(),
+  ownerUserId: zod.string().optional(),
+});
+
+/**
+ * @summary Review an invitation for the verified invited account
+ */
+export const GetEmployerInvitationParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetEmployerInvitationResponse = zod.object({
+  invitation: zod.object({
+    companyName: zod.string(),
+    role: zod.enum([
+      "employer_admin",
+      "recruiter",
+      "hiring_manager",
+      "employer_viewer",
+    ]),
+    expiresAt: zod.date(),
+    accepted: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Accept an invitation using the invited verified account
+ */
+export const AcceptEmployerInvitationParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const AcceptEmployerInvitationResponse = zod.object({
+  accepted: zod.boolean().optional(),
+  declined: zod.boolean().optional(),
+  alreadyAccepted: zod.boolean().optional(),
+  employerProfileId: zod.number().optional(),
+});
+
+/**
+ * @summary Decline an invitation using the invited verified account
+ */
+export const DeclineEmployerInvitationParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const DeclineEmployerInvitationResponse = zod.object({
+  accepted: zod.boolean().optional(),
+  declined: zod.boolean().optional(),
+  alreadyAccepted: zod.boolean().optional(),
+  employerProfileId: zod.number().optional(),
+});
+
+/**
+ * @summary List organization feedback for one assigned application
+ */
+export const GetEmployerCandidateFeedbackParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const GetEmployerCandidateFeedbackResponse = zod.object({
+  feedback: zod.array(
+    zod.object({
+      id: zod.number(),
+      feedback: zod.string(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+      authorUserId: zod.string(),
+      authorFirstName: zod.string().nullable(),
+      authorLastName: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create or update the current staff member's application feedback
+ */
+export const UpsertEmployerCandidateFeedbackParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const upsertEmployerCandidateFeedbackBodyFeedbackMax = 4000;
+
+export const UpsertEmployerCandidateFeedbackBody = zod.object({
+  feedback: zod
+    .string()
+    .min(1)
+    .max(upsertEmployerCandidateFeedbackBodyFeedbackMax),
+});
+
+export const UpsertEmployerCandidateFeedbackResponse = zod.object({
+  feedback: zod.object({
+    id: zod.number(),
+    employerProfileId: zod.number(),
+    jobListingId: zod.number(),
+    applicationId: zod.number(),
+    authorUserId: zod.string(),
+    feedback: zod.string(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Schedule an interview for an assigned application
+ */
+export const ScheduleEmployerInterviewParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const scheduleEmployerInterviewBodyNotesMax = 2000;
+
+export const ScheduleEmployerInterviewBody = zod.object({
+  interviewDate: zod.date(),
+  notes: zod.string().max(scheduleEmployerInterviewBodyNotesMax).optional(),
+});
+
+export const ScheduleEmployerInterviewResponse = zod.object({
+  interview: zod.object({
+    id: zod.number(),
+    status: zod.string(),
+    interviewDate: zod.date(),
+    interviewNotes: zod.string().nullish(),
+  }),
+});
+
+/**
+ * @summary List active staff participating in an assigned interview
+ */
+export const ListEmployerInterviewParticipantsParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const ListEmployerInterviewParticipantsResponse = zod.object({
+  participants: zod.array(
+    zod.object({
+      userId: zod.string(),
+      status: zod.enum(["invited", "accepted", "declined", "removed"]),
+      createdAt: zod.date(),
+      email: zod.string().email(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      role: zod.enum([
+        "employer_owner",
+        "employer_admin",
+        "recruiter",
+        "hiring_manager",
+        "employer_viewer",
+      ]),
+    }),
+  ),
+});
+
+/**
+ * @summary Invite or remove an assigned staff member from an interview
+ */
+export const UpdateEmployerInterviewParticipantsParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const UpdateEmployerInterviewParticipantsBody = zod.object({
+  userId: zod.string().min(1),
+  participating: zod.boolean(),
+});
+
+export const UpdateEmployerInterviewParticipantsResponse = zod.object({
+  participant: zod.object({
+    status: zod.enum(["invited", "accepted", "declined", "removed"]),
+  }),
+});
+
+/**
+ * @summary Accept or decline the current user's interview participation invitation
+ */
+export const RespondToEmployerInterviewInvitationParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const RespondToEmployerInterviewInvitationBody = zod.object({
+  status: zod.enum(["accepted", "declined"]),
+});
+
+export const RespondToEmployerInterviewInvitationResponse = zod.object({
+  participant: zod.object({
+    status: zod.enum(["invited", "accepted", "declined", "removed"]),
+  }),
 });

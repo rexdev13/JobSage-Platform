@@ -25,4 +25,8 @@ export interface JobApplicant {
   stage: JobApplicantStage;
   appliedAt: Date;
   notes?: string | null;
+  interviewDate: Date | null;
+  interviewNotes: string | null;
+  /** @nullable */
+  cvDocumentId: number | null;
 }

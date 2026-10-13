@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SupportTicketItemCategory } from "./supportTicketItemCategory";
+import type { SupportTicketItemReportedContentType } from "./supportTicketItemReportedContentType";
 import type { SupportTicketItemSeverity } from "./supportTicketItemSeverity";
 import type { SupportTicketItemStatus } from "./supportTicketItemStatus";
 
@@ -22,6 +23,12 @@ export interface SupportTicketItem {
   isContentReport: boolean;
   /** @nullable */
   reportedMessageId: number | null;
+  /** @nullable */
+  reportedContentType: SupportTicketItemReportedContentType;
+  /** @nullable */
+  reportedContentId: string | null;
+  /** @nullable */
+  reportedContextId: number | null;
   /** @nullable */
   appealOfTicketId: number | null;
   status: SupportTicketItemStatus;

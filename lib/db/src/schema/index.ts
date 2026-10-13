@@ -11,6 +11,7 @@ export * from "./review";
 export * from "./audit";
 export * from "./applications";
 export * from "./employer";
+export * from "./employerMemberships";
 export * from "./smartApplyDrafts";
 export * from "./sponsorLicences";
 export * from "./vacancySources";

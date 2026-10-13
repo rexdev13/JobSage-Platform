@@ -5,6 +5,7 @@ import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
   useListEmployerJobs,
   useGetEmployerProfile,
+  getGetEmployerProfileQueryKey,
   useDeleteJobListing,
   usePublishJobListing,
   useCloseJobListing,
@@ -31,8 +32,10 @@ import {
   BarChart3,
   Settings,
   Search,
+  UserPlus,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useEmployerOrganizations } from "@/hooks/useEmployerOrganizations";
 
 const STATUS_CONFIG = {
   draft: { label: "Draft", icon: Clock, className: "bg-muted text-muted-foreground" },
@@ -40,12 +43,15 @@ const STATUS_CONFIG = {
   closed: { label: "Closed", icon: XCircle, className: "bg-red-100 text-red-700" },
 };
 
-function JobCard({ job, onDelete, onPublish, onClose, onHeadhunt }: {
+function JobCard({ job, onDelete, onPublish, onClose, onHeadhunt, canEdit, canDelete, canHeadhunt }: {
   job: JobListingWithCount;
   onDelete: (id: number) => void;
   onPublish: (id: number) => void;
   onClose: (id: number) => void;
   onHeadhunt: (job: JobListingWithCount) => void;
+  canEdit: boolean;
+  canDelete: boolean;
+  canHeadhunt: boolean;
 }) {
   const [, setLocation] = useLocation();
   const cfg = STATUS_CONFIG[job.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
@@ -92,23 +98,23 @@ function JobCard({ job, onDelete, onPublish, onClose, onHeadhunt }: {
         <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setLocation(`/employer/jobs/${job.id}`)}>
           <Users className="w-3.5 h-3.5 mr-1.5" /> View Applicants
         </Button>
-        <Button size="sm" variant="ghost" className="text-xs h-8 text-primary" onClick={() => onHeadhunt(job)}>
+        {canHeadhunt && <Button size="sm" variant="ghost" className="text-xs h-8 text-primary" onClick={() => onHeadhunt(job)}>
           <Search className="w-3.5 h-3.5 mr-1.5" /> Headhunt
-        </Button>
-        <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => setLocation(`/employer/jobs/${job.id}/edit`)}>
+        </Button>}
+        {canEdit && <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => setLocation(`/employer/jobs/${job.id}/edit`)}>
           <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit
-        </Button>
-        {job.status === "draft" && (
+        </Button>}
+        {canEdit && job.status === "draft" && (
           <Button size="sm" variant="ghost" className="text-xs h-8 text-emerald-700" onClick={() => onPublish(job.id)}>
             <Globe className="w-3.5 h-3.5 mr-1.5" /> Publish
           </Button>
         )}
-        {job.status === "published" && (
+        {canEdit && job.status === "published" && (
           <Button size="sm" variant="ghost" className="text-xs h-8 text-muted-foreground" onClick={() => onClose(job.id)}>
             <XCircle className="w-3.5 h-3.5 mr-1.5" /> Close
           </Button>
         )}
-        {job.status !== "published" && (
+        {canDelete && job.status !== "published" && (
           <Button size="sm" variant="ghost" className="text-xs h-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(job.id)}>
             <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
           </Button>
@@ -122,9 +128,15 @@ export default function EmployerDashboardPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeOrganization } = useEmployerOrganizations();
+  const role = activeOrganization?.role;
+  const isOwnerOrAdmin = role === "employer_owner" || role === "employer_admin";
+  const canEditJobs = isOwnerOrAdmin || role === "recruiter";
 
   const { data, isLoading } = useListEmployerJobs();
-  const { data: empProfile } = useGetEmployerProfile();
+  const { data: empProfile } = useGetEmployerProfile({
+    query: { queryKey: getGetEmployerProfileQueryKey(), enabled: isOwnerOrAdmin, retry: false },
+  });
   const deleteMutation = useDeleteJobListing();
   const publishMutation = usePublishJobListing();
   const closeMutation = useCloseJobListing();
@@ -183,7 +195,7 @@ export default function EmployerDashboardPage() {
             <div className="flex items-center gap-2 mb-1">
               <Building2 className="w-5 h-5 text-primary" />
               <h1 className="text-2xl font-display font-bold text-foreground">
-                {empProfile?.companyName ?? "Employer Dashboard"}
+                 {empProfile?.companyName ?? data?.employerProfile?.companyName ?? activeOrganization?.companyName ?? "Employer Dashboard"}
               </h1>
             </div>
             <p className="text-muted-foreground text-sm">
@@ -192,12 +204,15 @@ export default function EmployerDashboardPage() {
             </p>
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Button size="sm" variant="outline" onClick={() => setLocation("/employer/profile")}>
+            {isOwnerOrAdmin && <Button size="sm" variant="outline" onClick={() => setLocation("/employer/staff")}>
+              <UserPlus className="w-4 h-4 mr-1.5" /> Staff
+            </Button>}
+            {isOwnerOrAdmin && <Button size="sm" variant="outline" onClick={() => setLocation("/employer/profile")}>
               <Settings className="w-4 h-4 mr-1.5" /> Profile
-            </Button>
-            <Button onClick={() => setLocation("/employer/jobs/new")}>
+            </Button>}
+            {isOwnerOrAdmin && <Button onClick={() => setLocation("/employer/jobs/new")}>
               <Plus className="w-4 h-4 mr-1.5" /> Post a Job
-            </Button>
+            </Button>}
           </div>
         </div>
 
@@ -225,7 +240,7 @@ export default function EmployerDashboardPage() {
         </div>
 
         {/* Profile setup nudge if no employer profile */}
-        {!empProfile && !isLoading && (
+        {isOwnerOrAdmin && !empProfile && !isLoading && (
           <Card className="p-5 border-amber-200 bg-amber-50">
             <div className="flex items-start gap-3">
               <Building2 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -286,6 +301,9 @@ export default function EmployerDashboardPage() {
                     onPublish={handlePublish}
                     onClose={handleClose}
                     onHeadhunt={handleHeadhunt}
+                    canEdit={canEditJobs}
+                    canDelete={isOwnerOrAdmin}
+                    canHeadhunt={isOwnerOrAdmin}
                   />
                 </motion.div>
               ))}

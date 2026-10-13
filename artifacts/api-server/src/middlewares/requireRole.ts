@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 
-export type AppRole = "candidate" | "admin" | "reviewer" | "employer" | "super_admin" | "marketing";
+export type AppRole = "candidate" | "admin" | "reviewer" | "moderator" | "employer" | "super_admin" | "marketing";
 
 /**
  * Middleware for candidate-facing routes. Marketing accounts are deliberately

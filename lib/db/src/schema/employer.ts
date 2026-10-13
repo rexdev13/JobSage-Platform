@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, varchar, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const employerProfilesTable = pgTable("employer_profiles", {
   id: serial("id").primaryKey(),
@@ -12,6 +12,8 @@ export const employerProfilesTable = pgTable("employer_profiles", {
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
   contactWebsite: text("contact_website"),
+  deletionRequestedAt: timestamp("deletion_requested_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -47,7 +49,9 @@ export const jobListingsTable = pgTable("job_listings", {
   livenessReason: text("liveness_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, table => [
+  uniqueIndex("job_listings_id_employer_profile_unique").on(table.id, table.employerProfileId),
+]);
 
 export type JobListing = typeof jobListingsTable.$inferSelect;
 export type InsertJobListing = typeof jobListingsTable.$inferInsert;

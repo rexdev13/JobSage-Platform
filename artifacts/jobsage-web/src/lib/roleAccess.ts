@@ -1,4 +1,4 @@
-export type WebAppRole = "candidate" | "admin" | "reviewer" | "employer" | "super_admin" | "marketing";
+export type WebAppRole = "candidate" | "admin" | "reviewer" | "moderator" | "employer" | "super_admin" | "marketing";
 
 export const ADMIN_ROLES: readonly WebAppRole[] = ["admin", "super_admin"];
 export const LEADS_ROLES: readonly WebAppRole[] = ["admin", "super_admin", "marketing"];

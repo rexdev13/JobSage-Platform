@@ -67,8 +67,33 @@ import type {
   DocumentList,
   EligibilityHistoryList,
   EligibilityResult,
+  EmployerCandidateFeedbackInput,
+  EmployerCandidateFeedbackResponse,
+  EmployerCandidateFeedbackSavedResponse,
+  EmployerInterviewInput,
+  EmployerInterviewParticipantInput,
+  EmployerInterviewParticipantResult,
+  EmployerInterviewParticipantsResponse,
+  EmployerInterviewResponseInput,
+  EmployerInterviewResult,
+  EmployerInvitationPreviewResponse,
+  EmployerInvitationResponse,
+  EmployerJobAssignmentInput,
+  EmployerJobAssignmentResult,
   EmployerJobsResponse,
+  EmployerOrganizationArchiveInput,
+  EmployerOrganizationArchiveResult,
+  EmployerOrganizationSelection,
+  EmployerOrganizationSelectionResponse,
+  EmployerOrganizationsResponse,
+  EmployerOwnershipTransferInput,
   EmployerProfile,
+  EmployerStaffActionResult,
+  EmployerStaffInvitationInput,
+  EmployerStaffInvitationResult,
+  EmployerStaffResponse,
+  EmployerStaffRoleInput,
+  EmployerStaffRoleResult,
   ErrorEnvelope,
   ExportDecisionAuditParams,
   FeedbackInput,
@@ -139,6 +164,10 @@ import type {
   PrivacyActionResult,
   PrivacyChoicesInput,
   PrivacyConfirmationInput,
+  PrivacyReauthenticationStartInput,
+  PrivacyReauthenticationStartResult,
+  PrivacyReauthenticationVerifyInput,
+  PrivacyReauthenticationVerifyResult,
   PrivacySettings,
   PrivacyVerificationInput,
   ProfessionListResponse,
@@ -384,6 +413,174 @@ export const useUpdatePrivacySettings = <
   TContext
 > => {
   return useMutation(getUpdatePrivacySettingsMutationOptions(options));
+};
+
+export const getStartPrivacyReauthenticationUrl = () => {
+  return `/api/privacy/reauthentication/start`;
+};
+
+export const startPrivacyReauthentication = async (
+  privacyReauthenticationStartInput: PrivacyReauthenticationStartInput,
+  options?: RequestInit,
+): Promise<PrivacyReauthenticationStartResult> => {
+  return customFetch<PrivacyReauthenticationStartResult>(
+    getStartPrivacyReauthenticationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(privacyReauthenticationStartInput),
+    },
+  );
+};
+
+export const getStartPrivacyReauthenticationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startPrivacyReauthentication>>,
+    TError,
+    { data: BodyType<PrivacyReauthenticationStartInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startPrivacyReauthentication>>,
+  TError,
+  { data: BodyType<PrivacyReauthenticationStartInput> },
+  TContext
+> => {
+  const mutationKey = ["startPrivacyReauthentication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startPrivacyReauthentication>>,
+    { data: BodyType<PrivacyReauthenticationStartInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startPrivacyReauthentication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartPrivacyReauthenticationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startPrivacyReauthentication>>
+>;
+export type StartPrivacyReauthenticationMutationBody =
+  BodyType<PrivacyReauthenticationStartInput>;
+export type StartPrivacyReauthenticationMutationError = ErrorType<void>;
+
+export const useStartPrivacyReauthentication = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startPrivacyReauthentication>>,
+    TError,
+    { data: BodyType<PrivacyReauthenticationStartInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startPrivacyReauthentication>>,
+  TError,
+  { data: BodyType<PrivacyReauthenticationStartInput> },
+  TContext
+> => {
+  return useMutation(getStartPrivacyReauthenticationMutationOptions(options));
+};
+
+export const getVerifyPrivacyReauthenticationUrl = () => {
+  return `/api/privacy/reauthentication/verify`;
+};
+
+export const verifyPrivacyReauthentication = async (
+  privacyReauthenticationVerifyInput: PrivacyReauthenticationVerifyInput,
+  options?: RequestInit,
+): Promise<PrivacyReauthenticationVerifyResult> => {
+  return customFetch<PrivacyReauthenticationVerifyResult>(
+    getVerifyPrivacyReauthenticationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(privacyReauthenticationVerifyInput),
+    },
+  );
+};
+
+export const getVerifyPrivacyReauthenticationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPrivacyReauthentication>>,
+    TError,
+    { data: BodyType<PrivacyReauthenticationVerifyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyPrivacyReauthentication>>,
+  TError,
+  { data: BodyType<PrivacyReauthenticationVerifyInput> },
+  TContext
+> => {
+  const mutationKey = ["verifyPrivacyReauthentication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyPrivacyReauthentication>>,
+    { data: BodyType<PrivacyReauthenticationVerifyInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyPrivacyReauthentication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyPrivacyReauthenticationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyPrivacyReauthentication>>
+>;
+export type VerifyPrivacyReauthenticationMutationBody =
+  BodyType<PrivacyReauthenticationVerifyInput>;
+export type VerifyPrivacyReauthenticationMutationError = ErrorType<void>;
+
+export const useVerifyPrivacyReauthentication = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPrivacyReauthentication>>,
+    TError,
+    { data: BodyType<PrivacyReauthenticationVerifyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyPrivacyReauthentication>>,
+  TError,
+  { data: BodyType<PrivacyReauthenticationVerifyInput> },
+  TContext
+> => {
+  return useMutation(getVerifyPrivacyReauthenticationMutationOptions(options));
 };
 
 export const getDownloadPersonalDataUrl = () => {
@@ -15179,3 +15376,1932 @@ export function useStreamLearningVideoMedia<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List organizations the authenticated user may access
+ */
+export const getListEmployerOrganizationsUrl = () => {
+  return `/api/employer/organizations`;
+};
+
+export const listEmployerOrganizations = async (
+  options?: RequestInit,
+): Promise<EmployerOrganizationsResponse> => {
+  return customFetch<EmployerOrganizationsResponse>(
+    getListEmployerOrganizationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEmployerOrganizationsQueryKey = () => {
+  return [`/api/employer/organizations`] as const;
+};
+
+export const getListEmployerOrganizationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmployerOrganizations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerOrganizations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEmployerOrganizationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmployerOrganizations>>
+  > = ({ signal }) => listEmployerOrganizations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerOrganizations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmployerOrganizationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmployerOrganizations>>
+>;
+export type ListEmployerOrganizationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List organizations the authenticated user may access
+ */
+
+export function useListEmployerOrganizations<
+  TData = Awaited<ReturnType<typeof listEmployerOrganizations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerOrganizations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmployerOrganizationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Select an organization after verifying active membership
+ */
+export const getSelectEmployerOrganizationUrl = () => {
+  return `/api/employer/context`;
+};
+
+export const selectEmployerOrganization = async (
+  employerOrganizationSelection: EmployerOrganizationSelection,
+  options?: RequestInit,
+): Promise<EmployerOrganizationSelectionResponse> => {
+  return customFetch<EmployerOrganizationSelectionResponse>(
+    getSelectEmployerOrganizationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerOrganizationSelection),
+    },
+  );
+};
+
+export const getSelectEmployerOrganizationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectEmployerOrganization>>,
+    TError,
+    { data: BodyType<EmployerOrganizationSelection> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof selectEmployerOrganization>>,
+  TError,
+  { data: BodyType<EmployerOrganizationSelection> },
+  TContext
+> => {
+  const mutationKey = ["selectEmployerOrganization"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof selectEmployerOrganization>>,
+    { data: BodyType<EmployerOrganizationSelection> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return selectEmployerOrganization(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SelectEmployerOrganizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof selectEmployerOrganization>>
+>;
+export type SelectEmployerOrganizationMutationBody =
+  BodyType<EmployerOrganizationSelection>;
+export type SelectEmployerOrganizationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Select an organization after verifying active membership
+ */
+export const useSelectEmployerOrganization = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectEmployerOrganization>>,
+    TError,
+    { data: BodyType<EmployerOrganizationSelection> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof selectEmployerOrganization>>,
+  TError,
+  { data: BodyType<EmployerOrganizationSelection> },
+  TContext
+> => {
+  return useMutation(getSelectEmployerOrganizationMutationOptions(options));
+};
+
+/**
+ * @summary List organization members, invitations, and job assignments
+ */
+export const getListEmployerStaffUrl = () => {
+  return `/api/employer/staff`;
+};
+
+export const listEmployerStaff = async (
+  options?: RequestInit,
+): Promise<EmployerStaffResponse> => {
+  return customFetch<EmployerStaffResponse>(getListEmployerStaffUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEmployerStaffQueryKey = () => {
+  return [`/api/employer/staff`] as const;
+};
+
+export const getListEmployerStaffQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmployerStaff>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerStaff>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEmployerStaffQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmployerStaff>>
+  > = ({ signal }) => listEmployerStaff({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerStaff>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmployerStaffQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmployerStaff>>
+>;
+export type ListEmployerStaffQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List organization members, invitations, and job assignments
+ */
+
+export function useListEmployerStaff<
+  TData = Awaited<ReturnType<typeof listEmployerStaff>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerStaff>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmployerStaffQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Invite an employer staff member
+ */
+export const getCreateEmployerStaffInvitationUrl = () => {
+  return `/api/employer/staff/invitations`;
+};
+
+export const createEmployerStaffInvitation = async (
+  employerStaffInvitationInput: EmployerStaffInvitationInput,
+  options?: RequestInit,
+): Promise<EmployerStaffInvitationResult> => {
+  return customFetch<EmployerStaffInvitationResult>(
+    getCreateEmployerStaffInvitationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerStaffInvitationInput),
+    },
+  );
+};
+
+export const getCreateEmployerStaffInvitationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployerStaffInvitation>>,
+    TError,
+    { data: BodyType<EmployerStaffInvitationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmployerStaffInvitation>>,
+  TError,
+  { data: BodyType<EmployerStaffInvitationInput> },
+  TContext
+> => {
+  const mutationKey = ["createEmployerStaffInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmployerStaffInvitation>>,
+    { data: BodyType<EmployerStaffInvitationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEmployerStaffInvitation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmployerStaffInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmployerStaffInvitation>>
+>;
+export type CreateEmployerStaffInvitationMutationBody =
+  BodyType<EmployerStaffInvitationInput>;
+export type CreateEmployerStaffInvitationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Invite an employer staff member
+ */
+export const useCreateEmployerStaffInvitation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployerStaffInvitation>>,
+    TError,
+    { data: BodyType<EmployerStaffInvitationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmployerStaffInvitation>>,
+  TError,
+  { data: BodyType<EmployerStaffInvitationInput> },
+  TContext
+> => {
+  return useMutation(getCreateEmployerStaffInvitationMutationOptions(options));
+};
+
+/**
+ * @summary Revoke a pending staff invitation
+ */
+export const getRevokeEmployerStaffInvitationUrl = (id: number) => {
+  return `/api/employer/staff/invitations/${id}`;
+};
+
+export const revokeEmployerStaffInvitation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EmployerStaffActionResult> => {
+  return customFetch<EmployerStaffActionResult>(
+    getRevokeEmployerStaffInvitationUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRevokeEmployerStaffInvitationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["revokeEmployerStaffInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return revokeEmployerStaffInvitation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeEmployerStaffInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>
+>;
+
+export type RevokeEmployerStaffInvitationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revoke a pending staff invitation
+ */
+export const useRevokeEmployerStaffInvitation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeEmployerStaffInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRevokeEmployerStaffInvitationMutationOptions(options));
+};
+
+/**
+ * @summary Change a member's organization role
+ */
+export const getUpdateEmployerStaffRoleUrl = (userId: string) => {
+  return `/api/employer/staff/${userId}/role`;
+};
+
+export const updateEmployerStaffRole = async (
+  userId: string,
+  employerStaffRoleInput: EmployerStaffRoleInput,
+  options?: RequestInit,
+): Promise<EmployerStaffRoleResult> => {
+  return customFetch<EmployerStaffRoleResult>(
+    getUpdateEmployerStaffRoleUrl(userId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerStaffRoleInput),
+    },
+  );
+};
+
+export const getUpdateEmployerStaffRoleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployerStaffRole>>,
+    TError,
+    { userId: string; data: BodyType<EmployerStaffRoleInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmployerStaffRole>>,
+  TError,
+  { userId: string; data: BodyType<EmployerStaffRoleInput> },
+  TContext
+> => {
+  const mutationKey = ["updateEmployerStaffRole"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmployerStaffRole>>,
+    { userId: string; data: BodyType<EmployerStaffRoleInput> }
+  > = (props) => {
+    const { userId, data } = props ?? {};
+
+    return updateEmployerStaffRole(userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmployerStaffRoleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmployerStaffRole>>
+>;
+export type UpdateEmployerStaffRoleMutationBody =
+  BodyType<EmployerStaffRoleInput>;
+export type UpdateEmployerStaffRoleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Change a member's organization role
+ */
+export const useUpdateEmployerStaffRole = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployerStaffRole>>,
+    TError,
+    { userId: string; data: BodyType<EmployerStaffRoleInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmployerStaffRole>>,
+  TError,
+  { userId: string; data: BodyType<EmployerStaffRoleInput> },
+  TContext
+> => {
+  return useMutation(getUpdateEmployerStaffRoleMutationOptions(options));
+};
+
+/**
+ * @summary Remove an active organization staff member
+ */
+export const getRemoveEmployerStaffMemberUrl = (userId: string) => {
+  return `/api/employer/staff/${userId}`;
+};
+
+export const removeEmployerStaffMember = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<EmployerStaffActionResult> => {
+  return customFetch<EmployerStaffActionResult>(
+    getRemoveEmployerStaffMemberUrl(userId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveEmployerStaffMemberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeEmployerStaffMember>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeEmployerStaffMember>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["removeEmployerStaffMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeEmployerStaffMember>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return removeEmployerStaffMember(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveEmployerStaffMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeEmployerStaffMember>>
+>;
+
+export type RemoveEmployerStaffMemberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove an active organization staff member
+ */
+export const useRemoveEmployerStaffMember = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeEmployerStaffMember>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeEmployerStaffMember>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getRemoveEmployerStaffMemberMutationOptions(options));
+};
+
+/**
+ * @summary Assign or unassign a job for an active staff member
+ */
+export const getAssignEmployerJobUrl = () => {
+  return `/api/employer/staff/assignments`;
+};
+
+export const assignEmployerJob = async (
+  employerJobAssignmentInput: EmployerJobAssignmentInput,
+  options?: RequestInit,
+): Promise<EmployerJobAssignmentResult> => {
+  return customFetch<EmployerJobAssignmentResult>(getAssignEmployerJobUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(employerJobAssignmentInput),
+  });
+};
+
+export const getAssignEmployerJobMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignEmployerJob>>,
+    TError,
+    { data: BodyType<EmployerJobAssignmentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignEmployerJob>>,
+  TError,
+  { data: BodyType<EmployerJobAssignmentInput> },
+  TContext
+> => {
+  const mutationKey = ["assignEmployerJob"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignEmployerJob>>,
+    { data: BodyType<EmployerJobAssignmentInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return assignEmployerJob(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignEmployerJobMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignEmployerJob>>
+>;
+export type AssignEmployerJobMutationBody =
+  BodyType<EmployerJobAssignmentInput>;
+export type AssignEmployerJobMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign or unassign a job for an active staff member
+ */
+export const useAssignEmployerJob = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignEmployerJob>>,
+    TError,
+    { data: BodyType<EmployerJobAssignmentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignEmployerJob>>,
+  TError,
+  { data: BodyType<EmployerJobAssignmentInput> },
+  TContext
+> => {
+  return useMutation(getAssignEmployerJobMutationOptions(options));
+};
+
+/**
+ * @summary Transfer organization ownership to an active staff member
+ */
+export const getTransferEmployerOwnershipUrl = () => {
+  return `/api/employer/staff/transfer-ownership`;
+};
+
+export const transferEmployerOwnership = async (
+  employerOwnershipTransferInput: EmployerOwnershipTransferInput,
+  options?: RequestInit,
+): Promise<EmployerStaffActionResult> => {
+  return customFetch<EmployerStaffActionResult>(
+    getTransferEmployerOwnershipUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerOwnershipTransferInput),
+    },
+  );
+};
+
+export const getTransferEmployerOwnershipMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transferEmployerOwnership>>,
+    TError,
+    { data: BodyType<EmployerOwnershipTransferInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transferEmployerOwnership>>,
+  TError,
+  { data: BodyType<EmployerOwnershipTransferInput> },
+  TContext
+> => {
+  const mutationKey = ["transferEmployerOwnership"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transferEmployerOwnership>>,
+    { data: BodyType<EmployerOwnershipTransferInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return transferEmployerOwnership(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TransferEmployerOwnershipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transferEmployerOwnership>>
+>;
+export type TransferEmployerOwnershipMutationBody =
+  BodyType<EmployerOwnershipTransferInput>;
+export type TransferEmployerOwnershipMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Transfer organization ownership to an active staff member
+ */
+export const useTransferEmployerOwnership = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transferEmployerOwnership>>,
+    TError,
+    { data: BodyType<EmployerOwnershipTransferInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transferEmployerOwnership>>,
+  TError,
+  { data: BodyType<EmployerOwnershipTransferInput> },
+  TContext
+> => {
+  return useMutation(getTransferEmployerOwnershipMutationOptions(options));
+};
+
+/**
+ * @summary Reversibly archive the organization after exact-name confirmation
+ */
+export const getArchiveEmployerOrganizationUrl = () => {
+  return `/api/employer/staff/delete-organization`;
+};
+
+export const archiveEmployerOrganization = async (
+  employerOrganizationArchiveInput: EmployerOrganizationArchiveInput,
+  options?: RequestInit,
+): Promise<EmployerOrganizationArchiveResult> => {
+  return customFetch<EmployerOrganizationArchiveResult>(
+    getArchiveEmployerOrganizationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerOrganizationArchiveInput),
+    },
+  );
+};
+
+export const getArchiveEmployerOrganizationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveEmployerOrganization>>,
+    TError,
+    { data: BodyType<EmployerOrganizationArchiveInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveEmployerOrganization>>,
+  TError,
+  { data: BodyType<EmployerOrganizationArchiveInput> },
+  TContext
+> => {
+  const mutationKey = ["archiveEmployerOrganization"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveEmployerOrganization>>,
+    { data: BodyType<EmployerOrganizationArchiveInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return archiveEmployerOrganization(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveEmployerOrganizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveEmployerOrganization>>
+>;
+export type ArchiveEmployerOrganizationMutationBody =
+  BodyType<EmployerOrganizationArchiveInput>;
+export type ArchiveEmployerOrganizationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reversibly archive the organization after exact-name confirmation
+ */
+export const useArchiveEmployerOrganization = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveEmployerOrganization>>,
+    TError,
+    { data: BodyType<EmployerOrganizationArchiveInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveEmployerOrganization>>,
+  TError,
+  { data: BodyType<EmployerOrganizationArchiveInput> },
+  TContext
+> => {
+  return useMutation(getArchiveEmployerOrganizationMutationOptions(options));
+};
+
+/**
+ * @summary Restore the owner's organization within its restore window
+ */
+export const getRestoreEmployerOrganizationUrl = (id: number) => {
+  return `/api/employer/organizations/${id}/restore`;
+};
+
+export const restoreEmployerOrganization = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EmployerStaffActionResult> => {
+  return customFetch<EmployerStaffActionResult>(
+    getRestoreEmployerOrganizationUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRestoreEmployerOrganizationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreEmployerOrganization>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreEmployerOrganization>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["restoreEmployerOrganization"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreEmployerOrganization>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return restoreEmployerOrganization(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreEmployerOrganizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreEmployerOrganization>>
+>;
+
+export type RestoreEmployerOrganizationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore the owner's organization within its restore window
+ */
+export const useRestoreEmployerOrganization = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreEmployerOrganization>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreEmployerOrganization>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRestoreEmployerOrganizationMutationOptions(options));
+};
+
+/**
+ * @summary Review an invitation for the verified invited account
+ */
+export const getGetEmployerInvitationUrl = (token: string) => {
+  return `/api/employer/invitations/${token}`;
+};
+
+export const getEmployerInvitation = async (
+  token: string,
+  options?: RequestInit,
+): Promise<EmployerInvitationPreviewResponse> => {
+  return customFetch<EmployerInvitationPreviewResponse>(
+    getGetEmployerInvitationUrl(token),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEmployerInvitationQueryKey = (token: string) => {
+  return [`/api/employer/invitations/${token}`] as const;
+};
+
+export const getGetEmployerInvitationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmployerInvitation>>,
+  TError = ErrorType<unknown>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployerInvitation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEmployerInvitationQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmployerInvitation>>
+  > = ({ signal }) =>
+    getEmployerInvitation(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployerInvitation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmployerInvitationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmployerInvitation>>
+>;
+export type GetEmployerInvitationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Review an invitation for the verified invited account
+ */
+
+export function useGetEmployerInvitation<
+  TData = Awaited<ReturnType<typeof getEmployerInvitation>>,
+  TError = ErrorType<unknown>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployerInvitation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmployerInvitationQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Accept an invitation using the invited verified account
+ */
+export const getAcceptEmployerInvitationUrl = (token: string) => {
+  return `/api/employer/invitations/${token}/accept`;
+};
+
+export const acceptEmployerInvitation = async (
+  token: string,
+  options?: RequestInit,
+): Promise<EmployerInvitationResponse> => {
+  return customFetch<EmployerInvitationResponse>(
+    getAcceptEmployerInvitationUrl(token),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAcceptEmployerInvitationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptEmployerInvitation>>,
+    TError,
+    { token: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptEmployerInvitation>>,
+  TError,
+  { token: string },
+  TContext
+> => {
+  const mutationKey = ["acceptEmployerInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptEmployerInvitation>>,
+    { token: string }
+  > = (props) => {
+    const { token } = props ?? {};
+
+    return acceptEmployerInvitation(token, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptEmployerInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptEmployerInvitation>>
+>;
+
+export type AcceptEmployerInvitationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Accept an invitation using the invited verified account
+ */
+export const useAcceptEmployerInvitation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptEmployerInvitation>>,
+    TError,
+    { token: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptEmployerInvitation>>,
+  TError,
+  { token: string },
+  TContext
+> => {
+  return useMutation(getAcceptEmployerInvitationMutationOptions(options));
+};
+
+/**
+ * @summary Decline an invitation using the invited verified account
+ */
+export const getDeclineEmployerInvitationUrl = (token: string) => {
+  return `/api/employer/invitations/${token}/decline`;
+};
+
+export const declineEmployerInvitation = async (
+  token: string,
+  options?: RequestInit,
+): Promise<EmployerInvitationResponse> => {
+  return customFetch<EmployerInvitationResponse>(
+    getDeclineEmployerInvitationUrl(token),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDeclineEmployerInvitationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declineEmployerInvitation>>,
+    TError,
+    { token: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof declineEmployerInvitation>>,
+  TError,
+  { token: string },
+  TContext
+> => {
+  const mutationKey = ["declineEmployerInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof declineEmployerInvitation>>,
+    { token: string }
+  > = (props) => {
+    const { token } = props ?? {};
+
+    return declineEmployerInvitation(token, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeclineEmployerInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof declineEmployerInvitation>>
+>;
+
+export type DeclineEmployerInvitationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Decline an invitation using the invited verified account
+ */
+export const useDeclineEmployerInvitation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declineEmployerInvitation>>,
+    TError,
+    { token: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof declineEmployerInvitation>>,
+  TError,
+  { token: string },
+  TContext
+> => {
+  return useMutation(getDeclineEmployerInvitationMutationOptions(options));
+};
+
+/**
+ * @summary List organization feedback for one assigned application
+ */
+export const getGetEmployerCandidateFeedbackUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/feedback`;
+};
+
+export const getEmployerCandidateFeedback = async (
+  jobId: number,
+  applicationId: number,
+  options?: RequestInit,
+): Promise<EmployerCandidateFeedbackResponse> => {
+  return customFetch<EmployerCandidateFeedbackResponse>(
+    getGetEmployerCandidateFeedbackUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEmployerCandidateFeedbackQueryKey = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return [
+    `/api/employer/jobs/${jobId}/applicants/${applicationId}/feedback`,
+  ] as const;
+};
+
+export const getGetEmployerCandidateFeedbackQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmployerCandidateFeedback>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: number,
+  applicationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployerCandidateFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetEmployerCandidateFeedbackQueryKey(jobId, applicationId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEmployerCandidateFeedback>>
+  > = ({ signal }) =>
+    getEmployerCandidateFeedback(jobId, applicationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(jobId && applicationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmployerCandidateFeedback>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmployerCandidateFeedbackQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmployerCandidateFeedback>>
+>;
+export type GetEmployerCandidateFeedbackQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List organization feedback for one assigned application
+ */
+
+export function useGetEmployerCandidateFeedback<
+  TData = Awaited<ReturnType<typeof getEmployerCandidateFeedback>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: number,
+  applicationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEmployerCandidateFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmployerCandidateFeedbackQueryOptions(
+    jobId,
+    applicationId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create or update the current staff member's application feedback
+ */
+export const getUpsertEmployerCandidateFeedbackUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/feedback`;
+};
+
+export const upsertEmployerCandidateFeedback = async (
+  jobId: number,
+  applicationId: number,
+  employerCandidateFeedbackInput: EmployerCandidateFeedbackInput,
+  options?: RequestInit,
+): Promise<EmployerCandidateFeedbackSavedResponse> => {
+  return customFetch<EmployerCandidateFeedbackSavedResponse>(
+    getUpsertEmployerCandidateFeedbackUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerCandidateFeedbackInput),
+    },
+  );
+};
+
+export const getUpsertEmployerCandidateFeedbackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerCandidateFeedbackInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerCandidateFeedbackInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertEmployerCandidateFeedback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerCandidateFeedbackInput>;
+    }
+  > = (props) => {
+    const { jobId, applicationId, data } = props ?? {};
+
+    return upsertEmployerCandidateFeedback(
+      jobId,
+      applicationId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertEmployerCandidateFeedbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>
+>;
+export type UpsertEmployerCandidateFeedbackMutationBody =
+  BodyType<EmployerCandidateFeedbackInput>;
+export type UpsertEmployerCandidateFeedbackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create or update the current staff member's application feedback
+ */
+export const useUpsertEmployerCandidateFeedback = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerCandidateFeedbackInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertEmployerCandidateFeedback>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerCandidateFeedbackInput>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpsertEmployerCandidateFeedbackMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Schedule an interview for an assigned application
+ */
+export const getScheduleEmployerInterviewUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/interview`;
+};
+
+export const scheduleEmployerInterview = async (
+  jobId: number,
+  applicationId: number,
+  employerInterviewInput: EmployerInterviewInput,
+  options?: RequestInit,
+): Promise<EmployerInterviewResult> => {
+  return customFetch<EmployerInterviewResult>(
+    getScheduleEmployerInterviewUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerInterviewInput),
+    },
+  );
+};
+
+export const getScheduleEmployerInterviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scheduleEmployerInterview>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scheduleEmployerInterview>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["scheduleEmployerInterview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scheduleEmployerInterview>>,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewInput>;
+    }
+  > = (props) => {
+    const { jobId, applicationId, data } = props ?? {};
+
+    return scheduleEmployerInterview(
+      jobId,
+      applicationId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScheduleEmployerInterviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scheduleEmployerInterview>>
+>;
+export type ScheduleEmployerInterviewMutationBody =
+  BodyType<EmployerInterviewInput>;
+export type ScheduleEmployerInterviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Schedule an interview for an assigned application
+ */
+export const useScheduleEmployerInterview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scheduleEmployerInterview>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scheduleEmployerInterview>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewInput>;
+  },
+  TContext
+> => {
+  return useMutation(getScheduleEmployerInterviewMutationOptions(options));
+};
+
+/**
+ * @summary List active staff participating in an assigned interview
+ */
+export const getListEmployerInterviewParticipantsUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/interview/participants`;
+};
+
+export const listEmployerInterviewParticipants = async (
+  jobId: number,
+  applicationId: number,
+  options?: RequestInit,
+): Promise<EmployerInterviewParticipantsResponse> => {
+  return customFetch<EmployerInterviewParticipantsResponse>(
+    getListEmployerInterviewParticipantsUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEmployerInterviewParticipantsQueryKey = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return [
+    `/api/employer/jobs/${jobId}/applicants/${applicationId}/interview/participants`,
+  ] as const;
+};
+
+export const getListEmployerInterviewParticipantsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmployerInterviewParticipants>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: number,
+  applicationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployerInterviewParticipants>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListEmployerInterviewParticipantsQueryKey(jobId, applicationId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmployerInterviewParticipants>>
+  > = ({ signal }) =>
+    listEmployerInterviewParticipants(jobId, applicationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(jobId && applicationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployerInterviewParticipants>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmployerInterviewParticipantsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmployerInterviewParticipants>>
+>;
+export type ListEmployerInterviewParticipantsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active staff participating in an assigned interview
+ */
+
+export function useListEmployerInterviewParticipants<
+  TData = Awaited<ReturnType<typeof listEmployerInterviewParticipants>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: number,
+  applicationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployerInterviewParticipants>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmployerInterviewParticipantsQueryOptions(
+    jobId,
+    applicationId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Invite or remove an assigned staff member from an interview
+ */
+export const getUpdateEmployerInterviewParticipantsUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/interview/participants`;
+};
+
+export const updateEmployerInterviewParticipants = async (
+  jobId: number,
+  applicationId: number,
+  employerInterviewParticipantInput: EmployerInterviewParticipantInput,
+  options?: RequestInit,
+): Promise<EmployerInterviewParticipantResult> => {
+  return customFetch<EmployerInterviewParticipantResult>(
+    getUpdateEmployerInterviewParticipantsUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerInterviewParticipantInput),
+    },
+  );
+};
+
+export const getUpdateEmployerInterviewParticipantsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewParticipantInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewParticipantInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateEmployerInterviewParticipants"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewParticipantInput>;
+    }
+  > = (props) => {
+    const { jobId, applicationId, data } = props ?? {};
+
+    return updateEmployerInterviewParticipants(
+      jobId,
+      applicationId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmployerInterviewParticipantsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>
+>;
+export type UpdateEmployerInterviewParticipantsMutationBody =
+  BodyType<EmployerInterviewParticipantInput>;
+export type UpdateEmployerInterviewParticipantsMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Invite or remove an assigned staff member from an interview
+ */
+export const useUpdateEmployerInterviewParticipants = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewParticipantInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmployerInterviewParticipants>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewParticipantInput>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateEmployerInterviewParticipantsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Accept or decline the current user's interview participation invitation
+ */
+export const getRespondToEmployerInterviewInvitationUrl = (
+  jobId: number,
+  applicationId: number,
+) => {
+  return `/api/employer/jobs/${jobId}/applicants/${applicationId}/interview/respond`;
+};
+
+export const respondToEmployerInterviewInvitation = async (
+  jobId: number,
+  applicationId: number,
+  employerInterviewResponseInput: EmployerInterviewResponseInput,
+  options?: RequestInit,
+): Promise<EmployerInterviewParticipantResult> => {
+  return customFetch<EmployerInterviewParticipantResult>(
+    getRespondToEmployerInterviewInvitationUrl(jobId, applicationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(employerInterviewResponseInput),
+    },
+  );
+};
+
+export const getRespondToEmployerInterviewInvitationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewResponseInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewResponseInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["respondToEmployerInterviewInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewResponseInput>;
+    }
+  > = (props) => {
+    const { jobId, applicationId, data } = props ?? {};
+
+    return respondToEmployerInterviewInvitation(
+      jobId,
+      applicationId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RespondToEmployerInterviewInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>
+>;
+export type RespondToEmployerInterviewInvitationMutationBody =
+  BodyType<EmployerInterviewResponseInput>;
+export type RespondToEmployerInterviewInvitationMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Accept or decline the current user's interview participation invitation
+ */
+export const useRespondToEmployerInterviewInvitation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>,
+    TError,
+    {
+      jobId: number;
+      applicationId: number;
+      data: BodyType<EmployerInterviewResponseInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof respondToEmployerInterviewInvitation>>,
+  TError,
+  {
+    jobId: number;
+    applicationId: number;
+    data: BodyType<EmployerInterviewResponseInput>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getRespondToEmployerInterviewInvitationMutationOptions(options),
+  );
+};

@@ -41,19 +41,38 @@ export async function requirePrivacyActor(req: Request, res: Response, next: Nex
   next();
 }
 
-export interface ReauthAccount { id: string; role: string; passwordHash: string | null; suspendedAt: Date | null }
+export interface ReauthAccount {
+  id: string;
+  role: string;
+  passwordHash: string | null;
+  suspendedAt: Date | null;
+  email: string | null;
+  emailVerified: boolean;
+}
 export async function verifyPrivacyReauthentication(input: {
-  signedInId: string; expectedAccountId: string; impersonating: boolean; password: string; confirmed: boolean;
+  signedInId: string;
+  expectedAccountId: string;
+  impersonating: boolean;
+  password?: string;
+  emailCodeVerified?: boolean;
+  confirmed: boolean;
 }, readAccount: (id: string) => Promise<ReauthAccount | undefined>, now = new Date()): Promise<DeletionActor> {
   if (input.impersonating) throw new DeletionBlocked("impersonation_forbidden");
   if (!input.signedInId || input.expectedAccountId !== input.signedInId) throw new DeletionBlocked("account_changed");
   if (!input.confirmed) throw new DeletionBlocked("confirmation_required");
-  if (!input.password || input.password.length > 1024) throw new DeletionBlocked("reauthentication_failed");
   const account = await readAccount(input.signedInId);
-  if (!account || account.id !== input.signedInId || account.suspendedAt || !account.passwordHash) throw new DeletionBlocked("reauthentication_failed");
-  if (!await bcrypt.compare(input.password, account.passwordHash)) throw new DeletionBlocked("reauthentication_failed");
+  if (!account || account.id !== input.signedInId || account.suspendedAt) throw new DeletionBlocked("reauthentication_failed");
+  if (account.passwordHash) {
+    if (!input.password || input.password.length > 1024 || !await bcrypt.compare(input.password, account.passwordHash)) {
+      throw new DeletionBlocked("reauthentication_failed");
+    }
+  } else if (!input.emailCodeVerified || !account.email || !account.emailVerified) {
+    throw new DeletionBlocked("reauthentication_failed");
+  }
   const fresh = await readAccount(input.signedInId);
-  if (!fresh || fresh.id !== input.signedInId || fresh.suspendedAt || fresh.passwordHash !== account.passwordHash || fresh.role !== account.role) {
+  if (!fresh || fresh.id !== input.signedInId || fresh.suspendedAt ||
+      fresh.passwordHash !== account.passwordHash || fresh.role !== account.role ||
+      fresh.email !== account.email || fresh.emailVerified !== account.emailVerified) {
     throw new DeletionBlocked("account_changed");
   }
   return { id: fresh.id, role: fresh.role, impersonating: false, confirmed: true, reauthenticatedAt: now };
@@ -61,6 +80,7 @@ export async function verifyPrivacyReauthentication(input: {
 export async function readPrivacyAccount(id: string) {
   const [account] = await db.select({
     id: usersTable.id, role: usersTable.role, passwordHash: usersTable.passwordHash, suspendedAt: usersTable.suspendedAt,
+    email: usersTable.email, emailVerified: usersTable.emailVerified,
   }).from(usersTable).where(eq(usersTable.id, id));
   return account;
 }

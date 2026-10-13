@@ -7,6 +7,17 @@ const fixture = vi.hoisted(() => ({ role: "candidate", location: "/applications/
 vi.mock("@workspace/auth-web", () => ({
   useAuth: () => ({ user: { role: fixture.role, firstName: "Test" }, logout: vi.fn() }),
 }));
+vi.mock("../../hooks/useEmployerOrganizations", () => ({
+  useEmployerOrganizations: () => {
+    const organizations = fixture.role === "employer"
+      ? [{ id: 1, companyName: "Fixture Company", role: "employer_owner" as const }]
+      : [];
+    return {
+      organizations,
+      activeOrganization: organizations[0] ?? null,
+    };
+  },
+}));
 vi.mock("wouter", () => ({
   useLocation: () => [fixture.location],
   Link: ({ children, ...props }: React.ComponentProps<"a">) => <a {...props}>{children}</a>,

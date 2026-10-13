@@ -72,7 +72,10 @@ export async function downloadAndShare(options: {
   token: string | null;
   fallbackName?: string;
   share?: boolean;
-  privateExport?: { expectedAccountId: string; password: string; confirmed: true };
+  privateExport?: { expectedAccountId: string; confirmed: true } & (
+    | { password: string; emailCodeProof?: never }
+    | { password?: never; emailCodeProof: string }
+  );
 }): Promise<{ uri: string; filename: string; mimeType: string }> {
   const target = resolveFirstPartyUrl(options.url);
   if (!target) throw new DownloadError("This download is not from JOBSAGE and was blocked.");
@@ -82,9 +85,17 @@ export async function downloadAndShare(options: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const ownerId = getNativeSessionUserId();
-  if (options.privateExport && (options.privateExport.expectedAccountId !== ownerId
-    || new URL(target).pathname !== "/api/privacy/export" || options.privateExport.confirmed !== true
-    || !options.privateExport.password || options.privateExport.password.length > 1024)) {
+  const privateExport = options.privateExport;
+  const validReauthentication = privateExport && (
+    (typeof privateExport.password === "string" && privateExport.password.length > 0
+      && privateExport.password.length <= 1024 && !privateExport.emailCodeProof)
+    || (typeof privateExport.emailCodeProof === "string"
+      && privateExport.emailCodeProof.length >= 40 && privateExport.emailCodeProof.length <= 128
+      && !privateExport.password)
+  );
+  if (privateExport && (privateExport.expectedAccountId !== ownerId
+    || new URL(target).pathname !== "/api/privacy/export" || privateExport.confirmed !== true
+    || !validReauthentication)) {
     clearTimeout(timer);
     throw new DownloadError("Review this export in the signed-in account.");
   }

@@ -7,6 +7,15 @@
  */
 export type PrivacySettingsNotifications = { [key: string]: boolean };
 
+export type PrivacySettingsReauthenticationMethod =
+  (typeof PrivacySettingsReauthenticationMethod)[keyof typeof PrivacySettingsReauthenticationMethod];
+
+export const PrivacySettingsReauthenticationMethod = {
+  password: "password",
+  email_code: "email_code",
+  unavailable: "unavailable",
+} as const;
+
 export interface PrivacySettings {
   userId: string;
   policyVersion: string;
@@ -14,6 +23,7 @@ export interface PrivacySettings {
   optionalAnalytics: boolean;
   notifications: PrivacySettingsNotifications;
   deletionEnabled: boolean;
+  reauthenticationMethod: PrivacySettingsReauthenticationMethod;
 }
 
 export type PrivacyChoicesInputNotifications = { [key: string]: boolean };
@@ -24,14 +34,63 @@ export interface PrivacyChoicesInput {
   notifications?: PrivacyChoicesInputNotifications;
 }
 
+/**
+ * Supply the account password or a one-use email-code proof, plus explicit confirmation.
+ */
 export interface PrivacyVerificationInput {
   expectedAccountId: string;
   /**
    * @minLength 1
    * @maxLength 1024
    */
-  password: string;
+  password?: string;
+  /**
+   * @minLength 40
+   * @maxLength 128
+   */
+  emailCodeProof?: string;
   confirmed: true;
+}
+
+export type PrivacyReauthenticationStartInputPurpose =
+  (typeof PrivacyReauthenticationStartInputPurpose)[keyof typeof PrivacyReauthenticationStartInputPurpose];
+
+export const PrivacyReauthenticationStartInputPurpose = {
+  personal_data: "personal_data",
+} as const;
+
+export interface PrivacyReauthenticationStartInput {
+  expectedAccountId: string;
+  purpose: PrivacyReauthenticationStartInputPurpose;
+}
+
+export type PrivacyReauthenticationVerifyInputPurpose =
+  (typeof PrivacyReauthenticationVerifyInputPurpose)[keyof typeof PrivacyReauthenticationVerifyInputPurpose];
+
+export const PrivacyReauthenticationVerifyInputPurpose = {
+  personal_data: "personal_data",
+} as const;
+
+export interface PrivacyReauthenticationVerifyInput {
+  expectedAccountId: string;
+  purpose: PrivacyReauthenticationVerifyInputPurpose;
+  /** @pattern ^[0-9]{6}$ */
+  code: string;
+}
+
+export interface PrivacyReauthenticationStartResult {
+  sent: true;
+  message: string;
+}
+
+export interface PrivacyReauthenticationVerifyResult {
+  verified: true;
+  /**
+   * @minLength 40
+   * @maxLength 128
+   */
+  proofToken: string;
+  expiresInSeconds: 300;
 }
 
 export const PrivacyConfirmationInputValue = {
@@ -253,6 +312,7 @@ export const AuthUserRole = {
   candidate: "candidate",
   admin: "admin",
   reviewer: "reviewer",
+  moderator: "moderator",
   employer: "employer",
   super_admin: "super_admin",
   marketing: "marketing",
@@ -1801,6 +1861,10 @@ export interface JobApplicant {
   stage: JobApplicantStage;
   appliedAt: string;
   notes?: string | null;
+  interviewDate: string | null;
+  interviewNotes: string | null;
+  /** @nullable */
+  cvDocumentId: number | null;
 }
 
 export interface JobApplicantsResponse {
@@ -3115,6 +3179,20 @@ export const SupportTicketInputCategory = {
   Other: "Other",
 } as const;
 
+export type SupportTicketInputReportedContentType =
+  (typeof SupportTicketInputReportedContentType)[keyof typeof SupportTicketInputReportedContentType];
+
+export const SupportTicketInputReportedContentType = {
+  ai_content: "ai_content",
+  inbox_message: "inbox_message",
+  candidate_profile: "candidate_profile",
+  job_listing: "job_listing",
+  attachment: "attachment",
+  support_request: "support_request",
+  employer_feedback: "employer_feedback",
+  other: "other",
+} as const;
+
 export interface SupportTicketInput {
   /**
    * @minLength 1
@@ -3136,6 +3214,14 @@ export interface SupportTicketInput {
   message: string;
   /** @minimum 1 */
   reportedMessageId?: number;
+  reportedContentType?: SupportTicketInputReportedContentType;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  reportedContentId?: string;
+  /** @minimum 1 */
+  reportedContextId?: number;
 }
 
 export interface SupportTicketAppealInput {
@@ -3202,6 +3288,24 @@ export const SupportTicketItemCategory = {
   Other: "Other",
 } as const;
 
+/**
+ * @nullable
+ */
+export type SupportTicketItemReportedContentType =
+  | (typeof SupportTicketItemReportedContentType)[keyof typeof SupportTicketItemReportedContentType]
+  | null;
+
+export const SupportTicketItemReportedContentType = {
+  ai_content: "ai_content",
+  inbox_message: "inbox_message",
+  candidate_profile: "candidate_profile",
+  job_listing: "job_listing",
+  attachment: "attachment",
+  support_request: "support_request",
+  employer_feedback: "employer_feedback",
+  other: "other",
+} as const;
+
 export type SupportTicketItemStatus =
   (typeof SupportTicketItemStatus)[keyof typeof SupportTicketItemStatus];
 
@@ -3235,6 +3339,12 @@ export interface SupportTicketItem {
   isContentReport: boolean;
   /** @nullable */
   reportedMessageId: number | null;
+  /** @nullable */
+  reportedContentType: SupportTicketItemReportedContentType;
+  /** @nullable */
+  reportedContentId: string | null;
+  /** @nullable */
+  reportedContextId: number | null;
   /** @nullable */
   appealOfTicketId: number | null;
   status: SupportTicketItemStatus;
@@ -3483,6 +3593,370 @@ export interface LearningVideoUploadUrl {
   uploadUrl: string;
   storageKey: string;
   maxBytes: number;
+}
+
+export type EmployerOrganizationRole =
+  (typeof EmployerOrganizationRole)[keyof typeof EmployerOrganizationRole];
+
+export const EmployerOrganizationRole = {
+  employer_owner: "employer_owner",
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerOrganization {
+  id: number;
+  companyName: string;
+  role: EmployerOrganizationRole;
+}
+
+export interface EmployerArchivedOrganization {
+  /** @minimum 1 */
+  id: number;
+  companyName: string;
+  archivedAt: string;
+  restoreUntil: string;
+}
+
+export interface EmployerOrganizationsResponse {
+  organizations: EmployerOrganization[];
+  /** @nullable */
+  activeOrganizationId: number | null;
+  archivedOrganizations: EmployerArchivedOrganization[];
+}
+
+export interface EmployerOrganizationSelection {
+  /** @minimum 1 */
+  employerProfileId: number;
+}
+
+export interface EmployerOrganizationSelectionResponse {
+  organization: EmployerOrganization;
+}
+
+export type EmployerStaffMemberRole =
+  (typeof EmployerStaffMemberRole)[keyof typeof EmployerStaffMemberRole];
+
+export const EmployerStaffMemberRole = {
+  employer_owner: "employer_owner",
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export type EmployerStaffMemberStatus =
+  (typeof EmployerStaffMemberStatus)[keyof typeof EmployerStaffMemberStatus];
+
+export const EmployerStaffMemberStatus = {
+  active: "active",
+  removed: "removed",
+  suspended: "suspended",
+} as const;
+
+export interface EmployerStaffMember {
+  userId: string;
+  role: EmployerStaffMemberRole;
+  status: EmployerStaffMemberStatus;
+  createdAt: string;
+  email: string;
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+}
+
+export type EmployerStaffInvitationRole =
+  (typeof EmployerStaffInvitationRole)[keyof typeof EmployerStaffInvitationRole];
+
+export const EmployerStaffInvitationRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerStaffInvitation {
+  id: number;
+  email: string;
+  role: EmployerStaffInvitationRole;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface EmployerJobAssignment {
+  jobListingId: number;
+  userId: string;
+  title: string;
+}
+
+export interface EmployerStaffResponse {
+  members: EmployerStaffMember[];
+  invitations: EmployerStaffInvitation[];
+  assignments: EmployerJobAssignment[];
+}
+
+export type EmployerStaffInvitationInputRole =
+  (typeof EmployerStaffInvitationInputRole)[keyof typeof EmployerStaffInvitationInputRole];
+
+export const EmployerStaffInvitationInputRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerStaffInvitationInput {
+  /** @maxLength 254 */
+  email: string;
+  role: EmployerStaffInvitationInputRole;
+}
+
+export type EmployerStaffInvitationResultRole =
+  (typeof EmployerStaffInvitationResultRole)[keyof typeof EmployerStaffInvitationResultRole];
+
+export const EmployerStaffInvitationResultRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerStaffInvitationResult {
+  invitationId: number;
+  role: EmployerStaffInvitationResultRole;
+  expiresAt: string;
+}
+
+export type EmployerStaffRoleInputRole =
+  (typeof EmployerStaffRoleInputRole)[keyof typeof EmployerStaffRoleInputRole];
+
+export const EmployerStaffRoleInputRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerStaffRoleInput {
+  role: EmployerStaffRoleInputRole;
+}
+
+export type EmployerStaffRoleResultMemberRole =
+  (typeof EmployerStaffRoleResultMemberRole)[keyof typeof EmployerStaffRoleResultMemberRole];
+
+export const EmployerStaffRoleResultMemberRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export type EmployerStaffRoleResultMember = {
+  userId: string;
+  role: EmployerStaffRoleResultMemberRole;
+};
+
+export interface EmployerStaffRoleResult {
+  member: EmployerStaffRoleResultMember;
+}
+
+export interface EmployerStaffActionResult {
+  revoked?: boolean;
+  removed?: boolean;
+  transferred?: boolean;
+  restored?: boolean;
+  ownerUserId?: string;
+}
+
+export interface EmployerJobAssignmentInput {
+  /** @minimum 1 */
+  jobListingId: number;
+  /** @minLength 1 */
+  userId: string;
+  assigned: boolean;
+}
+
+export interface EmployerJobAssignmentResult {
+  assigned: boolean;
+}
+
+export interface EmployerOwnershipTransferInput {
+  /** @minLength 1 */
+  userId: string;
+}
+
+export interface EmployerOrganizationArchiveInput {
+  /**
+   * @minLength 1
+   * @maxLength 180
+   */
+  confirmCompanyName: string;
+}
+
+export interface EmployerOrganizationArchiveResult {
+  archived: boolean;
+  restoreUntil: string;
+}
+
+export type EmployerInvitationPreviewRole =
+  (typeof EmployerInvitationPreviewRole)[keyof typeof EmployerInvitationPreviewRole];
+
+export const EmployerInvitationPreviewRole = {
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerInvitationPreview {
+  companyName: string;
+  role: EmployerInvitationPreviewRole;
+  expiresAt: string;
+  accepted: boolean;
+}
+
+export interface EmployerInvitationPreviewResponse {
+  invitation: EmployerInvitationPreview;
+}
+
+export interface EmployerInvitationResponse {
+  accepted?: boolean;
+  declined?: boolean;
+  alreadyAccepted?: boolean;
+  employerProfileId?: number;
+}
+
+export interface EmployerCandidateFeedback {
+  id: number;
+  employerProfileId: number;
+  jobListingId: number;
+  applicationId: number;
+  authorUserId: string;
+  feedback: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployerCandidateFeedbackInput {
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  feedback: string;
+}
+
+export type EmployerCandidateFeedbackResponseFeedbackItem = {
+  id: number;
+  feedback: string;
+  createdAt: string;
+  updatedAt: string;
+  authorUserId: string;
+  /** @nullable */
+  authorFirstName: string | null;
+  /** @nullable */
+  authorLastName: string | null;
+};
+
+export interface EmployerCandidateFeedbackResponse {
+  feedback: EmployerCandidateFeedbackResponseFeedbackItem[];
+}
+
+export interface EmployerCandidateFeedbackSavedResponse {
+  feedback: EmployerCandidateFeedback;
+}
+
+export interface EmployerInterviewInput {
+  interviewDate: string;
+  /** @maxLength 2000 */
+  notes?: string;
+}
+
+export type EmployerInterviewResultInterview = {
+  id: number;
+  status: string;
+  interviewDate: string;
+  /** @nullable */
+  interviewNotes?: string | null;
+};
+
+export interface EmployerInterviewResult {
+  interview: EmployerInterviewResultInterview;
+}
+
+export type EmployerInterviewParticipantStatus =
+  (typeof EmployerInterviewParticipantStatus)[keyof typeof EmployerInterviewParticipantStatus];
+
+export const EmployerInterviewParticipantStatus = {
+  invited: "invited",
+  accepted: "accepted",
+  declined: "declined",
+  removed: "removed",
+} as const;
+
+export type EmployerInterviewParticipantRole =
+  (typeof EmployerInterviewParticipantRole)[keyof typeof EmployerInterviewParticipantRole];
+
+export const EmployerInterviewParticipantRole = {
+  employer_owner: "employer_owner",
+  employer_admin: "employer_admin",
+  recruiter: "recruiter",
+  hiring_manager: "hiring_manager",
+  employer_viewer: "employer_viewer",
+} as const;
+
+export interface EmployerInterviewParticipant {
+  userId: string;
+  status: EmployerInterviewParticipantStatus;
+  createdAt: string;
+  email: string;
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+  role: EmployerInterviewParticipantRole;
+}
+
+export interface EmployerInterviewParticipantsResponse {
+  participants: EmployerInterviewParticipant[];
+}
+
+export interface EmployerInterviewParticipantInput {
+  /** @minLength 1 */
+  userId: string;
+  participating: boolean;
+}
+
+export type EmployerInterviewParticipantResultParticipantStatus =
+  (typeof EmployerInterviewParticipantResultParticipantStatus)[keyof typeof EmployerInterviewParticipantResultParticipantStatus];
+
+export const EmployerInterviewParticipantResultParticipantStatus = {
+  invited: "invited",
+  accepted: "accepted",
+  declined: "declined",
+  removed: "removed",
+} as const;
+
+export type EmployerInterviewParticipantResultParticipant = {
+  status: EmployerInterviewParticipantResultParticipantStatus;
+};
+
+export interface EmployerInterviewParticipantResult {
+  participant: EmployerInterviewParticipantResultParticipant;
+}
+
+export type EmployerInterviewResponseInputStatus =
+  (typeof EmployerInterviewResponseInputStatus)[keyof typeof EmployerInterviewResponseInputStatus];
+
+export const EmployerInterviewResponseInputStatus = {
+  accepted: "accepted",
+  declined: "declined",
+} as const;
+
+export interface EmployerInterviewResponseInput {
+  status: EmployerInterviewResponseInputStatus;
 }
 
 export type GenerateNativeSmartApplyAnswerBody = {

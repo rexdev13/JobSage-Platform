@@ -11,9 +11,14 @@ import {
   candidateMessagesTable,
   documentsTable,
   messageSenderBlocksTable,
+  employerJobAssignmentsTable,
+  employerCandidateFeedbackTable,
+  employerInterviewParticipantsTable,
+  employerMembershipsTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, ilike, gte, isNotNull, isNull, count } from "drizzle-orm";
-import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
+import { requireAuthenticated } from "../middlewares/requireRole";
+import { getEmployerContext, requireEmployer as requireEmployerAccess } from "../middlewares/employerAccess";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
 import { queueLinkVerification } from "../lib/linkVerification";
@@ -32,7 +37,7 @@ router.use("/candidate", (req, res, next) => {
 });
 
 function requireEmployer() {
-  return requireRole("employer", "admin");
+  return requireEmployerAccess();
 }
 
 const DISCLAIMER =
@@ -52,7 +57,7 @@ function normalizeComplianceRequirement(
 }
 
 router.get("/employer/profile", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const [profile] = await db
     .select()
     .from(employerProfilesTable)
@@ -66,6 +71,10 @@ router.get("/employer/profile", requireEmployer(), async (req, res): Promise<voi
 
 router.post("/employer/profile", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
+  if (!["candidate", "employer"].includes(req.user!.role ?? "")) {
+    res.status(403).json({ error: "This account cannot create or manage an employer profile." });
+    return;
+  }
   const { companyName, industry, sponsorLicenceNumber, region, contactEmail, contactPhone, contactWebsite } = req.body as {
     companyName?: string;
     industry?: string;
@@ -131,7 +140,7 @@ router.post("/employer/profile", requireAuthenticated, async (req, res): Promise
 });
 
 router.get("/employer/jobs", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const [empProfile] = await db
     .select()
     .from(employerProfilesTable)
@@ -142,11 +151,23 @@ router.get("/employer/jobs", requireEmployer(), async (req, res): Promise<void> 
     return;
   }
 
-  const jobs = await db
+  let jobs = await db
     .select()
     .from(jobListingsTable)
     .where(eq(jobListingsTable.employerProfileId, empProfile.id))
     .orderBy(desc(jobListingsTable.createdAt));
+
+  const access = getEmployerContext(req)!;
+  if (!["employer_owner", "employer_admin"].includes(access.role)) {
+    const assignments = await db.select({ jobListingId: employerJobAssignmentsTable.jobListingId })
+      .from(employerJobAssignmentsTable)
+      .where(and(
+        eq(employerJobAssignmentsTable.employerProfileId, access.employerProfileId),
+        eq(employerJobAssignmentsTable.userId, access.actingUserId),
+      ));
+    const assignedIds = new Set(assignments.map(item => item.jobListingId));
+    jobs = jobs.filter(job => assignedIds.has(job.id));
+  }
 
   const jobsWithCounts = await Promise.all(
     jobs.map(async (job) => {
@@ -160,11 +181,14 @@ router.get("/employer/jobs", requireEmployer(), async (req, res): Promise<void> 
     }),
   );
 
-  res.json({ jobs: jobsWithCounts, employerProfile: empProfile });
+  const safeEmployerProfile = ["employer_owner", "employer_admin"].includes(access.role)
+    ? empProfile
+    : { id: empProfile.id, companyName: empProfile.companyName };
+  res.json({ jobs: jobsWithCounts, employerProfile: safeEmployerProfile });
 });
 
 router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const [empProfile] = await db
     .select()
     .from(employerProfilesTable)
@@ -241,7 +265,7 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
 });
 
 router.get("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -255,7 +279,7 @@ router.get("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
 });
 
 router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -318,7 +342,7 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
 });
 
 router.delete("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -332,7 +356,7 @@ router.delete("/employer/jobs/:id", requireEmployer(), async (req, res): Promise
 });
 
 router.put("/employer/jobs/:id/publish", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -359,7 +383,7 @@ router.put("/employer/jobs/:id/publish", requireEmployer(), async (req, res): Pr
 });
 
 router.put("/employer/jobs/:id/close", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -419,7 +443,7 @@ Use plain English — avoid jargon. Do not add extra sections. Each bullet shoul
 }
 
 router.post("/employer/jobs/generate-description", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
 
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
   if (!empProfile) { res.status(400).json({ error: "Employer profile not found." }); return; }
@@ -472,7 +496,7 @@ router.post("/employer/jobs/generate-description", requireEmployer(), async (req
 
 router.post("/employer/jobs/:id/generate-description", requireEmployer(), async (req, res): Promise<void> => {
   const jobId = parseInt(req.params.id as string, 10);
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
 
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
   if (!empProfile) { res.status(400).json({ error: "Employer profile not found." }); return; }
@@ -514,13 +538,13 @@ router.post("/employer/jobs/:id/generate-description", requireEmployer(), async 
 
     res.json({ description: updated.description, disclaimer: DISCLAIMER });
   } catch (err) {
-    console.error("[employer] AI description generation failed:", err);
+    req.log.error({ err, jobId }, "AI job-description generation failed");
     res.status(500).json({ error: "AI service unavailable. Please write the description manually." });
   }
 });
 
 router.get("/employer/jobs/:id/applicants", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.id as string, 10);
   if (isNaN(jobId)) { res.status(400).json({ error: "Invalid job ID." }); return; }
 
@@ -563,6 +587,7 @@ router.get("/employer/jobs/:id/applicants", requireEmployer(), async (req, res):
       return {
         applicationId: app.id,
         userId: app.userId,
+        cvDocumentId: app.cvDocumentId ?? null,
         candidateName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Candidate" : "Candidate",
         candidateEmail: user?.email ?? null,
         profession: profile?.profession ?? null,
@@ -577,6 +602,8 @@ router.get("/employer/jobs/:id/applicants", requireEmployer(), async (req, res):
         stage: app.status,
         appliedAt: app.appliedAt,
         notes: app.notes ?? null,
+        interviewDate: app.interviewDate ?? null,
+        interviewNotes: app.interviewNotes ?? null,
       };
     }),
   );
@@ -587,7 +614,7 @@ router.get("/employer/jobs/:id/applicants", requireEmployer(), async (req, res):
 });
 
 router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const jobId = parseInt(req.params.jobId as string, 10);
   const applicationId = parseInt(req.params.applicationId as string, 10);
   const { stage, notes } = req.body as { stage?: string; notes?: string };
@@ -634,9 +661,236 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
   res.json({ applicationId: updated.id, stage: updated.status, notes: updated.notes });
 });
 
+router.get("/employer/jobs/:jobId/applicants/:applicationId/feedback", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  if (!Number.isInteger(jobId) || !Number.isInteger(applicationId)) {
+    res.status(400).json({ error: "Invalid job or application ID." });
+    return;
+  }
+  const [application] = await db.select({ id: applicationsTable.id }).from(applicationsTable).where(and(
+    eq(applicationsTable.id, applicationId),
+    eq(applicationsTable.roleId, jobId + 1_000_000),
+  ));
+  if (!application) { res.status(404).json({ error: "Application not found." }); return; }
+  const feedback = await db.select({
+    id: employerCandidateFeedbackTable.id,
+    feedback: employerCandidateFeedbackTable.feedback,
+    createdAt: employerCandidateFeedbackTable.createdAt,
+    updatedAt: employerCandidateFeedbackTable.updatedAt,
+    authorUserId: employerCandidateFeedbackTable.authorUserId,
+    authorFirstName: usersTable.firstName,
+    authorLastName: usersTable.lastName,
+  }).from(employerCandidateFeedbackTable)
+    .innerJoin(usersTable, eq(usersTable.id, employerCandidateFeedbackTable.authorUserId))
+    .where(and(
+      eq(employerCandidateFeedbackTable.employerProfileId, context.employerProfileId),
+      eq(employerCandidateFeedbackTable.jobListingId, jobId),
+      eq(employerCandidateFeedbackTable.applicationId, applicationId),
+    ));
+  res.json({ feedback });
+});
+
+router.post("/employer/jobs/:jobId/applicants/:applicationId/feedback", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  const feedback = typeof req.body?.feedback === "string" ? req.body.feedback.trim() : "";
+  if (!Number.isInteger(jobId) || !Number.isInteger(applicationId)) {
+    res.status(400).json({ error: "Invalid job or application ID." });
+    return;
+  }
+  if (!feedback || feedback.length > 4000) {
+    res.status(400).json({ error: "Feedback must be between 1 and 4000 characters." });
+    return;
+  }
+  const [application] = await db.select({ id: applicationsTable.id }).from(applicationsTable).where(and(
+    eq(applicationsTable.id, applicationId),
+    eq(applicationsTable.roleId, jobId + 1_000_000),
+  ));
+  if (!application) { res.status(404).json({ error: "Application not found." }); return; }
+  const [saved] = await db.insert(employerCandidateFeedbackTable).values({
+    employerProfileId: context.employerProfileId,
+    jobListingId: jobId,
+    applicationId,
+    authorUserId: context.actingUserId,
+    feedback,
+  }).onConflictDoUpdate({
+    target: [employerCandidateFeedbackTable.applicationId, employerCandidateFeedbackTable.authorUserId],
+    set: { feedback, updatedAt: new Date() },
+  }).returning();
+  res.status(200).json({ feedback: saved });
+});
+
+router.post("/employer/jobs/:jobId/applicants/:applicationId/interview", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  const rawDate = req.body?.interviewDate;
+  const interviewDate = typeof rawDate === "string" ? new Date(rawDate) : new Date(Number.NaN);
+  const interviewNotes = typeof req.body?.notes === "string" ? req.body.notes.trim() : "";
+  if (!Number.isInteger(jobId) || !Number.isInteger(applicationId)) {
+    res.status(400).json({ error: "Invalid job or application ID." });
+    return;
+  }
+  if (!Number.isFinite(interviewDate.getTime()) || interviewDate.getTime() <= Date.now()) {
+    res.status(400).json({ error: "Choose a valid future interview date." });
+    return;
+  }
+  if (interviewDate.getTime() > Date.now() + 365 * 24 * 60 * 60 * 1000 || interviewNotes.length > 2000) {
+    res.status(400).json({ error: "The interview date or notes exceed the allowed limits." });
+    return;
+  }
+  const [job] = await db.select({ id: jobListingsTable.id, title: jobListingsTable.title })
+    .from(jobListingsTable).where(and(
+      eq(jobListingsTable.id, jobId),
+      eq(jobListingsTable.employerProfileId, context.employerProfileId),
+    ));
+  if (!job) { res.status(404).json({ error: "Job listing not found." }); return; }
+  const [updated] = await db.update(applicationsTable).set({
+    status: "interview_invited",
+    interviewDate,
+    interviewNotes: interviewNotes || null,
+  }).where(and(
+    eq(applicationsTable.id, applicationId),
+    eq(applicationsTable.roleId, jobId + 1_000_000),
+  )).returning({
+    id: applicationsTable.id,
+    status: applicationsTable.status,
+    interviewDate: applicationsTable.interviewDate,
+    interviewNotes: applicationsTable.interviewNotes,
+    candidateUserId: applicationsTable.userId,
+  });
+  if (!updated) { res.status(404).json({ error: "Application not found." }); return; }
+  const [profile] = await db.select({ companyName: employerProfilesTable.companyName })
+    .from(employerProfilesTable).where(eq(employerProfilesTable.id, context.employerProfileId));
+  const { candidateUserId, ...publicInterview } = updated;
+  createSystemMessage({
+    recipientUserId: candidateUserId,
+    applicationId,
+    vacancyId: jobId,
+    stage: "interview_invited",
+    roleTitle: job.title,
+    companyName: profile?.companyName ?? "",
+    senderEmployerProfileId: context.employerProfileId,
+  }).catch((error: unknown) => req.log.error({ err: error, applicationId }, "Interview notification failed"));
+  res.json({ interview: publicInterview });
+});
+
+router.get("/employer/jobs/:jobId/applicants/:applicationId/interview/participants", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  const participants = await db.select({
+    userId: employerInterviewParticipantsTable.userId,
+    status: employerInterviewParticipantsTable.status,
+    createdAt: employerInterviewParticipantsTable.createdAt,
+    email: usersTable.email,
+    firstName: usersTable.firstName,
+    lastName: usersTable.lastName,
+    role: employerMembershipsTable.role,
+  }).from(employerInterviewParticipantsTable)
+    .innerJoin(usersTable, eq(usersTable.id, employerInterviewParticipantsTable.userId))
+    .innerJoin(employerMembershipsTable, and(
+      eq(employerMembershipsTable.employerProfileId, employerInterviewParticipantsTable.employerProfileId),
+      eq(employerMembershipsTable.userId, employerInterviewParticipantsTable.userId),
+    ))
+    .where(and(
+      eq(employerInterviewParticipantsTable.employerProfileId, context.employerProfileId),
+      eq(employerInterviewParticipantsTable.jobListingId, jobId),
+      eq(employerInterviewParticipantsTable.applicationId, applicationId),
+      eq(employerMembershipsTable.status, "active"),
+    ));
+  res.json({ participants });
+});
+
+router.put("/employer/jobs/:jobId/applicants/:applicationId/interview/participants", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
+  const participating = req.body?.participating;
+  if (!Number.isInteger(jobId) || !Number.isInteger(applicationId) || !userId || typeof participating !== "boolean") {
+    res.status(400).json({ error: "Provide the application, staff account, and participation state." });
+    return;
+  }
+  const [application] = await db.select({ id: applicationsTable.id }).from(applicationsTable).where(and(
+    eq(applicationsTable.id, applicationId),
+    eq(applicationsTable.roleId, jobId + 1_000_000),
+  ));
+  const [membership] = await db.select({ userId: employerMembershipsTable.userId })
+    .from(employerMembershipsTable).where(and(
+      eq(employerMembershipsTable.employerProfileId, context.employerProfileId),
+      eq(employerMembershipsTable.userId, userId),
+      eq(employerMembershipsTable.status, "active"),
+    ));
+  const [assignment] = await db.select({ id: employerJobAssignmentsTable.id }).from(employerJobAssignmentsTable)
+    .where(and(
+      eq(employerJobAssignmentsTable.employerProfileId, context.employerProfileId),
+      eq(employerJobAssignmentsTable.jobListingId, jobId),
+      eq(employerJobAssignmentsTable.userId, userId),
+    ));
+  const privilegedSelfAssignment = userId === context.actingUserId
+    && ["employer_owner", "employer_admin"].includes(context.role);
+  if (!application || !membership || (!assignment && !privilegedSelfAssignment)) {
+    res.status(404).json({ error: "The application or assigned staff member was not found." });
+    return;
+  }
+  if (participating) {
+    const [participant] = await db.insert(employerInterviewParticipantsTable).values({
+      employerProfileId: context.employerProfileId,
+      jobListingId: jobId,
+      applicationId,
+      userId,
+      invitedByUserId: context.actingUserId,
+      status: "invited",
+    }).onConflictDoUpdate({
+      target: [employerInterviewParticipantsTable.applicationId, employerInterviewParticipantsTable.userId],
+      set: { status: "invited", updatedAt: new Date() },
+    }).returning({ status: employerInterviewParticipantsTable.status });
+    res.json({ participant });
+    return;
+  }
+  const [removed] = await db.update(employerInterviewParticipantsTable).set({
+    status: "removed",
+    updatedAt: new Date(),
+  }).where(and(
+    eq(employerInterviewParticipantsTable.employerProfileId, context.employerProfileId),
+    eq(employerInterviewParticipantsTable.jobListingId, jobId),
+    eq(employerInterviewParticipantsTable.applicationId, applicationId),
+    eq(employerInterviewParticipantsTable.userId, userId),
+  )).returning({ status: employerInterviewParticipantsTable.status });
+  if (!removed) { res.status(404).json({ error: "Interview participant not found." }); return; }
+  res.json({ participant: removed });
+});
+
+router.post("/employer/jobs/:jobId/applicants/:applicationId/interview/respond", requireEmployer(), async (req, res): Promise<void> => {
+  const context = getEmployerContext(req)!;
+  const jobId = Number(req.params.jobId);
+  const applicationId = Number(req.params.applicationId);
+  const status = req.body?.status;
+  if (!["accepted", "declined"].includes(status)) {
+    res.status(400).json({ error: "Choose whether to accept or decline the interview invitation." });
+    return;
+  }
+  const [updated] = await db.update(employerInterviewParticipantsTable).set({
+    status,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(employerInterviewParticipantsTable.employerProfileId, context.employerProfileId),
+    eq(employerInterviewParticipantsTable.jobListingId, jobId),
+    eq(employerInterviewParticipantsTable.applicationId, applicationId),
+    eq(employerInterviewParticipantsTable.userId, context.actingUserId),
+    eq(employerInterviewParticipantsTable.status, "invited"),
+  )).returning({ status: employerInterviewParticipantsTable.status });
+  if (!updated) { res.status(404).json({ error: "Active interview invitation not found." }); return; }
+  res.json({ participant: updated });
+});
+
 // Notify a boosted candidate that their profile was viewed by an employer
 router.post("/employer/candidates/:userId/viewed", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const candidateUserId = req.params.userId as string;
 
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
@@ -812,7 +1066,7 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
     experienceYearsMin, preferredRegion, vacancyId, page: pageStr,
   } = req.query as Record<string, string | undefined>;
 
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
   if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
 
@@ -938,7 +1192,7 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
 
 // --- Campaign Management ---
 router.get("/employer/campaigns", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
   if (!empProfile) { res.json({ campaigns: [] }); return; }
 
@@ -952,7 +1206,7 @@ router.get("/employer/campaigns", requireEmployer(), async (req, res): Promise<v
 });
 
 router.post("/employer/campaigns", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const { name, filters, vacancyId } = req.body as { name?: string; filters?: Record<string, unknown>; vacancyId?: number };
 
   if (!name?.trim()) { res.status(400).json({ error: "Campaign name is required." }); return; }
@@ -974,7 +1228,7 @@ router.post("/employer/campaigns", requireEmployer(), async (req, res): Promise<
 });
 
 router.post("/employer/campaigns/:id/run", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const campaignId = parseInt(req.params.id as string, 10);
   if (isNaN(campaignId)) { res.status(400).json({ error: "Invalid campaign ID." }); return; }
 
@@ -989,7 +1243,7 @@ router.post("/employer/campaigns/:id/run", requireEmployer(), async (req, res): 
 });
 
 router.delete("/employer/campaigns/:id", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const campaignId = parseInt(req.params.id as string, 10);
   if (isNaN(campaignId)) { res.status(400).json({ error: "Invalid campaign ID." }); return; }
 
@@ -1004,7 +1258,7 @@ router.delete("/employer/campaigns/:id", requireEmployer(), async (req, res): Pr
 
 // --- Contact Candidate ---
 router.post("/employer/contact-candidate", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = getEmployerContext(req)!.ownerUserId;
   const { recipientUserId, messageText, subject, vacancyId, applicationId: bodyApplicationId } = req.body as {
     recipientUserId?: string;
     messageText?: string;

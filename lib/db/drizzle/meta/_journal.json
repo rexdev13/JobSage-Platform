@@ -183,6 +183,41 @@
       "when": 1791849600001,
       "tag": "0047_support_report_references_and_appeals",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791936000000,
+      "tag": "0048_moderator_decisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791936000001,
+      "tag": "0049_employer_staff_memberships",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791936000002,
+      "tag": "0050_ugc_report_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791936000003,
+      "tag": "0051_ugc_report_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791936000004,
+      "tag": "0052_account_deletion_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -177,8 +177,9 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
+                <label htmlFor="login-email" className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -191,13 +192,14 @@ export default function LoginPage() {
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-sm font-medium text-foreground">Password</label>
+                  <label htmlFor="login-password" className="block text-sm font-medium text-foreground">Password</label>
                   <Link href="/forgot-password" className="text-xs text-primary hover:underline">
                     Forgot password?
                   </Link>
                 </div>
                 <div className="relative">
                   <input
+                    id="login-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -209,8 +211,9 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
                    className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
-                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
