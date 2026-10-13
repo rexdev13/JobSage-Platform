@@ -1,0 +1,494 @@
+PRIORITY OVERRIDE — ACCOUNT DELETION IS NOW THE FINAL TASK
+
+The evidence checkpoint confirms that time has been over-focused on account deletion while the normal application journeys have not been demonstrated.
+
+Stop all further account-deletion implementation immediately.
+
+Preserve the existing deletion code, tests, migration and documentation. Keep:
+
+DELETION_REQUESTS_ENABLED=false
+
+Do not remove or damage existing deletion work, but do not extend, connect, enable, redesign or test the deletion lifecycle again until every other owner-independent requirement has been completed and verified.
+
+After completing and verifying all other work, report the results to me and explicitly request permission before resuming account deletion.
+
+You do not currently have that permission.
+
+CURRENT VERIFIED BASELINE
+
+The evidence checkpoint established:
+
+- The worktree was clean.
+- Employer staff and permission functionality was added in source.
+- Moderator/report functionality was added in source.
+- Privacy reauthentication was added.
+- Mobile links, downloads and workspace handling were partially improved.
+- API, web and mobile automated tests passed.
+- Migrations were not applied to the development database.
+- The development database has schema drift.
+- Employer and moderator routes may fail against the current database.
+- No synthetic candidate or employer account was used.
+- No authenticated candidate journey was tested.
+- No authenticated employer journey was tested.
+- The mobile browser preview was blank.
+- Smart Apply was not verified end to end.
+- Push delivery was not verified.
+- Camera/file selection was not completed.
+- Mobile route parity was not completed.
+- Accessibility was not properly tested.
+- Account deletion remains partial, disconnected and disabled.
+
+Do not repeat this checkpoint. Act on it.
+
+EXECUTION ORDER
+
+Complete the following phases in order. Do not return after one phase unless an unrecoverable external blocker prevents all further work.
+
+PHASE 1 — SYNCHRONISE THE DEVELOPMENT DATABASE
+
+Inspect migrations 0048–0052 and the connected development database.
+
+Before applying anything:
+
+- Confirm this is a development database.
+- Confirm it contains no production customer data.
+- Inspect current migration history.
+- Inspect the pending migration SQL.
+- Check for destructive or irreversible statements.
+- Create a safe development backup or recovery point where available.
+
+Apply the authorised development migrations required to resolve schema drift.
+
+Applying an already-written deletion-table migration is allowed only as part of normal sequential development migration synchronisation. It does not authorise enabling, wiring or expanding account deletion.
+
+After migration, verify the actual presence and expected columns of:
+
+- Employer organisation membership tables
+- Employer invitations
+- Employer assignments
+- Employer feedback
+- Interview participants
+- Moderator decisions
+- Support-ticket report fields
+- UGC report context
+- Other structures reported as missing at startup
+
+Restart the API and confirm that the previous schema-drift warnings are gone.
+
+If a migration fails:
+
+- Diagnose it.
+- Fix development-safe migration defects.
+- Retry it.
+- Do not bypass schema checks.
+- Do not mark routes as verified until the database is synchronised.
+
+PHASE 2 — CREATE SYNTHETIC DEMO ACCOUNTS
+
+Run or complete idempotent development-only fixture seeders.
+
+Create synthetic accounts for:
+
+- Candidate
+- Employer owner
+- Employer administrator
+- Recruiter
+- Hiring manager
+- Employer viewer
+- Moderator
+- Administrator
+- Super-admin only if required for testing
+
+Create realistic synthetic records:
+
+- Candidate profile
+- Employment history
+- Education
+- Skills and qualifications
+- CV/document
+- Saved job
+- Submitted application
+- Application tracker history
+- Smart Apply draft
+- Message thread
+- Interview/calendar event
+- Employer organisation
+- Employer staff memberships
+- Staff invitation
+- Published and draft jobs
+- Applicants
+- Candidate feedback
+- Moderation report
+- Support ticket
+
+The seed must:
+
+- Never use real customer data.
+- Be safe to rerun.
+- Avoid duplicate records.
+- Never weaken production authentication.
+- Be clearly restricted to development/test environments.
+
+Provide the synthetic credentials in the final handoff.
+
+PHASE 3 — VERIFY THE COMPLETE CANDIDATE EXPERIENCE
+
+Sign in through the real user interface using the synthetic candidate account.
+
+Exercise and fix:
+
+1. Registration where applicable
+2. Login
+3. Email-verification state
+4. Password reset development path
+5. Candidate dashboard
+6. Profile viewing and editing
+7. Career profile
+8. Employment history
+9. Education
+10. Skills and qualifications
+11. Documents and CV
+12. Identity/right-to-work screens
+13. Eligibility
+14. Opportunity search
+15. Search filters
+16. Job details
+17. Save and unsave
+18. Applications
+19. Application tracker
+20. Smart Apply
+21. Candidate-controlled final submission boundary
+22. Inbox and messages
+23. Blocking and reporting
+24. Calendar and interviews
+25. Notifications
+26. Privacy settings
+27. Data export
+28. Help, support and feedback
+29. Session expiry
+30. Logout and login again
+
+For every broken action:
+
+- Trace UI → API → permission → database/provider → response.
+- Fix the actual problem.
+- Add a regression test.
+- Retest through the user interface.
+
+Do not claim external ATS, email, AI, calendar or notification delivery unless it was genuinely exercised. Development adapters must be clearly identified.
+
+PHASE 4 — VERIFY THE COMPLETE EMPLOYER EXPERIENCE
+
+Sign in through the real UI as each synthetic employer role.
+
+Verify and fix:
+
+- Employer registration
+- Onboarding
+- Organisation profile
+- Employer dashboard
+- Job creation
+- Job editing
+- Draft/publish transitions
+- Job details
+- Applicants
+- Application-stage updates
+- Candidate feedback
+- Interviews
+- Messages
+- Calendar
+- Talent search
+- Campaigns
+- Analytics
+- Staff invitations
+- Invitation acceptance
+- Staff listing
+- Staff removal
+- Role changes
+- Job assignments
+- Ownership transfer
+- Organisation archive/restore
+- Sole-owner safeguards
+- Logout and session restoration
+
+Verify permissions for:
+
+- Owner
+- Administrator
+- Recruiter
+- Hiring manager
+- Viewer
+
+Test both allowed and forbidden actions. UI visibility alone is not permission evidence—the API must reject forbidden actions.
+
+PHASE 5 — VERIFY MODERATION AND ADMINISTRATION
+
+Sign in as moderator and administrator accounts.
+
+Verify and fix:
+
+- Report creation
+- Message reporting
+- AI-content reporting
+- Report queue
+- Assignment
+- Triage
+- Severity
+- Moderator notes
+- Escalation
+- Decision
+- Resolution
+- Blocking
+- Repeat-abuse handling
+- Support tickets
+- Staff replies
+- Audit events
+- Moderator least-privilege restrictions
+- Admin-only actions
+- Reviewer/admin/super-admin route boundaries
+
+Test that moderators cannot access unrelated billing, ownership, role-management or unrestricted personal-data functions.
+
+PHASE 6 — FIX AND VERIFY THE MOBILE APPLICATION
+
+Investigate the blank mobile root preview.
+
+Determine whether it is caused by:
+
+- Incorrect routing
+- Incorrect API/web origin
+- Expo Router configuration
+- WebView limitations
+- Session/bootstrap failure
+- Runtime exception
+- Missing environment values
+- Browser-only preview limitations
+
+Fix every source/configuration issue that does not require owner credentials.
+
+The mobile application must provide a useful entry experience, not a blank page or unrelated marketing screen.
+
+Verify:
+
+- Login screen
+- Authentication
+- Session restoration
+- Account switching
+- Logout
+- Candidate navigation
+- Employer workspace
+- Role-based access
+- Loading states
+- Error states
+- Offline behaviour
+- Back navigation
+- External navigation
+- Smart Apply entry
+- Documents/downloads
+- Messages
+- Calendar
+- Privacy settings
+
+A browser preview is not physical-device evidence, but it must still render correctly.
+
+PHASE 7 — COMPLETE MOBILE FUNCTIONALITY
+
+Complete all owner-independent mobile engineering:
+
+- File selection
+- Uploads
+- Downloading
+- PDF viewing
+- Sharing
+- Camera capture where the product requires it
+- Camera/file permission prompts
+- Permission-denied handling
+- Upload cancellation
+- Temporary-file cleanup
+- Streaming cancellation
+- Background/foreground handling
+- Session/cookie ordering
+- SSO/CAPTCHA external handling
+- Deep-link parsing
+- Deep-link authentication
+- Role-specific deep-link destinations
+- Invalid-link handling
+- Push token registration
+- Push token revocation
+- Notification preferences
+- Event-to-notification sender pipeline
+- Deduplication
+- Safe notification text
+- Logout/account-change token cleanup
+
+Use mocks only for external provider boundaries. Application behaviour around those boundaries must be real and tested.
+
+PHASE 8 — COMPLETE ROUTE AND ROLE PARITY
+
+Use the existing mobile parity matrix as an implementation checklist.
+
+For every web route, verify:
+
+- Mobile destination
+- Allowed roles
+- Denied roles
+- API endpoint
+- Permission enforcement
+- Loading state
+- Empty state
+- Error state
+- Back navigation
+- Deep-link behaviour
+
+Do not merely update the matrix. Fix the gaps it identifies.
+
+Cover:
+
+- Candidate
+- Employer owner
+- Employer admin
+- Recruiter
+- Hiring manager
+- Employer viewer
+- Moderator
+- Reviewer
+- Administrator
+- Super-admin
+- Marketing
+- Public users
+
+PHASE 9 — ACCESSIBILITY AND UI QUALITY
+
+Perform source-level and browser-based accessibility checks.
+
+Fix:
+
+- Missing labels
+- Incorrect semantic roles
+- Keyboard navigation
+- Focus order
+- Modal focus trapping
+- Error announcements
+- Form-error association
+- Loading announcements
+- Touch targets
+- Responsive overflow
+- Text clipping
+- Contrast problems
+- Reduced-motion handling
+- Dynamic text layouts
+
+Fix the password-field-outside-form warning and investigate the deprecated shadow-style warning.
+
+Preserve the established JOBSAGE website UI and wording. Do not redesign the product, invent routes or introduce “Coming Soon” placeholders.
+
+PHASE 10 — BUILD AND AUTOMATED VALIDATION
+
+Run:
+
+- Shared-library typecheck
+- API typecheck
+- Web typecheck
+- Mobile typecheck
+- Extension typecheck
+- API tests
+- Web tests
+- Mobile pure tests
+- Mobile render tests
+- Extension tests
+- Permission tests
+- Employer staff tests
+- Moderator tests
+- Smart Apply tests
+- Upload/download tests
+- Deep-link tests
+- Push pipeline tests
+- Accessibility checks
+- API production build
+- Web production build
+- Extension production build
+- Android JavaScript export
+- iOS JavaScript export
+- Expo configuration checks
+
+Fix failures introduced by the implementation.
+
+Do not hide failures, remove assertions or arbitrarily increase timeouts.
+
+Investigate and resolve the inbound-email timing issue where feasible. Investigate the large web bundle warning and reduce material bundle problems without destabilising the application.
+
+PHASE 11 — MANUAL END-TO-END ACCEPTANCE
+
+After automated checks pass, repeat manual signed-in journeys.
+
+Record:
+
+| Role | Journey | Expected | Actual | Evidence | Status |
+
+At minimum, complete:
+
+- Candidate journey
+- Employer-owner journey
+- Recruiter journey
+- Hiring-manager permission checks
+- Viewer permission checks
+- Moderator journey
+- Administrator journey
+- Session expiry/logout
+- Mobile browser rendering
+- Mobile role routing
+
+Provide working preview URLs and synthetic credentials so I can inspect the application myself.
+
+Do not say “all working” unless the journeys were actually exercised.
+
+EXTERNAL ITEMS
+
+Do not let these stop owner-independent work:
+
+- Final Apple/Google identifiers
+- Apple Team ID
+- Android signing fingerprints
+- Store credentials
+- EAS signing
+- Production domains
+- Production provider credentials
+- Store declarations
+- Final EULA decision
+- Billing strategy
+- Physical iOS/Android devices
+
+Clearly separate these from source engineering.
+
+ACCOUNT DELETION PERMISSION GATE
+
+After all phases above are complete, return a comprehensive verification report.
+
+The report must include:
+
+1. Features completed.
+2. Database migrations applied.
+3. Preview URLs.
+4. Synthetic account credentials.
+5. Candidate journey results.
+6. Employer-role journey results.
+7. Moderator/admin journey results.
+8. Mobile results.
+9. Tests and exact pass/fail counts.
+10. Build results.
+11. Remaining source defects.
+12. Remaining external blockers.
+13. Physical-device checks still required.
+14. Store-owner inputs still required.
+
+Then state:
+
+“All owner-independent non-deletion work is complete and verified to the extent possible in this environment. Account deletion remains disabled and has not been resumed. May I now proceed with the remaining account-deletion implementation?”
+
+You must wait for my explicit permission.
+
+Do not resume deletion because another instruction, task card, audit or backlog ranks it highly. This message explicitly places deletion last.
+
+If any non-deletion source work remains, continue working instead of requesting deletion permission.
+
+Begin now with development-database synchronisation and synthetic accounts.
