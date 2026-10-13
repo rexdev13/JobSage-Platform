@@ -1,0 +1,49 @@
+Do not wait for a project-task export.
+
+The task-board snapshot is incomplete and is not the authoritative measure of whether JOBSAGE is finished. Use the two original specifications, the current repository, routes, APIs, database schema, migrations, tests and the previous evidence audits as the source of truth.
+
+The current development database is confirmed to be my isolated personal test database containing synthetic records. You are authorised to use it for non-destructive development validation.
+
+Proceed now:
+
+1. Take a development snapshot.
+2. Review and apply pending development migrations.
+3. Confirm the schema-drift warnings are resolved.
+4. Seed any missing synthetic candidate, employer, staff, moderator and admin accounts.
+5. Run complete signed-in candidate journeys.
+6. Run complete employer-owner and employer-staff journeys.
+7. Verify moderator and administrator workflows.
+8. Investigate and fix the queued API-stall issue.
+9. Fix the blank or incorrect mobile entry/workspace behaviour.
+10. Complete mobile route and role parity.
+11. Verify Smart Apply, documents, uploads, file selection, camera handling, messaging, interviews and calendar.
+12. Complete push-token registration, preferences, cleanup and development-safe sender tests.
+13. Complete deep-link parsing and authorization tests.
+14. Complete source-level accessibility checks.
+15. Run relevant typechecks, tests and builds.
+16. Fix all owner-independent failures found.
+
+Do not create more proposed tasks and do not stop at another inventory. Implement and verify the work.
+
+Keep DELETION_REQUESTS_ENABLED=false. Do not resume, extend or test account deletion. Account deletion remains the final task and requires my explicit permission.
+
+Do not ask for the task export again. Only stop when:
+
+- Every owner-independent non-deletion feature has been implemented and tested; or
+- A genuine external requirement such as signing credentials, store access or physical-device access is the only remaining blocker.
+
+Then provide:
+
+- Working preview URLs
+- Synthetic login credentials
+- Migrations applied
+- Candidate journey results
+- Employer journey results
+- Moderator/admin results
+- Mobile results
+- Features fixed
+- Tests and builds with exact results
+- Remaining source work
+- External-only blockers
+
+If non-deletion source work remains, continue working instead of returning another question.

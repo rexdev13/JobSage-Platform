@@ -1,0 +1,597 @@
+JOBSAGE COMPLETE EVIDENCE-BASED BUILD AUDIT
+
+Perform a fresh, comprehensive audit of the current Replit codebase.
+
+The Replit workspace is the most accurate and current version of JOBSAGE. Audit the actual current code—not an older local copy, incomplete task-board snapshot, previous summary or proposed task list.
+
+OBJECTIVE
+
+Determine:
+
+1. What is genuinely built.
+2. What is connected and working.
+3. What exists only in source.
+4. What is partially built.
+5. What is mocked, disabled or placeholder-only.
+6. What is broken or disconnected.
+7. What remains to finish the application.
+8. What requires owner access, store access, credentials or physical devices.
+9. Whether JOBSAGE can honestly be described as fully built.
+
+This is an audit only.
+
+DO NOT:
+
+- Modify source code.
+- Apply migrations.
+- Seed or delete records.
+- Change configuration.
+- Deploy.
+- Submit store builds.
+- Trigger paid providers.
+- Send real emails, notifications or calendar events.
+- Perform account deletion.
+- Enable account deletion.
+- Run destructive tests.
+- Create or propose task cards.
+- Ask for a project-task export.
+- Stop after producing another plan.
+
+Keep:
+
+DELETION_REQUESTS_ENABLED=false
+
+Do not run account-deletion lifecycle tests. Inspect deletion source and existing evidence only.
+
+AUTHORITATIVE SOURCES
+
+Use, in this order:
+
+1. Both original JOBSAGE specifications.
+2. The current Replit repository.
+3. Current database schema and migration source.
+4. Current route, API and permission definitions.
+5. Current automated tests.
+6. Existing recent validation evidence.
+7. Previous audits only as historical baselines.
+
+The Replit task board is not authoritative. Do not rely on the omitted 158 tasks, and do not request their export.
+
+PREVIOUS VALIDATION BASELINE
+
+Treat these as previously evidenced, but independently confirm the underlying source still exists:
+
+- Development migrations were applied and schema drift reported OK.
+- Synthetic role accounts exist.
+- Basic candidate profile, opportunities and tracker routes loaded.
+- Basic employer-owner and staff routes loaded.
+- Employer role restrictions were exercised.
+- Moderator report claiming and internal notes worked.
+- Admin and super-admin access boundaries were exercised.
+- Employer onboarding race was fixed.
+- Mobile unauthenticated entry now opens sign-in.
+- API, web and mobile focused tests passed.
+- Account deletion remains disabled.
+- An intermittent API stall remains unexplained.
+- A missing React key warning remains.
+- Full application completion was not established.
+
+Do not automatically mark these areas complete. Check whether the evidence covers the entire specification requirement.
+
+STATUS LABELS
+
+Assign every requirement exactly one status:
+
+- COMPLETE AND VERIFIED
+- BUILT BUT NOT END-TO-END VERIFIED
+- PARTIALLY BUILT
+- UI ONLY
+- BACKEND ONLY
+- PLACEHOLDER OR MOCK
+- DISABLED
+- BROKEN OR DISCONNECTED
+- NOT BUILT
+- EXTERNAL BLOCKER
+- NOT APPLICABLE
+
+A feature is COMPLETE AND VERIFIED only when there is evidence for:
+
+UI
+→ route
+→ authentication
+→ authorization
+→ API
+→ validation
+→ database/provider operation
+→ success and error handling
+→ relevant automated test
+→ successful safe runtime exercise
+
+A component, route, table or passing unit test alone is not a complete feature.
+
+AUDIT METHOD
+
+First inspect:
+
+- Git status
+- Recent commits and checkpoints
+- Current branches
+- Package scripts
+- Environment-variable names without exposing their values
+- Application entry points
+- Web routes
+- Mobile routes
+- API routes
+- Middleware
+- Database schema
+- Migrations
+- Background workers
+- Provider adapters
+- Feature flags
+- Tests
+- Store configuration
+- Compliance documents
+
+Search for:
+
+- TODO
+- FIXME
+- Coming Soon
+- Placeholder
+- Mock
+- Stub
+- Disabled controls
+- Hardcoded success responses
+- Empty handlers
+- Unconnected buttons
+- Routes without screens
+- Screens without routes
+- APIs without UI consumers
+- UI actions without APIs
+- Missing role checks
+- Disabled feature flags
+- Development-only adapters
+- Unimplemented provider methods
+- Skipped tests
+- `.only` tests
+- Suppressed errors
+- Unresolved warnings
+
+Do not count generated API clients as standalone features.
+
+AUDIT EVERY ROLE
+
+Audit these independently:
+
+- Public/unauthenticated user
+- Candidate
+- Employer owner
+- Employer administrator
+- Recruiter
+- Hiring manager
+- Employer viewer
+- Moderator
+- Reviewer
+- Administrator
+- Super-admin
+- Marketing
+- Any additional role found
+
+For each role, verify:
+
+- Navigation
+- Permitted routes
+- Forbidden routes
+- API permission enforcement
+- Dashboard
+- Loading states
+- Empty states
+- Error states
+- Session expiry
+- Logout
+- Account switching
+- Mobile availability
+
+AUDIT EVERY FEATURE AREA
+
+1. Authentication and accounts
+
+- Registration
+- Login
+- Logout
+- Email verification
+- Password reset
+- Session restoration
+- Session expiry
+- Account switching
+- Role switching
+- SSO/CAPTCHA
+- Social login applicability
+- Sign in with Apple applicability
+
+2. Candidate experience
+
+- Onboarding
+- Dashboard
+- Candidate profile
+- Career profile
+- Employment
+- Education
+- Skills
+- Qualifications
+- Identity
+- Right-to-work/eligibility
+- CV creation
+- CV upload
+- Documents
+- Cover letters
+- Opportunities
+- Search and filters
+- Sponsorship information
+- Saved jobs
+- Saved searches
+- Applications
+- Application tracker
+- Interviews
+- Calendar
+- Inbox
+- Notifications
+- Help
+- Support
+- Feedback
+- Reports
+
+3. Smart Apply and extension parity
+
+- Extension feature inventory
+- Mobile/web equivalent
+- Safe form detection
+- Supported ATS coverage
+- Structured field mapping
+- Remembered answers
+- Sensitive-field restrictions
+- CV attachment
+- Dynamic fields
+- Draft restoration
+- Candidate review
+- Candidate-controlled submission
+- Submission confirmation
+- Tracker updates
+- Cancellation
+- Error handling
+- Accessibility
+- Stored-memory deletion controls
+
+4. Employer experience
+
+- Registration
+- Onboarding
+- Organisation profile
+- Dashboard
+- Job creation
+- Job editing
+- Job publishing
+- Job lifecycle
+- Applicant pipeline
+- Candidate details
+- Candidate feedback
+- Messaging
+- Interviews
+- Calendar
+- Talent search
+- Campaigns
+- Analytics
+- Billing/checkout exposure
+
+5. Employer staff
+
+- Membership model
+- Invitations
+- Invitation acceptance
+- Staff listing
+- Role changes
+- Staff removal
+- Job assignments
+- Owner permissions
+- Administrator permissions
+- Recruiter permissions
+- Hiring-manager permissions
+- Viewer permissions
+- Ownership transfer
+- Sole-owner safeguards
+- Organisation archive/restore/deletion
+- API-level enforcement
+
+6. Moderation and administration
+
+- Content reporting
+- Message reporting
+- AI-output reporting
+- Blocking
+- Unblocking
+- Review queue
+- Assignment
+- Claiming
+- Internal notes
+- Triage
+- Severity
+- Escalation
+- Decisions
+- Resolution
+- Appeals/reconsideration
+- Abuse controls
+- Repeat-offender controls
+- Moderator least privilege
+- Admin user management
+- Roles
+- Audit history
+- Reviewer operations
+- Super-admin operations
+- Marketing operations
+- Support-ticket queue
+- Staff replies
+
+7. Files and native functionality
+
+- File selection
+- Upload
+- Download
+- PDF viewing
+- Sharing
+- Camera capture
+- Permission prompts
+- Permission denial
+- Upload cancellation
+- Temporary-file cleanup
+- Cleanup after app termination
+- Background/foreground lifecycle
+- Offline recovery
+
+8. Messaging, calendar and notifications
+
+- Sending and receiving messages
+- Unread state
+- Blocking/reporting
+- Candidate/employer boundaries
+- Calendar scheduling
+- Interview management
+- Time zones
+- External calendar integrations
+- Notification preferences
+- Push-token registration
+- Push-token revocation
+- Event senders
+- Deduplication
+- Safe lock-screen content
+- Deep-link destinations
+- Logout/account-change cleanup
+
+9. Mobile application
+
+- Correct initial route
+- Login
+- Secure credential storage
+- Session exchange
+- Cookie ordering
+- Session restoration
+- Logout
+- Account switching
+- Candidate route parity
+- Employer route parity
+- Moderator/admin route parity
+- Back navigation
+- WebView restrictions
+- External navigation
+- SSO/CAPTCHA
+- Streaming
+- Cancellation
+- Loading/error states
+- Custom URL scheme
+- Universal Links
+- Android App Links
+- Link parsing
+- Link authorization
+- Invalid links
+
+10. Privacy and compliance
+
+Inspect only—do not execute deletion:
+
+- Privacy settings
+- Consent
+- Notification categories
+- Data export
+- Export completeness
+- Public deletion disclosure
+- In-app deletion initiation
+- Reauthentication
+- Deletion gate
+- Deletion orchestration
+- Database ownership map
+- File/object cleanup
+- Provider cleanup
+- Shared records
+- Legal holds
+- Retention
+- Backup expiry
+- Restore-time replay
+- Completion notification
+- Privacy Policy
+- Terms
+- EULA decision
+- Legal-link placement
+- UGC policy
+- Deletion runbook
+
+11. Accessibility
+
+- Semantic structure
+- Labels
+- Accessible names
+- Keyboard navigation
+- Focus order
+- Modal focus
+- Error announcements
+- Form validation
+- Touch targets
+- Contrast
+- Dynamic type
+- Reduced motion
+- VoiceOver/TalkBack readiness
+
+12. Store readiness
+
+- iOS bundle identifier
+- Android application ID
+- Version/build numbers
+- Icons
+- Splash assets
+- Permission descriptions
+- iOS privacy manifest
+- Android permissions
+- Apple privacy labels
+- Google Data Safety
+- Content rating
+- Age/audience
+- Privacy URL
+- Terms/EULA URL
+- Account-deletion URL
+- Support URL
+- Reviewer instructions
+- Reviewer account
+- Store screenshots
+- EAS configuration
+- Signing
+- `.ipa`
+- `.aab`
+- TestFlight
+- Play testing track
+- Store submission evidence
+
+SAFE VALIDATION
+
+Run safe, non-destructive checks only:
+
+- Typechecks
+- Existing unit tests
+- Existing integration tests that do not write/delete uncontrolled records
+- Web tests
+- API tests
+- Mobile pure tests
+- Mobile render tests
+- Extension tests
+- Permission tests
+- Production builds
+- Expo configuration checks
+- Android/iOS JavaScript exports
+- Lint/accessibility scripts if available
+- `git diff --check`
+
+Exclude:
+
+- Account-deletion tests
+- Destructive cleanup tests
+- Production-provider calls
+- Real email/push/calendar delivery
+- Production database operations
+
+Use the existing synthetic accounts for safe read-only or ordinary development smoke tests. Do not expose passwords in the audit report.
+
+Investigate the intermittent API stall through logs and read-only diagnostics. Do not call it fixed unless the cause is identified and the correction is verified.
+
+COMPLETION MEASUREMENT
+
+Produce two separate scores:
+
+1. SOURCE COMPLETION
+   - Measures owner-independent implementation.
+
+2. RELEASE READINESS
+   - Includes native-device, provider, signing and store requirements.
+
+Publish the calculation method and denominator.
+
+Suggested weighting:
+
+- COMPLETE AND VERIFIED: 100%
+- BUILT BUT NOT END-TO-END VERIFIED: 75%
+- PARTIALLY BUILT: 50%
+- UI ONLY or BACKEND ONLY: 25%
+- PLACEHOLDER OR MOCK: 10%
+- DISABLED, BROKEN, NOT BUILT or EXTERNAL BLOCKER: 0%
+- NOT APPLICABLE: excluded
+
+Do not inflate the score for documentation, generated clients, test fixtures or duplicated files.
+
+REQUIRED REPORT
+
+Return one completed report containing:
+
+1. Executive verdict:
+   - Fully built or not fully built
+   - Source-completion percentage
+   - Release-readiness percentage
+
+2. Requirement evidence table:
+
+| Requirement | Role | Web | Mobile | API | Database | Permissions | Tests | Runtime Evidence | Status | Remaining Work |
+
+3. Genuinely complete features.
+
+4. Built but unverified features.
+
+5. Partial features.
+
+6. Missing features.
+
+7. Broken or disconnected features.
+
+8. Disabled features.
+
+9. Placeholder/mock functionality.
+
+10. Role and permission gaps.
+
+11. Web/mobile parity gaps.
+
+12. Smart Apply and extension-parity gaps.
+
+13. Privacy/deletion state without executing deletion.
+
+14. Moderation gaps.
+
+15. Accessibility gaps.
+
+16. Store-release gaps.
+
+17. Exact validation commands and results.
+
+18. Existing warnings and flaky behaviour.
+
+19. External-only blockers.
+
+20. Prioritised remaining engineering backlog grouped as:
+    - Critical demo blockers
+    - Core product gaps
+    - Mobile/native gaps
+    - Quality/accessibility gaps
+    - Store/compliance gaps
+    - Account deletion last
+
+21. Final plain-language answer:
+    - “JOBSAGE is fully built”; or
+    - “JOBSAGE is not fully built.”
+
+EVIDENCE RULES
+
+- Cite exact files, routes, functions, tables and tests.
+- Distinguish source presence from runtime proof.
+- Distinguish automated tests from physical-device evidence.
+- Distinguish JavaScript export from signed native build.
+- Distinguish fixture/provider mocks from live integrations.
+- Do not claim “all working” without end-to-end evidence.
+- Do not ask me for another export.
+- Do not modify anything.
+- Do not propose task cards.
+
+Perform the audit now and return the completed report.
