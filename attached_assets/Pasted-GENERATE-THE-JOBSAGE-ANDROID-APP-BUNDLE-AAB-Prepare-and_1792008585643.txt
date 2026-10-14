@@ -1,0 +1,112 @@
+GENERATE THE JOBSAGE ANDROID APP BUNDLE (.AAB)
+
+Prepare and generate a signed production Android App Bundle for JOBSAGE using Expo EAS Build.
+
+This instruction authorizes:
+
+- Android production-build configuration
+- Expo/EAS project configuration
+- Android signing setup
+- Incrementing the Android versionCode
+- Running validation
+- Starting an EAS Android production build
+- Downloading the resulting `.aab` into the Replit workspace
+
+This instruction does NOT authorize:
+
+- Uploading to Google Play
+- Creating a production release
+- Publishing the app
+- Changing production data
+- Sending messages or notifications
+- Account-deletion work
+
+Keep:
+
+DELETION_REQUESTS_ENABLED=false
+
+STEP 1 — INSPECT EXISTING CONFIGURATION
+
+Inspect:
+
+- `artifacts/jobsage-mobile/app.json`
+- `app.config.js` or `app.config.ts`
+- `eas.json`
+- Mobile `package.json`
+- Expo SDK version
+- Existing EAS project ID
+- Android package/application ID
+- App version
+- Android versionCode
+- Runtime-version policy
+- Android permissions
+- Build profiles
+- Existing credentials configuration
+
+Do not invent a production package ID.
+
+If the Android package ID is missing, stop only once and ask me for the final permanent value. Suggest a valid format such as:
+
+`uk.co.jobsage.app`
+
+Clearly warn that the Google Play package ID is permanent after the first app creation/upload.
+
+Do not ask unnecessary questions when the value already exists in the repository.
+
+STEP 2 — VERIFY PLAY COMPATIBILITY
+
+Confirm the production build targets the Google Play requirement applicable on the current date.
+
+As of October 2026, new apps and updates must target Android 16 / API level 36.
+
+Verify:
+
+- Target SDK/API 36
+- 64-bit support
+- Unique Android package ID
+- Adaptive icon configuration
+- Notification icon configuration
+- Required permission declarations
+- HTTPS production API origin
+- No development-only URLs in the production build
+- No secrets embedded in the public Expo configuration
+- No unrestricted cleartext HTTP traffic
+- No debug/development menus in the production build
+- No production deletion activation
+
+Run:
+
+- Mobile typecheck
+- Mobile tests
+- `expo-doctor`
+- `expo install --check`
+- `expo config --type public`
+- Android JavaScript export
+- Relevant configuration validation
+
+Fix source/configuration problems that prevent the production Android build.
+
+Do not weaken security or remove functionality simply to obtain a successful build.
+
+STEP 3 — CONFIGURE EAS
+
+Confirm the Expo/EAS account and project are correctly connected.
+
+If EAS authentication requires my action:
+
+- Present the official Replit/Expo authentication flow.
+- Never ask me to paste my Expo password, access token or recovery code into chat.
+- Resume automatically after authentication.
+
+Configure `eas.json` with a production Android profile that generates an App Bundle:
+
+```json
+{
+  "build": {
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
