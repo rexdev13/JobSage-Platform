@@ -6,6 +6,11 @@ import { safeEmployerUrl } from "@workspace/mobile-core";
  */
 export function applicationPrefillPageKey(applicationId: number, pageUrl: string): string | null {
   if (!Number.isSafeInteger(applicationId) || applicationId <= 0) return null;
+  try {
+    if (new URL(pageUrl).protocol !== "https:") return null;
+  } catch {
+    return null;
+  }
   const safeUrl = safeEmployerUrl(pageUrl);
   if (!safeUrl) return null;
 

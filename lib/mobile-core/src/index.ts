@@ -11,15 +11,16 @@ export function safeInternalPath(value: string): string | null {
   } catch { return null; }
 }
 
-/** No IP literals, credentials, local hosts or non-HTTPS employer navigation. */
+/** Accept public HTTP(S) employer links, but always return their HTTPS URL. */
 export function safeEmployerUrl(value: string): string | null {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
-    if (url.protocol !== "https:" || url.username || url.password || url.port
+    if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username || url.password || url.port
       || !host.includes(".") || /[:\[\]]/.test(host) || /^\d+(?:\.\d+){3}$/.test(host)
       || /(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(host)
       || host.endsWith(".localhost")) return null;
+    url.protocol = "https:";
     return url.href;
   } catch { return null; }
 }

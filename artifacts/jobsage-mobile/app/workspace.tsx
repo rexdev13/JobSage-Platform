@@ -27,15 +27,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
-import type { WebViewMessageEvent, WebViewSource } from "react-native-webview/lib/WebViewTypes";
+import type { WebViewMessageEvent, WebViewOpenWindowEvent, WebViewSource } from "react-native-webview/lib/WebViewTypes";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 
 import { NativeApplicationBrowser } from "@/components/NativeApplicationBrowser";
-import { CandidateCompanionShortcut } from "@/components/CandidateCompanionShortcut";
 import { PushNotifications } from "@/components/PushNotifications";
 import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { classifyUrl, openExternal } from "@/lib/external-links";
+import { classifyUrl, openExternal, safeLinkLogContext, showInAppContactLink } from "@/lib/external-links";
 import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
 import { workspaceEntryPath } from "@/lib/workspace-entry-path";
 import {
@@ -345,7 +344,21 @@ export default function WorkspaceScreen() {
         const dest = message.destination;
         if (dest.startsWith("/") || isFirstPartyUrl(dest)) {
           const url = dest.startsWith("/") ? workspaceUrl(dest) : dest;
+          console.info("[JOBSAGE] workspace link", {
+            action: url ? "in-app" : "blocked",
+            ...safeLinkLogContext(dest),
+          });
           if (url) webRef.current?.injectJavaScript(`location.assign(${JSON.stringify(url)});true;`);
+          return;
+        }
+        const kind = classifyUrl(dest);
+        const contactHandled = kind === "contact" && showInAppContactLink(dest);
+        console.info("[JOBSAGE] workspace link", {
+          action: contactHandled ? "in-app-contact" : kind === "https" || kind === "http" ? "in-app-browser" : "blocked",
+          ...safeLinkLogContext(dest),
+        });
+        if (kind === "contact") {
+          if (!contactHandled) Alert.alert("Link unavailable", "This contact or calendar link cannot be opened inside JOBSAGE.");
           return;
         }
         void openExternal(dest).then((ok) => {
@@ -357,11 +370,71 @@ export default function WorkspaceScreen() {
   }, [proof, handleSession, handleApplication]);
 
   const onShouldStart = useCallback((req: ShouldStartLoadRequest) => {
+    const urlContext = safeLinkLogContext(req.url);
     const kind = classifyUrl(req.url);
     if (kind === "first-party") return true;
-    if (req.isTopFrame === false) return kind === "https";
-    if (kind === "https" || kind === "system") void openExternal(req.url);
+    if (req.isTopFrame === false) {
+      const allowed = kind === "https";
+      console.info("[JOBSAGE] workspace navigation", {
+        frame: "subframe",
+        action: allowed ? "in-app" : "blocked",
+        ...urlContext,
+      });
+      return allowed;
+    }
+    if (kind === "https" || kind === "http" || kind === "contact") {
+      console.info("[JOBSAGE] workspace navigation", {
+        frame: "main",
+        action: kind === "contact" ? "in-app-contact" : "in-app-browser",
+        ...urlContext,
+      });
+      if (kind === "contact") {
+        if (!showInAppContactLink(req.url)) {
+          Alert.alert("Link unavailable", "This contact or calendar link cannot be opened inside JOBSAGE.");
+        }
+        return false;
+      }
+      void openExternal(req.url).then((ok) => {
+        if (!ok) Alert.alert("Link unavailable", "This link could not be opened safely.");
+      });
+    } else {
+      console.warn("[JOBSAGE] workspace navigation", {
+        frame: "main",
+        action: "blocked",
+        ...urlContext,
+      });
+    }
     return false;
+  }, []);
+
+  const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
+    const targetUrl = event.nativeEvent.targetUrl;
+    if (/^about:blank$/i.test(targetUrl)) {
+      console.info("[JOBSAGE] workspace pop-up placeholder ignored", safeLinkLogContext(targetUrl));
+      return;
+    }
+    const kind = classifyUrl(targetUrl);
+    const contactHandled = kind === "contact" && showInAppContactLink(targetUrl);
+    console.info("[JOBSAGE] workspace new-window link", {
+      action: kind === "first-party" ? "in-app" : contactHandled ? "in-app-contact"
+        : kind === "https" || kind === "http" ? "in-app-browser" : "blocked",
+      ...safeLinkLogContext(targetUrl),
+    });
+    if (kind === "first-party") {
+      webRef.current?.injectJavaScript(`location.assign(${JSON.stringify(targetUrl)});true;`);
+      return;
+    }
+    if (kind === "https" || kind === "http" || kind === "contact") {
+      if (kind === "contact") {
+        if (!contactHandled) Alert.alert("Link unavailable", "This contact or calendar link cannot be opened inside JOBSAGE.");
+        return;
+      }
+      void openExternal(targetUrl).then((ok) => {
+        if (!ok) Alert.alert("Link unavailable", "This link could not be opened safely.");
+      });
+      return;
+    }
+    Alert.alert("Link blocked", "This destination is not a supported public website. JOBSAGE blocked it to protect your data.");
   }, []);
 
   const s = styles(colors);
@@ -387,7 +460,6 @@ export default function WorkspaceScreen() {
         </View>
       ) : null}
 
-      <CandidateCompanionShortcut role={user?.role} />
       <PushNotifications />
 
       <View style={{ flex: 1 }}>
@@ -419,7 +491,11 @@ export default function WorkspaceScreen() {
             injectedJavaScriptBeforeContentLoadedForMainFrameOnly
             onMessage={onMessage}
             onShouldStartLoadWithRequest={onShouldStart}
-            originWhitelist={["https://*", "mailto:*", "tel:*", "webcal:*", "about:*"]}
+            // Route every destination through the explicit policy below so
+            // React Native WebView cannot delegate non-whitelisted URLs to iOS.
+            originWhitelist={["*"]}
+            setSupportMultipleWindows
+            onOpenWindow={onOpenWindow}
             onNavigationStateChange={(n) => {
               if (isFirstPartyUrl(n.url) && !n.url.includes("/api/auth/mobile/session-exchange")) lastUrl.current = n.url;
               setCanGoBack(n.canGoBack);
@@ -439,7 +515,6 @@ export default function WorkspaceScreen() {
             sharedCookiesEnabled
             thirdPartyCookiesEnabled={false}
             javaScriptCanOpenWindowsAutomatically={false}
-            setSupportMultipleWindows={false}
             allowFileAccess={false}
             allowFileAccessFromFileURLs={false}
             allowUniversalAccessFromFileURLs={false}

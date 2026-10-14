@@ -14,7 +14,13 @@ import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadError, downloadAndShare } from "@/lib/native-download";
-import { classifyEmployerWindowTarget, classifyUrl, openExternal, safeLinkLogContext } from "@/lib/external-links";
+import {
+  classifyEmployerWindowTarget,
+  classifyUrl,
+  openExternal,
+  safeLinkLogContext,
+  showInAppContactLink,
+} from "@/lib/external-links";
 import { applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
 import {
   PageCommand,
@@ -45,6 +51,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
   const insets = useSafeAreaInsets();
   const { token, user } = useAuth();
   const webRef = useRef<WebView>(null);
+  const originalStartScheme = safeLinkLogContext(context.applicationUrl).scheme;
   const startUrl = safeEmployerUrl(context.applicationUrl);
   const [currentUrl, setCurrentUrl] = useState<string>(startUrl ?? "");
   const [canGoBack, setCanGoBack] = useState(false);
@@ -80,8 +87,9 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
     console.info("[SmartApply] application browser opened", {
       host: safeLinkLogContext(startUrl ?? "").host,
       safeUrlAvailable: !!startUrl,
+      upgradedToHttps: originalStartScheme === "http" && !!startUrl,
     });
-  }, [startUrl]);
+  }, [originalStartScheme, startUrl]);
 
   useEffect(() => {
     assistantAutoOpenedFor.current = null;
@@ -90,7 +98,8 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
   const onShouldStart = (req: ShouldStartLoadRequest) => {
     const urlContext = safeLinkLogContext(req.url);
     if (req.isTopFrame === false) {
-      const allowed = /^about:(blank|srcdoc)$/i.test(req.url) || !!safeEmployerUrl(req.url);
+      const allowed = /^about:(blank|srcdoc)$/i.test(req.url)
+        || (urlContext.scheme === "https" && !!safeEmployerUrl(req.url));
       console.info("[SmartApply] web navigation", {
         frame: "subframe",
         action: allowed ? "in-app" : "blocked",
@@ -102,17 +111,28 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
       console.info("[SmartApply] web navigation", { frame: "main", action: "in-app", ...urlContext });
       return true;
     }
-    if (safeEmployerUrl(req.url)) {
+    const safeUrl = safeEmployerUrl(req.url);
+    if (safeUrl && urlContext.scheme === "http") {
+      console.info("[SmartApply] web navigation", { frame: "main", action: "upgraded-to-https", ...urlContext });
+      webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(safeUrl)});true;`);
+      return false;
+    }
+    if (safeUrl) {
       console.info("[SmartApply] web navigation", { frame: "main", action: "in-app", ...urlContext });
       return true;
     }
     const kind = classifyUrl(req.url);
-    if (kind === "system") {
-      console.info("[SmartApply] web navigation", { frame: "main", action: "system-app", ...urlContext });
-      void openExternal(req.url);
+    if (kind === "contact") {
+      const handled = showInAppContactLink(req.url);
+      console.info("[SmartApply] web navigation", {
+        frame: "main",
+        action: handled ? "in-app-contact" : "blocked-unsupported-scheme",
+        ...urlContext,
+      });
+      if (!handled) Alert.alert("Link unavailable", "This contact or calendar link cannot be opened inside JOBSAGE.");
     } else {
       console.warn("[SmartApply] web navigation", { frame: "main", action: "blocked", ...urlContext });
-      Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
+      Alert.alert("Link blocked", "This destination is not a supported public website. JOBSAGE blocked it to protect your data.");
     }
     return false;
   };
@@ -122,7 +142,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
     const target = classifyEmployerWindowTarget(targetUrl);
     if (target.kind === "in-app") {
       console.info("[SmartApply] new-window link", {
-        action: "in-app",
+        action: safeLinkLogContext(targetUrl).scheme === "http" ? "upgraded-to-https-in-app" : "in-app",
         ...safeLinkLogContext(targetUrl),
       });
       // target="_blank" and window.open links stay in the controlled browser,
@@ -130,21 +150,20 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
       webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(target.url)});true;`);
       return;
     }
-    if (target.kind === "system") {
+    if (target.kind === "contact") {
+      const handled = showInAppContactLink(targetUrl);
       console.info("[SmartApply] new-window link", {
-        action: "system-app",
+        action: handled ? "in-app-contact" : "blocked-unsupported-scheme",
         ...safeLinkLogContext(targetUrl),
       });
-      void openExternal(targetUrl).then((ok) => {
-        if (!ok) Alert.alert("Link unavailable", "This link could not be opened.");
-      });
+      if (!handled) Alert.alert("Link unavailable", "This contact or calendar link cannot be opened inside JOBSAGE.");
       return;
     }
     console.warn("[SmartApply] new-window link", {
       action: "blocked",
       ...safeLinkLogContext(targetUrl),
     });
-    Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
+    Alert.alert("Link blocked", "This destination is not a supported public website. JOBSAGE blocked it to protect your data.");
   }, []);
 
   const shareCv = async () => {
@@ -306,7 +325,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
               <Feather name="alert-triangle" size={28} color={colors.destructive} />
               <Text style={s.errTitle}>{startUrl ? "Page unavailable" : "Link not allowed"}</Text>
               <Text style={s.errBody}>
-                {startUrl ? loadError : "This application link is not a secure public website, so it cannot be opened in JOBSAGE."}
+                {startUrl ? loadError : "This application link is not a supported public web address, so it cannot be opened safely in JOBSAGE."}
               </Text>
               {startUrl ? (
                 <Pressable style={s.primary} onPress={() => setLoadError(null)} accessibilityRole="button">

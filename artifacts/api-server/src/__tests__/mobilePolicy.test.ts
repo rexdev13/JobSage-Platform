@@ -36,10 +36,14 @@ describe("safe mobile destinations", () => {
   it("retains real internal routes and query strings", () => {
     expect(safeInternalPath("/documents?view=CV#latest")).toBe("/documents?view=CV#latest");
   });
-  it.each(["http://employer.example", "javascript:alert(1)", "https://user:password@employer.example",
+  it.each(["http://localhost", "ftp://employer.example", "javascript:alert(1)", "https://user:password@employer.example",
     "https://localhost", "https://127.0.0.1", "https://2130706433", "https://[::1]", "file:///tmp/cv",
     "https://site.internal", "https://example.com:8443"])(
     "blocks unsafe employer URLs: %s", value => expect(safeEmployerUrl(value)).toBeNull());
+  it("upgrades public HTTP employer URLs to HTTPS", () => {
+    expect(safeEmployerUrl("http://employer.example/apply?source=board"))
+      .toBe("https://employer.example/apply?source=board");
+  });
   it("permits ordinary HTTPS ATS detail URLs", () => {
     expect(safeEmployerUrl("https://company.wd3.myworkdayjobs.com/en-US/jobs/job/JR1")).toContain("JR1");
   });
