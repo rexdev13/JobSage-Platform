@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { randomUUID, createHash } from "node:crypto";
 import { db, privacyPreferencesTable, pushDevicesTable, smartApplyDraftsTable, supportTicketsTable, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { ACCOUNT_DELETION_POLICY, DEFAULT_NOTIFICATION_CHOICES, NOTIFICATION_CATEGORIES, PRIVACY_POLICY_VERSION } from "@workspace/mobile-core";
 import { requirePrivacyActor, readPrivacyAccount, verifyPrivacyReauthentication } from "../lib/privacyAccess";
@@ -207,8 +207,20 @@ router.post("/privacy/push-device", requirePrivacyActor, async (req, res) => {
   res.json({ success: true });
 });
 router.delete("/privacy/push-device", requirePrivacyActor, async (req, res) => {
-  if (!confirmationInput.safeParse(req.body).success) { res.status(400).json({ error: "Explicit confirmation is required." }); return; }
-  await db.delete(pushDevicesTable).where(eq(pushDevicesTable.userId, req.user!.id));
+  const parsed = z.object({
+    confirmed: z.literal(true),
+    token: z.string().regex(/^Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]$/).optional(),
+  }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Explicit confirmation is required." }); return; }
+  if (parsed.data.token) {
+    const tokenHash = createHash("sha256").update(parsed.data.token).digest("hex");
+    await db.delete(pushDevicesTable).where(and(
+      eq(pushDevicesTable.userId, req.user!.id),
+      eq(pushDevicesTable.tokenHash, tokenHash),
+    ));
+  } else {
+    await db.delete(pushDevicesTable).where(eq(pushDevicesTable.userId, req.user!.id));
+  }
   res.json({ success: true });
 });
 export default router;

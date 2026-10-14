@@ -240,7 +240,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PrivacyConfirmationInput"
+              $ref: "#/components/schemas/PushDeviceRevokeInput"
       responses:
         "200":
           description: Current actor's registrations revoked
@@ -5675,6 +5675,13 @@ components:
       properties:
         token: { type: string }
         platform: { type: string, enum: [ios, android] }
+    PushDeviceRevokeInput:
+      type: object
+      additionalProperties: false
+      required: [confirmed]
+      properties:
+        confirmed: { type: boolean, const: true }
+        token: { type: string, pattern: '^Expo(nent)?PushToken\\[[A-Za-z0-9_-]+\\]$' }
     PrivacyActionResult:
       type: object
       required: [success]

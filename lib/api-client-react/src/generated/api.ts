@@ -173,6 +173,7 @@ import type {
   ProfessionListResponse,
   ProgressReportResponse,
   PushDeviceInput,
+  PushDeviceRevokeInput,
   ReadinessQuota,
   RecordConsentRequest,
   RegisterDocumentRequest,
@@ -911,14 +912,14 @@ export const getRevokePushDevicesUrl = () => {
 };
 
 export const revokePushDevices = async (
-  privacyConfirmationInput: PrivacyConfirmationInput,
+  pushDeviceRevokeInput: PushDeviceRevokeInput,
   options?: RequestInit,
 ): Promise<PrivacyActionResult> => {
   return customFetch<PrivacyActionResult>(getRevokePushDevicesUrl(), {
     ...options,
     method: "DELETE",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(privacyConfirmationInput),
+    body: JSON.stringify(pushDeviceRevokeInput),
   });
 };
 
@@ -929,14 +930,14 @@ export const getRevokePushDevicesMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof revokePushDevices>>,
     TError,
-    { data: BodyType<PrivacyConfirmationInput> },
+    { data: BodyType<PushDeviceRevokeInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof revokePushDevices>>,
   TError,
-  { data: BodyType<PrivacyConfirmationInput> },
+  { data: BodyType<PushDeviceRevokeInput> },
   TContext
 > => {
   const mutationKey = ["revokePushDevices"];
@@ -950,7 +951,7 @@ export const getRevokePushDevicesMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof revokePushDevices>>,
-    { data: BodyType<PrivacyConfirmationInput> }
+    { data: BodyType<PushDeviceRevokeInput> }
   > = (props) => {
     const { data } = props ?? {};
 
@@ -963,7 +964,7 @@ export const getRevokePushDevicesMutationOptions = <
 export type RevokePushDevicesMutationResult = NonNullable<
   Awaited<ReturnType<typeof revokePushDevices>>
 >;
-export type RevokePushDevicesMutationBody = BodyType<PrivacyConfirmationInput>;
+export type RevokePushDevicesMutationBody = BodyType<PushDeviceRevokeInput>;
 export type RevokePushDevicesMutationError = ErrorType<unknown>;
 
 export const useRevokePushDevices = <
@@ -973,14 +974,14 @@ export const useRevokePushDevices = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof revokePushDevices>>,
     TError,
-    { data: BodyType<PrivacyConfirmationInput> },
+    { data: BodyType<PushDeviceRevokeInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof revokePushDevices>>,
   TError,
-  { data: BodyType<PrivacyConfirmationInput> },
+  { data: BodyType<PushDeviceRevokeInput> },
   TContext
 > => {
   return useMutation(getRevokePushDevicesMutationOptions(options));

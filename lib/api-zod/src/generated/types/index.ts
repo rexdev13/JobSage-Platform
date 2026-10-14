@@ -308,6 +308,7 @@ export * from "./progressReportResponseTopCompaniesItem";
 export * from "./progressReportStats";
 export * from "./pushDeviceInput";
 export * from "./pushDeviceInputPlatform";
+export * from "./pushDeviceRevokeInput";
 export * from "./readinessQuota";
 export * from "./readinessQuotaPlan";
 export * from "./recommendationLetter";

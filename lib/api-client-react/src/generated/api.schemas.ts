@@ -111,6 +111,12 @@ export interface PushDeviceInput {
   platform: PushDeviceInputPlatform;
 }
 
+export interface PushDeviceRevokeInput {
+  confirmed: true;
+  /** @pattern ^Expo(nent)?PushToken\\[[A-Za-z0-9_-]+\\]$ */
+  token?: string;
+}
+
 export interface PrivacyActionResult {
   success: boolean;
 }

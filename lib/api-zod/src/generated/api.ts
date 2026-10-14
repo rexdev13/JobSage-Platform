@@ -151,8 +151,13 @@ export const RevokePushDevicesHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
 });
 
+export const revokePushDevicesBodyTokenRegExp = new RegExp(
+  "^Expo(nent)?PushToken\\\\[[A-Za-z0-9_-]+\\\\]$",
+);
+
 export const RevokePushDevicesBody = zod.object({
   confirmed: zod.boolean(),
+  token: zod.string().regex(revokePushDevicesBodyTokenRegExp).optional(),
 });
 
 export const RevokePushDevicesResponse = zod.object({

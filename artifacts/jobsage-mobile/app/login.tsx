@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLoginWithEmail } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -20,11 +20,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { safeInternalPath } from "@workspace/mobile-core";
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
+  const params = useLocalSearchParams<{ next?: string | string[] }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +44,10 @@ export default function LoginScreen() {
             role: data.user.role ?? null,
           });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          router.replace("/workspace");
+          const nextPath = typeof params.next === "string" ? safeInternalPath(params.next) : null;
+          router.replace(nextPath
+            ? { pathname: "/workspace", params: { path: nextPath } }
+            : "/workspace");
         }
       },
       onError: (err: unknown) => {
