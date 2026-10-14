@@ -78,7 +78,7 @@ function extractResetToken(message: CapturedMessage): string {
 async function resetSyntheticPassword(page: Page, email: string): Promise<string> {
   const previousIds = new Set((await readCapture()).flatMap((message) => message.id ? [message.id] : []));
 
-  await page.goto(`${BASE_PATH}/forgot-password`);
+  await visitRoute(page, "/forgot-password");
   await page.locator('input[type="email"]').fill(email);
   const forgotResponsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname.endsWith("/api/auth/forgot-password")
@@ -262,6 +262,80 @@ test.describe("synthetic authenticated role matrix", () => {
       }
 
       await visitRoute(page, "/profile");
+      await expect(page.getByRole("heading", { name: "Application Details" })).toBeVisible();
+      const unlabeledProfileControls = await page.locator(
+        'input:not([type="hidden"]), textarea, select',
+      ).evaluateAll((controls) => controls
+        .filter((control) => {
+          const style = getComputedStyle(control);
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && control.getClientRects().length > 0;
+        })
+        .filter((control) => {
+          const field = control as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          return !field.labels?.length
+            && !control.getAttribute("aria-label")
+            && !control.getAttribute("aria-labelledby");
+        })
+        .map((control) => ({
+          tag: control.tagName.toLowerCase(),
+          type: control.getAttribute("type"),
+          name: control.getAttribute("name"),
+          placeholder: control.getAttribute("placeholder"),
+        })));
+      expect(unlabeledProfileControls, "Visible profile controls need an accessible label").toEqual([]);
+      const initialProfile = await page.evaluate(async () => {
+        const response = await fetch("/api/profiles/me", { credentials: "include" });
+        return {
+          status: response.status,
+          profile: await response.json() as { applicationStrengths?: string | null },
+        };
+      });
+      expect(initialProfile.status).toBe(200);
+
+      const strengthsField = page.locator('[name="applicationStrengths"]');
+      const originalStrengths = initialProfile.profile.applicationStrengths ?? "";
+      const savedStrengths = `Synthetic candidate profile save ${Date.now()}`;
+      const waitForStrengthsSave = (expected: string) => page.waitForResponse((response) => {
+        if (
+          response.request().method() !== "PUT"
+          || !new URL(response.url()).pathname.endsWith("/api/profiles/me")
+        ) return false;
+        return response.request().postDataJSON()?.applicationStrengths === (expected || null);
+      });
+
+      let profileSaveSucceeded = false;
+      try {
+        const saveResponsePromise = waitForStrengthsSave(savedStrengths);
+        await strengthsField.fill(savedStrengths);
+        await strengthsField.press("Tab");
+        const saveResponse = await saveResponsePromise;
+        expect(saveResponse.ok()).toBeTruthy();
+        const savedProfile = await saveResponse.json() as { applicationStrengths?: string | null };
+        expect(savedProfile.applicationStrengths).toBe(savedStrengths);
+        profileSaveSucceeded = true;
+
+        await page.reload();
+        await expect(strengthsField).toHaveValue(savedStrengths);
+        const persistedProfile = await page.evaluate(async () => {
+          const response = await fetch("/api/profiles/me", { credentials: "include" });
+          return { status: response.status, profile: await response.json() as { applicationStrengths?: string | null } };
+        });
+        expect(persistedProfile.status).toBe(200);
+        expect(persistedProfile.profile.applicationStrengths).toBe(savedStrengths);
+      } finally {
+        if (profileSaveSucceeded) {
+          const restoreResponsePromise = waitForStrengthsSave(originalStrengths);
+          await strengthsField.fill(originalStrengths);
+          await strengthsField.press("Tab");
+          const restoreResponse = await restoreResponsePromise;
+          expect(restoreResponse.ok()).toBeTruthy();
+          await page.reload();
+          await expect(strengthsField).toHaveValue(originalStrengths);
+        }
+      }
+
       const adminApiStatus = await page.evaluate(async () =>
         (await fetch("/api/admin/roles", { credentials: "include" })).status,
       );
@@ -270,6 +344,34 @@ test.describe("synthetic authenticated role matrix", () => {
       await page.getByTestId("button-logout").click();
       await expect.poll(async () => (await currentUser(page)).user).toBeNull();
       await visitRoute(page, "/profile", "/login");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("account switching: a new synthetic role replaces the prior session", async ({ browser }) => {
+    test.setTimeout(90000);
+    const context = await browser.newContext({ baseURL: BASE_URL });
+    const page = await context.newPage();
+    try {
+      const candidateEmail = "validation.candidate@jobsage.test";
+      const candidatePassword = await resetSyntheticPassword(page, candidateEmail);
+      await signInSyntheticAccount(page, candidateEmail, candidatePassword);
+      expect((await currentUser(page)).user?.email).toBe(candidateEmail);
+
+      await page.getByTestId("button-logout").click();
+      await expect.poll(async () => (await currentUser(page)).user).toBeNull();
+
+      const adminEmail = "validation.admin@jobsage.test";
+      const adminPassword = await resetSyntheticPassword(page, adminEmail);
+      await signInSyntheticAccount(page, adminEmail, adminPassword);
+      const switched = await currentUser(page);
+      expect(switched.user?.email).toBe(adminEmail);
+      expect(switched.user?.role).toBe("admin");
+      await visitRoute(page, "/admin/users");
+
+      await page.getByTestId("button-logout").click();
+      await expect.poll(async () => (await currentUser(page)).user).toBeNull();
     } finally {
       await context.close();
     }

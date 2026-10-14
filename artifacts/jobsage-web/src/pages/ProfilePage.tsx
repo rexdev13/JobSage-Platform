@@ -708,7 +708,7 @@ export default function ProfilePage() {
                 }}
               />
               <div>
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="profile-field-profession" className="flex items-center gap-1">
                   Profession *
                   {!formData.profession && <NotFoundBadge />}
                 </Label>
@@ -749,7 +749,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>
+                <Label htmlFor="profile-field-specialty">
                   Specialty
                 </Label>
                 <Input
@@ -768,7 +768,7 @@ export default function ProfilePage() {
 
               {showRegistrationStatus && (
                 <div>
-                  <Label>
+                  <Label htmlFor="profile-field-registrationStatus">
                     <TooltipLabel
                       label="UK Registration Status"
                       required
@@ -795,7 +795,7 @@ export default function ProfilePage() {
               )}
 
               <div>
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="profile-field-experienceYears" className="flex items-center gap-1">
                   Years of Experience *
                   {!formData.experienceYears && <NotFoundBadge />}
                 </Label>
@@ -822,7 +822,7 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Qualifications</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="profile-field-qualificationCountry" className="flex items-center gap-1">
                   Country of Qualification *
                   {!formData.qualificationCountry && <NotFoundBadge />}
                 </Label>
@@ -841,7 +841,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="profile-field-qualificationType" className="flex items-center gap-1">
                   Degree / Qualification Type *
                   {!formData.qualificationType && <NotFoundBadge />}
                 </Label>
@@ -861,7 +861,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="profile-field-qualificationYear" className="flex items-center gap-1">
                   Graduation Year *
                   {!formData.qualificationYear && <NotFoundBadge />}
                 </Label>
@@ -916,8 +916,8 @@ export default function ProfilePage() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label>DBS clearance level</Label>
-                  <Select name="dbsClearanceLevel" value={formData.dbsClearanceLevel} onChange={handleChange} onBlur={handleBlur}>
+                  <Label htmlFor="profile-field-dbsClearanceLevel">DBS clearance level</Label>
+                  <Select id="profile-field-dbsClearanceLevel" name="dbsClearanceLevel" value={formData.dbsClearanceLevel} onChange={handleChange} onBlur={handleBlur}>
                     <option value="unknown">I don&apos;t know / not recorded</option>
                     <option value="none">None</option>
                     <option value="basic">Basic DBS</option>
@@ -926,8 +926,8 @@ export default function ProfilePage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Safeguarding training level</Label>
-                  <Select name="safeguardingTrainingLevel" value={formData.safeguardingTrainingLevel} onChange={handleChange} onBlur={handleBlur}>
+                  <Label htmlFor="profile-field-safeguardingTrainingLevel">Safeguarding training level</Label>
+                  <Select id="profile-field-safeguardingTrainingLevel" name="safeguardingTrainingLevel" value={formData.safeguardingTrainingLevel} onChange={handleChange} onBlur={handleBlur}>
                     <option value="unknown">I don&apos;t know / not recorded</option>
                     <option value="none">None</option>
                     <option value="level_1">Level 1</option>
@@ -945,7 +945,7 @@ export default function ProfilePage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>
+                  <Label htmlFor="profile-field-residencyStatus">
                   <TooltipLabel
                     label="Residency / Visa Status"
                     required
@@ -975,8 +975,9 @@ export default function ProfilePage() {
 
               {formData.residencyStatus === "Other" && (
                 <div>
-                  <Label>Please describe your visa / residency status *</Label>
+                  <Label htmlFor="profile-field-residencyStatusOther">Please describe your visa / residency status *</Label>
                   <Input
+                    id="profile-field-residencyStatusOther"
                     name="residencyStatusOther"
                     value={formData.residencyStatusOther}
                     onChange={handleChange}
@@ -1051,24 +1052,24 @@ export default function ProfilePage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Phone number *</Label>
-                <Input name="phone" type="tel" autoComplete="tel" value={formData.phone} onChange={handleChange} onBlur={handleBlur} required />
+                <Label htmlFor="profile-field-phone">Phone number *</Label>
+                <Input id="profile-field-phone" name="phone" type="tel" autoComplete="tel" value={formData.phone} onChange={handleChange} onBlur={handleBlur} required />
               </div>
               <div>
-                <Label>Street address *</Label>
-                <Input name="streetAddress" autoComplete="street-address" value={formData.streetAddress} onChange={handleChange} onBlur={handleBlur} required />
+                <Label htmlFor="profile-field-streetAddress">Street address *</Label>
+                <Input id="profile-field-streetAddress" name="streetAddress" autoComplete="street-address" value={formData.streetAddress} onChange={handleChange} onBlur={handleBlur} required />
               </div>
               <div>
-                <Label>City / town *</Label>
-                <Input name="city" autoComplete="address-level2" value={formData.city} onChange={handleChange} onBlur={handleBlur} required />
+                <Label htmlFor="profile-field-city">City / town *</Label>
+                <Input id="profile-field-city" name="city" autoComplete="address-level2" value={formData.city} onChange={handleChange} onBlur={handleBlur} required />
               </div>
               <div>
-                <Label>Postcode *</Label>
-                <Input name="postcode" autoComplete="postal-code" value={formData.postcode} onChange={handleChange} onBlur={handleBlur} required />
+                <Label htmlFor="profile-field-postcode">Postcode *</Label>
+                <Input id="profile-field-postcode" name="postcode" autoComplete="postal-code" value={formData.postcode} onChange={handleChange} onBlur={handleBlur} required />
               </div>
               <div>
-                <Label>Country *</Label>
-                <Input name="country" autoComplete="country-name" value={formData.country} onChange={handleChange} onBlur={handleBlur} required />
+                <Label htmlFor="profile-field-country">Country *</Label>
+                <Input id="profile-field-country" name="country" autoComplete="country-name" value={formData.country} onChange={handleChange} onBlur={handleBlur} required />
               </div>
             </div>
           </Card>
@@ -1081,7 +1082,7 @@ export default function ProfilePage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>
+                <Label htmlFor="profile-field-preferredStartDate">
                   Earliest Available Start Date
                 </Label>
                 <Input
@@ -1100,7 +1101,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>
+                <Label htmlFor="profile-field-languages">
                   Languages Spoken
                 </Label>
                 <Input
@@ -1118,7 +1119,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="col-span-1 md:col-span-2">
-                <Label>
+                <Label htmlFor="profile-field-additionalNotes">
                   Additional Notes
                 </Label>
                 <textarea
@@ -1146,8 +1147,9 @@ export default function ProfilePage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <Label>Why are you applying for roles like this?</Label>
+                <Label htmlFor="profile-field-applicationMotivation">Why are you applying for roles like this?</Label>
                 <textarea
+                  id="profile-field-applicationMotivation"
                   name="applicationMotivation"
                   value={formData.applicationMotivation}
                   onChange={handleChange}
@@ -1159,8 +1161,9 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label>Your professional strengths</Label>
+                <Label htmlFor="profile-field-applicationStrengths">Your professional strengths</Label>
                 <textarea
+                  id="profile-field-applicationStrengths"
                   name="applicationStrengths"
                   value={formData.applicationStrengths}
                   onChange={handleChange}
@@ -1172,8 +1175,9 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <Label>Notice period</Label>
+                <Label htmlFor="profile-field-noticePeriod">Notice period</Label>
                 <Input
+                  id="profile-field-noticePeriod"
                   name="noticePeriod"
                   value={formData.noticePeriod}
                   onChange={handleChange}
@@ -1183,8 +1187,9 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <Label>Confirmed start availability</Label>
+                <Label htmlFor="profile-field-startAvailability">Confirmed start availability</Label>
                 <Input
+                  id="profile-field-startAvailability"
                   name="startAvailability"
                   value={formData.startAvailability}
                   onChange={handleChange}

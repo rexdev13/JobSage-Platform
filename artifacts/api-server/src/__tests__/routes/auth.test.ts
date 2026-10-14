@@ -203,6 +203,54 @@ describe("POST /auth/login", () => {
   });
 });
 
+describe("GET /auth/verify-email", () => {
+  beforeEach(() => { authResults.length = 0; vi.clearAllMocks(); });
+
+  it("rejects expired verification links without issuing a session", async () => {
+    authResults.push([{
+      id: "u1",
+      email: "test@example.com",
+      emailVerifyTokenExpires: new Date(Date.now() - 1000),
+    }]);
+    const auth = await import("../../lib/auth");
+    const res = await request(buildApp()).get("/auth/verify-email?token=expired-token");
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toMatch(/\/login\?error=token_expired$/);
+    expect(setMock).not.toHaveBeenCalled();
+    expect(auth.createSession).not.toHaveBeenCalled();
+  });
+
+  it("clears a verified token and rejects replay", async () => {
+    const app = buildApp();
+    authResults.push([{
+      id: "u1",
+      email: "test@example.com",
+      firstName: "Test",
+      lastName: "User",
+      profileImageUrl: null,
+      role: "candidate",
+      emailVerifyTokenExpires: new Date(Date.now() + 3600000),
+    }]);
+    const first = await request(app).get("/auth/verify-email?token=single-use-token");
+
+    expect(first.status).toBe(302);
+    expect(first.headers.location).toMatch(/\/$/);
+    expect(first.headers["set-cookie"]).toBeDefined();
+    expect(setMock).toHaveBeenCalledWith({
+      emailVerified: true,
+      emailVerifyToken: null,
+      emailVerifyTokenExpires: null,
+    });
+
+    authResults.push([]);
+    const replay = await request(app).get("/auth/verify-email?token=single-use-token");
+    expect(replay.status).toBe(302);
+    expect(replay.headers.location).toMatch(/\/login\?error=token_expired$/);
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("POST /auth/forgot-password", () => {
   beforeEach(() => { authResults.length = 0; vi.clearAllMocks(); });
 
@@ -259,6 +307,47 @@ describe("POST /auth/reset-password", () => {
     const res = await request(app).post("/auth/reset-password").send({ token: "valid-token", password: "newpassword123" });
     expect(res.status).toBe(200);
     expect(res.body.message).toContain("Password updated");
+  });
+
+  it("rejects expired reset links without changing the account", async () => {
+    authResults.push([{
+      id: "u1",
+      passwordResetTokenExpires: new Date(Date.now() - 1000),
+    }]);
+    const bcrypt = await import("bcryptjs");
+    const res = await request(buildApp())
+      .post("/auth/reset-password")
+      .send({ token: "expired-token", password: "newpassword123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("has expired");
+    expect(setMock).not.toHaveBeenCalled();
+    expect(bcrypt.default.hash).not.toHaveBeenCalled();
+  });
+
+  it("clears a reset token after use so a replay is rejected", async () => {
+    const app = buildApp();
+    authResults.push([{
+      id: "u1",
+      passwordResetTokenExpires: new Date(Date.now() + 3600000),
+    }]);
+    const first = await request(app)
+      .post("/auth/reset-password")
+      .send({ token: "single-use-token", password: "newpassword123" });
+
+    expect(first.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({
+      passwordResetToken: null,
+      passwordResetTokenExpires: null,
+    }));
+
+    authResults.push([]);
+    const replay = await request(app)
+      .post("/auth/reset-password")
+      .send({ token: "single-use-token", password: "newpassword123" });
+    expect(replay.status).toBe(400);
+    expect(replay.body.error).toContain("invalid or has expired");
+    expect(setMock).toHaveBeenCalledTimes(1);
   });
 });
 

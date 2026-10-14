@@ -17,9 +17,26 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
+import { cleanupInterruptedDocumentUploads } from "@/lib/document-upload";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+}
+
+if (Platform.OS !== "web") {
+  void import("expo-notifications").then((Notifications) => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  }).catch(() => {
+    // A native notification module can be absent in Expo Go or web previews.
+  });
 }
 
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +76,14 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    try {
+      cleanupInterruptedDocumentUploads();
+    } catch {
+      // The Documents screen retries cleanup and blocks new uploads if it still fails.
+    }
+  }, []);
 
   // A slow web font request must not leave the entire browser preview blank.
   // The browser can render with its system fallback while Inter finishes loading.

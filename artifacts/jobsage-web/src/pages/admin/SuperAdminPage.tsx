@@ -1372,7 +1372,7 @@ function IdentityQueueTab() {
   );
 }
 
-function LettersTab() {
+export function LettersTab() {
   const [letters, setLetters] = useState<RecommendationLetterAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -1428,8 +1428,8 @@ function LettersTab() {
             </thead>
             <tbody>
               {letters.map((l) => (
-                <>
-                  <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                <Fragment key={l.id}>
+                  <tr className="border-t border-border hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{l.candidateUserId.slice(0, 12)}…</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{l.authorName}</p>
@@ -1474,7 +1474,7 @@ function LettersTab() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

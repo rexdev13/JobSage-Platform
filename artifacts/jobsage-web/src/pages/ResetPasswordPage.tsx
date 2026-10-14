@@ -85,7 +85,7 @@ export default function ResetPasswordPage() {
                 <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-xl font-display font-bold text-foreground mb-3">Password updated</h2>
+                <h1 className="text-xl font-display font-bold text-foreground mb-3">Password updated</h1>
                 <p className="text-muted-foreground text-sm mb-6">
                   Your password has been changed. You can now sign in with your new password.
                 </p>
@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
               </div>
             ) : (
               <>
-                <h2 className="text-2xl font-display font-bold text-foreground mb-1">Set new password</h2>
+                <h1 className="text-2xl font-display font-bold text-foreground mb-1">Set new password</h1>
                 <p className="text-muted-foreground text-sm mb-6">
                   Choose a strong password for your JOBSAGE account.
                 </p>
@@ -115,9 +115,10 @@ export default function ResetPasswordPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">New password</label>
+                    <label htmlFor="reset-password" className="block text-sm font-medium text-foreground mb-1.5">New password</label>
                     <div className="relative">
                       <input
+                        id="reset-password"
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -129,8 +130,9 @@ export default function ResetPasswordPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-                        tabIndex={-1}
+                        aria-label={showPassword ? "Hide passwords" : "Show passwords"}
+                        aria-pressed={showPassword}
+                        className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -138,8 +140,9 @@ export default function ResetPasswordPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Confirm new password</label>
+                    <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-foreground mb-1.5">Confirm new password</label>
                     <input
+                      id="reset-confirm-password"
                       type={showPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

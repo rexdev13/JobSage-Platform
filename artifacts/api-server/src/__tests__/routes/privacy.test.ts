@@ -1,5 +1,6 @@
 import express from "express";
 import request from "supertest";
+import { createHash } from "node:crypto";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -203,6 +204,20 @@ describe("account-bound privacy routes (fixtures only)", () => {
     const condition = new PgDialect().sqlToQuery(fixtures.deletedWhere.mock.calls[0][0]);
     expect(condition.sql).toContain('"smart_apply_drafts"."user_id"');
     expect(condition.params).toEqual([actor.id]);
+  });
+
+  it("revokes only the requesting device when a push token is supplied", async () => {
+    freshActor();
+    const token = "ExponentPushToken[fixture-device-token]";
+    const response = await action("delete", "push-device").send({ confirmed: true, token });
+    expect(response.status).toBe(200);
+    const condition = new PgDialect().sqlToQuery(fixtures.deletedWhere.mock.calls[0][0]);
+    expect(condition.sql).toContain('"push_devices"."user_id"');
+    expect(condition.sql).toContain('"push_devices"."token_hash"');
+    expect(condition.params).toEqual([
+      actor.id,
+      createHash("sha256").update(token).digest("hex"),
+    ]);
   });
 
   it("records only a reauthenticated export-request receipt, not an export", async () => {

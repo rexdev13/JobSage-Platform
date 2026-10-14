@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { safeInternalPath } from "@workspace/mobile-core";
+import { authorizeDeepLinkAfterLogin } from "@/lib/deep-link";
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -44,7 +45,14 @@ export default function LoginScreen() {
             role: data.user.role ?? null,
           });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          const nextPath = typeof params.next === "string" ? safeInternalPath(params.next) : null;
+          const nextPath = typeof params.next === "string"
+            ? authorizeDeepLinkAfterLogin(params.next, data.user.id)
+            : null;
+          if (typeof params.next === "string" && !nextPath) {
+            Alert.alert("Link not opened", "This destination belongs to a different account or is not a safe JOBSAGE link.");
+            router.replace("/workspace");
+            return;
+          }
           router.replace(nextPath
             ? { pathname: "/workspace", params: { path: nextPath } }
             : "/workspace");

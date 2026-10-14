@@ -18,6 +18,8 @@ jest.mock("expo-router", () => {
   return {
     router: { push: jest.fn(), replace: jest.fn() },
     useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+    useLocalSearchParams: () => ({}),
+    useURL: () => null,
     Link: ({ children }: { children: React.ReactNode }) => children,
     Redirect: ({ href }: { href: string }) =>
       React.createElement(Text, { testID: "companion-redirect", accessibilityLabel: href }, href),
@@ -28,6 +30,24 @@ jest.mock("expo-router", () => {
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
   Feather: () => null,
+}));
+
+jest.mock("expo-notifications", () => ({
+  AndroidImportance: { DEFAULT: 3 },
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  clearLastNotificationResponseAsync: jest.fn(() => Promise.resolve()),
+  getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: "ExponentPushToken[fixture]" })),
+  getLastNotificationResponseAsync: jest.fn(() => Promise.resolve(null)),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, canAskAgain: true })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, canAskAgain: true })),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("expo-secure-store", () => ({
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: "WHEN_UNLOCKED_THIS_DEVICE_ONLY",
+  deleteItemAsync: jest.fn(() => Promise.resolve()),
+  getItemAsync: jest.fn(() => Promise.resolve(null)),
+  setItemAsync: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock("expo-haptics", () => ({

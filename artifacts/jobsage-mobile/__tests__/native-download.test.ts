@@ -55,7 +55,7 @@ jest.mock("@/lib/workspace-config", () => ({
   isFirstPartyUrl: (url: string) => url.startsWith("https://fixture.jobsage.example/"),
 }));
 
-import { cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare, safeFilename } from "@/lib/native-download";
+import { cleanupTempDownload, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare, safeFilename } from "@/lib/native-download";
 import { createMobileSessionGrant } from "@workspace/api-client-react";
 import { shareAsync } from "expo-sharing";
 
@@ -140,6 +140,17 @@ describe("native download cache isolation", () => {
     expect(second.filename).toBe("CV.pdf");
     expect(first.uri).not.toBe(second.uri);
     expect(mockFiles.has(first.uri)).toBe(true);
+    expect(mockFiles.has(second.uri)).toBe(true);
+  });
+
+  it("cleans one PDF viewer file without deleting another download or another account's file", async () => {
+    const first = await downloadAndShare({ url: fixtureUrl, token: mockToken, filename: "CV.pdf", share: false });
+    const second = await downloadAndShare({ url: fixtureUrl, token: mockToken, filename: "CV.pdf", share: false });
+
+    expect(() => cleanupTempDownload(first.uri, "candidate-b")).toThrow("different signed-in account");
+    expect(mockFiles.has(first.uri)).toBe(true);
+    cleanupTempDownload(first.uri, "candidate-a");
+    expect(mockFiles.has(first.uri)).toBe(false);
     expect(mockFiles.has(second.uri)).toBe(true);
   });
 

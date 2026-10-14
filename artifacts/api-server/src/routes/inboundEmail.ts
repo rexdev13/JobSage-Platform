@@ -27,6 +27,8 @@ import {
 import { eq, and, or } from "drizzle-orm";
 import { sendEmployerReplyNotification } from "../lib/email";
 import { isPrivacyNotificationAllowed } from "../lib/privacyAccess";
+import { enqueuePushNotification } from "../lib/pushNotifications";
+import { logger } from "../lib/logger";
 import {
   forwardReceivedEmail,
   getReceivedEmail,
@@ -597,6 +599,13 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
     console.error("[inbound-email] Failed to insert inbox message:", err);
     res.status(500).json({ error: "Failed to store message" });
     return;
+  }
+  if (insertedMessageId !== null) {
+    void enqueuePushNotification({
+      eventKey: `inbound-message:${insertedMessageId}`,
+      userId: candidateUserId,
+      category: "messages",
+    }).catch(() => logger.warn({ category: "messages" }, "Could not queue an inbound-message push notification"));
   }
 
   // --- 10. Advance application status -----------------------------------

@@ -63,6 +63,31 @@ export function normalizeRegionList(values: readonly (string | null | undefined)
   return [...new Set((values ?? []).map(normalizeRegion).filter((region): region is UkRegion => region !== null))];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const COUNTY_REGION_MATCHERS = Object.keys(COUNTY_TO_REGION)
+  .sort((left, right) => right.length - left.length)
+  .flatMap((term) => {
+    const normalizedTerm = normalizeText(term);
+    const region = normalizeRegion(COUNTY_TO_REGION[term]);
+    return region
+      ? [{
+          normalizedTerm,
+          region,
+          pattern: new RegExp(`(?:^| )${escapeRegExp(normalizedTerm)}(?: |$)`),
+        }]
+      : [];
+  });
+
+const REGION_ALIAS_MATCHERS = Object.keys(REGION_ALIASES)
+  .sort((left, right) => right.length - left.length)
+  .map((term) => ({
+    region: REGION_ALIASES[term]!,
+    pattern: new RegExp(`(?:^| )${escapeRegExp(term)}(?: |$)`),
+  }));
+
 /**
  * Empty target regions mean that the publisher has not supplied a restriction.
  * Empty candidate preferences mean that the candidate is open to any location.
@@ -90,18 +115,13 @@ export function regionsFromLocationText(location: string | null | undefined): Uk
   const hasNewYorkContext =
     /(?:^| )new york(?: city)?(?: |$)/.test(normalizedLocation) ||
     /(?:^| )nyc(?: |$)/.test(normalizedLocation);
-  const terms = Object.keys(COUNTY_TO_REGION)
-    .sort((a, b) => b.length - a.length)
-    .filter((term) => {
-      const normalizedTerm = normalizeText(term);
-      if (hasNewYorkContext && normalizedTerm === "york") return false;
-      return new RegExp(`(?:^| )${normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: |$)`).test(normalizedLocation);
-    })
-    .map((term) => normalizeRegion(COUNTY_TO_REGION[term]))
-    .filter((region): region is UkRegion => region !== null);
-  const directRegion = Object.keys(REGION_ALIASES)
-    .sort((a, b) => b.length - a.length)
-    .filter((term) => new RegExp(`(?:^| )${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: |$)`).test(normalizedLocation))
-    .map((term) => REGION_ALIASES[term]);
+  const terms = COUNTY_REGION_MATCHERS
+    .filter(({ normalizedTerm, pattern }) =>
+      !(hasNewYorkContext && normalizedTerm === "york") && pattern.test(normalizedLocation),
+    )
+    .map(({ region }) => region);
+  const directRegion = REGION_ALIAS_MATCHERS
+    .filter(({ pattern }) => pattern.test(normalizedLocation))
+    .map(({ region }) => region);
   return [...new Set([...terms, ...directRegion])];
 }

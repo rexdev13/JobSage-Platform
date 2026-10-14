@@ -218,6 +218,13 @@
       "when": 1791936000004,
       "tag": "0052_account_deletion_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791936000005,
+      "tag": "0053_push_delivery_pipeline",
+      "breakpoints": true
     }
   ]
 }

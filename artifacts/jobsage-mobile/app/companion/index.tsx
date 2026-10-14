@@ -19,20 +19,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { WorkspaceQuickLinks } from "@/components/WorkspaceQuickLinks";
 
 function ReadinessRing({ score, size = 180 }: { score: number; size?: number }) {
   const colors = useColors();
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(Math.max(score, 0), 100) / 100;
+  const normalizedScore = Math.min(Math.max(score, 0), 100);
+  const progress = normalizedScore / 100;
   const strokeDashoffset = circumference * (1 - progress);
 
   const ringColor =
     score >= 80 ? "#22c55e" : score >= 60 ? "#0ea5e9" : score >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`UK registration readiness score: ${Math.round(normalizedScore)} out of 100`}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(normalizedScore) }}
+      style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
+    >
       <Svg width={size} height={size}>
         <G rotation="-90" origin={`${size / 2},${size / 2}`}>
           <Circle
@@ -59,7 +67,7 @@ function ReadinessRing({ score, size = 180 }: { score: number; size?: number }) 
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ fontSize: 42, fontFamily: "Inter_700Bold", color: ringColor }}>
-            {score}
+            {Math.round(normalizedScore)}
           </Text>
           <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground, marginTop: 2 }}>
             READINESS
@@ -256,6 +264,8 @@ export default function DashboardScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.push("/companion/path");
             }}
+            accessibilityRole="button"
+            accessibilityLabel="View my JOBSAGE registration path"
             testID="view-path-button"
           >
             <Ionicons name="map-outline" size={18} color={colors.primaryForeground} />
@@ -266,6 +276,7 @@ export default function DashboardScreen() {
           </Pressable>
         </>
       ) : null}
+      <WorkspaceQuickLinks />
     </ScrollView>
   );
 }

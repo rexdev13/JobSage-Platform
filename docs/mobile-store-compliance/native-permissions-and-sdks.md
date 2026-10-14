@@ -5,10 +5,10 @@ Status: **least-privilege source cleanup applied; resolved iOS/Android manifests
 ## Current source evidence
 
 - No direct mobile source imports of `expo-location` or `expo-image-picker` were found. Both packages were removed from the mobile artifact and lockfile after inspecting their Android manifests: location carried location permissions, and image picker carried camera and legacy storage permissions.
-- `expo-document-picker` remains as a declared module; its runtime use and exact behavior must be confirmed against the mobile source/build. Native WebView file chooser behavior is device/OS-owned and has not been physically tested.
-- `expo-file-system` and `expo-sharing` are used to download and share generated files. They must be tested for cache cleanup, app sandbox boundaries, sheet hand-off and error/cancel states.
-- No explicit native request was found for location, camera, contacts, calendar-event access, or notification permission. Google Calendar access is a first-party, optional marketer workflow using OAuth in the web product; it is not an iOS/Android contacts/calendar permission.
-- The API has a push-token model, but the mobile artifact does not yet register for push or prompt for notification permission.
+- The native Documents route uses `expo-document-picker`, validates its allowlist and size limit, copies selected content to app-owned cache, and uploads through the authenticated API client. Employer ATS file-picker behavior inside WebView remains device/OS-owned and unverified.
+- `expo-file-system` and `expo-sharing` support private downloads and sharing. iOS PDF preview uses a local WebView; Android opens the system share sheet. Temporary document staging and individual preview cleanup have synthetic coverage, not device evidence.
+- No native request was found for location, camera, contacts, or calendar-event access. Notification permission is requested only after the candidate explicitly enables notifications. Google Calendar access is a first-party, optional marketer workflow using OAuth in the web product; it is not an iOS/Android contacts/calendar permission.
+- Native push registration and the server delivery/receipt pipeline are implemented in source. Real OS token registration, provider delivery, and receipt handling remain unverified on devices.
 - No generated `ios/` or `android/` project, signed archive/APK/AAB, or app-owned `PrivacyInfo.xcprivacy` was inspected. Package removal reduces manifest-merging risk but does not prove the final manifest contains no such permissions.
 
 ## Release permission matrix
@@ -16,12 +16,12 @@ Status: **least-privilege source cleanup applied; resolved iOS/Android manifests
 | Capability | Shipped-source status | Required before permission/API use |
 |---|---|---|
 | Location | No feature use found; unused native module removed | Do not add unless a specific feature needs it; explain purpose before asking and keep manual region entry available. |
-| Camera | No direct Expo camera/ImagePicker feature | If identity/photo capture is shipped, add a user-initiated flow, precise pre-prompt explanation, denial/cancel fallback, privacy disclosures and device tests. |
-| Photos / document chooser | File/document paths exist; native WebView picker not accepted on devices | Limit selection to user-chosen documents; test iOS/Android file and camera chooser behavior, MIME/size limits, cancellation, sandbox copies, upload progress and removal. |
+| Camera | No camera capture is shipped; the document picker can select user-owned image files without requesting camera permission | Keep camera access absent unless a defined identity/photo flow requires it; then add a user-initiated, explained permission request, denial/cancel fallback, privacy disclosure and device tests. |
+| Photos / document chooser | Native candidate document picker, private staged upload, offline retry, cancel/background handling and XHR transfer progress are implemented | Verify iOS/Android chooser behavior and employer ATS WebView file input, file type/size enforcement, cancellation, cache cleanup, progress, PDF preview and removal on devices. |
 | Contacts | No feature use found | Keep undeclared/unrequested. |
 | Calendar event permission | No native OS calendar API found; marketer scheduling uses Google OAuth in the web app | Keep server integration scopes separate; test role restriction and OAuth revocation. |
-| Notifications | Registration and OS prompt flow not implemented/verified | Keep permission unrequested until value explanation, opt-in, token revocation and account-deletion cleanup are complete. |
-| Filesystem / share sheet | Used for candidate-generated file downloads | Test private cache, cleanup on logout/account change, temporary share copy, offline/error states and access after deletion. |
+| Notifications | Explicit opt-in, permission-denial/settings path, account-bound token registration/revocation, and server delivery/receipt source are implemented | Verify permission denial/revocation, token lifecycle, provider delivery and receipts on physical devices; preserve the disabled account-deletion gate. |
+| Filesystem / share sheet | First-party private downloads, iOS PDF preview, Android share sheet, and owner-scoped temporary cleanup are implemented | Verify app sandbox boundaries, share-sheet hand-off, PDF viewing, logout/account change cleanup, offline/error states and access after deletion on devices. |
 
 ## Build evidence needed
 

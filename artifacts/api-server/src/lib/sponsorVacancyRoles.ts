@@ -549,21 +549,32 @@ async function loadSponsorVacanciesAsRoles(
   const transformStartedAt = performance.now();
   const seen = new Set<number>();
   const out: SponsorVacancyAsRole[] = [];
+  let ukLocationCheckMs = 0;
+  let candidateStatusCheckMs = 0;
+  let categoryCheckMs = 0;
+  let ukConfirmedRows = 0;
+  let visibleRows = 0;
+  let categoryCheckedRows = 0;
 
   for (const row of rows) {
     const vac = row.vac;
     const lic = row.lic ?? null;
     if (seen.has(vac.id)) continue; // multiple licence rows per org — take first
     seen.add(vac.id);
-    if (classifyUkVacancyLocation({
+    const ukLocationStartedAt = performance.now();
+    const ukLocationStatus = classifyUkVacancyLocation({
       location: vac.location ?? "",
       targetRegions: vac.targetRegions,
       sourceMetadata: vac.sourceMetadata,
-    }) !== "confirmed_uk") continue;
+    });
+    ukLocationCheckMs += performance.now() - ukLocationStartedAt;
+    if (ukLocationStatus !== "confirmed_uk") continue;
+    ukConfirmedRows += 1;
 
     // Company-site discovery is allowed to populate rows asynchronously, but
     // candidate feeds must not expose them until the post-commit verifier has
     // confirmed the exact deep link.
+    const candidateStatusStartedAt = performance.now();
     const candidateStatus = getCandidateVacancyStatus({
       sourceType: vac.sourceType,
       title: vac.title,
@@ -578,10 +589,15 @@ async function loadSponsorVacanciesAsRoles(
       companyVacancyEvidence: vac.companyVacancyEvidence,
       companyEvidenceLegacyUntil: vac.companyEvidenceLegacyUntil,
     });
+    candidateStatusCheckMs += performance.now() - candidateStatusStartedAt;
     if (candidateStatus !== "visible") continue;
+    visibleRows += 1;
     if (isManualLabourTitle(vac.title)) continue;
 
+    const categoryStartedAt = performance.now();
     const classified = classifyVacancyCategory(vac.title, vac.description);
+    categoryCheckMs += performance.now() - categoryStartedAt;
+    categoryCheckedRows += 1;
     if (classified !== null && !opportunityCategoriesMatch(category, classified)) continue;
     if (classified === null && !industrySupportsCategory(category, lic?.industry)) continue;
 
@@ -674,6 +690,12 @@ async function loadSponsorVacanciesAsRoles(
       {
         queryDurationMs,
         transformDurationMs,
+        ukLocationCheckMs: Math.round(ukLocationCheckMs),
+        candidateStatusCheckMs: Math.round(candidateStatusCheckMs),
+        categoryCheckMs: Math.round(categoryCheckMs),
+        ukConfirmedRows,
+        visibleRows,
+        categoryCheckedRows,
         rowsRead: rows.length,
         rolesReturned: out.length,
       },

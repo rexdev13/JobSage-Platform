@@ -9,7 +9,7 @@ import {
   RegisterDocumentBody,
   DeleteDocumentParams,
 } from "@workspace/api-zod";
-import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { extractCvFields } from "../lib/cvParser";
 
 const ALLOWED_MIME_TYPES = [
@@ -21,6 +21,11 @@ const ALLOWED_MIME_TYPES = [
   "text/plain",
 ];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const DOCUMENT_UPLOAD_OBJECT_PATH = /^\/objects\/uploads\/[A-Za-z0-9_-]{1,128}$/;
+
+function isDocumentUploadObjectPath(value: unknown): value is string {
+  return typeof value === "string" && DOCUMENT_UPLOAD_OBJECT_PATH.test(value);
+}
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -68,8 +73,9 @@ router.post(
       return;
     }
 
+    let storageKey: string | undefined;
     try {
-      const storageKey = await objectStorageService.saveFileBuffer({
+      storageKey = await objectStorageService.saveFileBuffer({
         buffer: req.file.buffer,
         contentType: req.file.mimetype,
       });
@@ -81,7 +87,20 @@ router.post(
           visibility: "private",
         });
       } catch (aclErr) {
-        console.error("Document ACL write failed (multipart upload):", aclErr);
+        req.log.error(
+          { errorKind: aclErr instanceof Error ? aclErr.name : "unknown" },
+          "Document ACL write failed (multipart upload)",
+        );
+        try {
+          await objectStorageService.deleteObjectEntityFile(storageKey);
+        } catch (cleanupErr) {
+          req.log.error(
+            { errorKind: cleanupErr instanceof Error ? cleanupErr.name : "unknown" },
+            "Document cleanup failed after ACL write failure",
+          );
+        }
+        res.status(503).json({ error: "The document could not be secured. Please try again." });
+        return;
       }
 
       const [doc] = await db
@@ -98,7 +117,20 @@ router.post(
 
       res.status(201).json(doc);
     } catch (err) {
-      console.error("Document upload error:", err);
+      if (storageKey) {
+        try {
+          await objectStorageService.deleteObjectEntityFile(storageKey);
+        } catch (cleanupErr) {
+          req.log.error(
+            { errorKind: cleanupErr instanceof Error ? cleanupErr.name : "unknown" },
+            "Document cleanup failed after upload error",
+          );
+        }
+      }
+      req.log.error(
+        { errorKind: err instanceof Error ? err.name : "unknown" },
+        "Document upload error",
+      );
       res.status(500).json({ error: "Failed to upload document" });
     }
   },
@@ -124,8 +156,8 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
   }
 
   // Validate that the storageKey belongs to the expected private uploads namespace
-  if (!storageKey.startsWith("/objects/uploads/")) {
-    res.status(400).json({ error: "Invalid storage key. Must be obtained from the presigned upload URL endpoint." });
+  if (!isDocumentUploadObjectPath(storageKey)) {
+    res.status(400).json({ error: "Invalid storage key. Must be a private upload object path." });
     return;
   }
 
@@ -136,7 +168,12 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
       visibility: "private",
     });
   } catch (aclErr) {
-    console.error("Document ACL write failed (presigned upload):", aclErr);
+    req.log.error(
+      { errorKind: aclErr instanceof Error ? aclErr.name : "unknown" },
+      "Document ACL write failed (presigned upload)",
+    );
+    res.status(503).json({ error: "The uploaded file could not be secured. Please try again." });
+    return;
   }
 
   const [doc] = await db
@@ -168,6 +205,11 @@ router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request
 
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  if (!isDocumentUploadObjectPath(doc.storageKey)) {
+    res.status(422).json({ error: "Document storage location is invalid." });
     return;
   }
 
@@ -336,9 +378,38 @@ router.delete("/documents/:id", requireAuthenticated, async (req: Request, res: 
     return;
   }
 
+  const userId = req.user!.id;
+  const [document] = await db
+    .select({ id: documentsTable.id, storageKey: documentsTable.storageKey })
+    .from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.id), eq(documentsTable.userId, userId)));
+
+  if (!document) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  if (!isDocumentUploadObjectPath(document.storageKey)) {
+    res.status(422).json({ error: "Document storage location is invalid." });
+    return;
+  }
+
+  try {
+    await objectStorageService.deleteObjectEntityFile(document.storageKey);
+  } catch (error) {
+    if (!(error instanceof ObjectNotFoundError)) {
+      req.log.error(
+        { errorKind: error instanceof Error ? error.name : "unknown" },
+        "Document storage deletion failed",
+      );
+      res.status(503).json({ error: "The document could not be removed from file storage. Please try again." });
+      return;
+    }
+  }
+
   const [deleted] = await db
     .delete(documentsTable)
-    .where(and(eq(documentsTable.id, params.data.id), eq(documentsTable.userId, req.user!.id)))
+    .where(and(eq(documentsTable.id, params.data.id), eq(documentsTable.userId, userId)))
     .returning();
 
   if (!deleted) {

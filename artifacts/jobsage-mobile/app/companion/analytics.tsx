@@ -230,6 +230,8 @@ export default function AnalyticsScreen() {
           <Pressable
             onPress={() => refetch()}
             style={[styles.retryBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading application analytics"
           >
             <Text style={[styles.retryText, { color: colors.foreground }]}>Retry</Text>
           </Pressable>
@@ -292,6 +294,9 @@ export default function AnalyticsScreen() {
                   <Pressable
                     key={m.key}
                     onPress={() => setChartMode(m.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${m.label.toLowerCase()} application analytics`}
+                    accessibilityState={{ selected: chartMode === m.key }}
                     style={[
                       styles.modeChip,
                       chartMode === m.key

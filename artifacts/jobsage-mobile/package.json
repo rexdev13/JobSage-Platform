@@ -67,6 +67,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "assert": "2.1.0",
     "expo-clipboard": "~8.0.8",
     "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.21",

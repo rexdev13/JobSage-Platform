@@ -115,6 +115,10 @@ function StageTile({
         onPress={onPress}
         disabled={isLocked}
         android_ripple={isLocked ? undefined : { color: "#0001" }}
+        accessibilityRole="button"
+        accessibilityLabel={`${stage.name}, ${stage.completionPct}% complete${isLocked ? ", locked" : ""}`}
+        accessibilityHint={isLocked ? stage.nextUnlockHint ?? undefined : "Open stage details"}
+        accessibilityState={{ disabled: isLocked }}
       >
         <View style={styles.tileCardInner}>
           <View style={styles.tileCardHeader}>
@@ -171,8 +175,11 @@ function StageDrawerModal({
       onRequestClose={onClose}
     >
       <View style={styles.drawerOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.drawerSheet, { backgroundColor: colors.card }]}>
+        <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          accessibilityViewIsModal
+          style={[styles.drawerSheet, { backgroundColor: colors.card }]}
+        >
           {/* Handle */}
           <View style={[styles.drawerHandle, { backgroundColor: colors.border }]} />
 
@@ -186,7 +193,12 @@ function StageDrawerModal({
                 {stage.description}
               </Text>
             </View>
-            <Pressable onPress={onClose} style={styles.drawerClose}>
+            <Pressable
+              onPress={onClose}
+              style={styles.drawerClose}
+              accessibilityRole="button"
+              accessibilityLabel={`Close ${stage.name} details`}
+            >
               <Ionicons name="close" size={20} color={colors.mutedForeground} />
             </Pressable>
           </View>
@@ -315,7 +327,12 @@ export default function PathScreen() {
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               Sign in on the web app and complete your profile to begin your journey.
             </Text>
-            <Pressable onPress={() => refetch()} style={[styles.retryBtn, { borderColor: colors.border }]}>
+            <Pressable
+              onPress={() => refetch()}
+              style={[styles.retryBtn, { borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading your JOBSAGE journey"
+            >
               <Text style={[styles.retryText, { color: colors.foreground }]}>Retry</Text>
             </Pressable>
           </View>

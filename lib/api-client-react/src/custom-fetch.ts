@@ -1,5 +1,6 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  fetcher?: typeof fetch;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -286,7 +287,12 @@ export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
 ): Promise<T> {
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    headers: headersInit,
+    fetcher = globalThis.fetch,
+    ...init
+  } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -324,7 +330,7 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(resolvedInput) };
 
-  const response = await fetch(resolvedInput, { ...init, method, headers });
+  const response = await fetcher(resolvedInput, { ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

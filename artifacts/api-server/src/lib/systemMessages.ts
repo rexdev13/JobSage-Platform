@@ -1,5 +1,7 @@
 import { db, candidateMessagesTable } from "@workspace/db";
 import { isMessageSenderBlocked } from "./messageSenderBlocks";
+import { enqueuePushNotification } from "./pushNotifications";
+import { logger } from "./logger";
 
 const STAGE_SUBJECT: Record<string, string> = {
   applied: "Application received",
@@ -41,7 +43,7 @@ export async function createSystemMessage({
   const bodyFn = STAGE_BODY[stage] ?? ((_r: string, _c: string) => `Your application status has been updated to: ${stage}.`);
   const messageText = bodyFn(roleTitle, companyName);
 
-  await db.insert(candidateMessagesTable).values({
+  const [message] = await db.insert(candidateMessagesTable).values({
     senderEmployerProfileId: senderEmployerProfileId ?? null,
     recipientUserId,
     applicationId: applicationId ?? null,
@@ -49,7 +51,17 @@ export async function createSystemMessage({
     messageType: "system",
     subject,
     messageText,
-  });
+  }).returning({ id: candidateMessagesTable.id });
+  if (message) {
+    const category = ["interview", "interview_invited", "interview_rescheduled", "interview_cancelled"].includes(stage)
+      ? "interviews" as const
+      : "applications" as const;
+    void enqueuePushNotification({
+      eventKey: `system-message:${message.id}`,
+      userId: recipientUserId,
+      category,
+    }).catch(() => logger.warn({ category }, "Could not queue a system push notification"));
+  }
 }
 
 export async function createApplicationReceivedMessage({
@@ -61,7 +73,7 @@ export async function createApplicationReceivedMessage({
   applicationId: number;
   roleTitle: string;
 }): Promise<void> {
-  await db.insert(candidateMessagesTable).values({
+  const [message] = await db.insert(candidateMessagesTable).values({
     senderEmployerProfileId: null,
     recipientUserId,
     applicationId,
@@ -69,5 +81,12 @@ export async function createApplicationReceivedMessage({
     messageType: "system",
     subject: "Application received",
     messageText: `Your application for ${roleTitle} has been received and is under review. We'll notify you of any updates here.`,
-  });
+  }).returning({ id: candidateMessagesTable.id });
+  if (message) {
+    void enqueuePushNotification({
+      eventKey: `application-received:${message.id}`,
+      userId: recipientUserId,
+      category: "applications",
+    }).catch(() => logger.warn({ category: "applications" }, "Could not queue an application push notification"));
+  }
 }

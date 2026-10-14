@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { createHash } from "node:crypto";
 import { db } from "@workspace/db";
 import {
   profilesTable,
@@ -39,6 +40,8 @@ import { assessSafeguarding, safeguardingBlocksEligibility } from "./safeguardin
 import { compareOpportunityRanking } from "./opportunityRanking";
 import { specialtyBoost } from "./sponsorVacancyRoles";
 import { isPrivacyNotificationAllowed } from "./privacyAccess";
+import { enqueuePushNotification } from "./pushNotifications";
+import { logger } from "./logger";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -536,6 +539,13 @@ export async function processUserAlert(
       console.warn(`[alert-scheduler] Job alert provider rejected a ${rolesToSend.length}-role send.`);
       return { sent: false, rolesIncluded: 0, reason: "provider_rejected" };
     }
+
+    const eventHash = createHash("sha256").update(`${userId}:${claimedAt.toISOString()}`).digest("hex");
+    void enqueuePushNotification({
+      eventKey: `job-alert:${eventHash}`,
+      userId,
+      category: "jobAlerts",
+    }).catch(() => logger.warn({ category: "jobAlerts" }, "Could not queue a job-alert push notification"));
 
     return { sent: true, rolesIncluded: rolesToSend.length };
   } catch (error) {

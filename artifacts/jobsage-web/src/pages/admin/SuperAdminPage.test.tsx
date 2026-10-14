@@ -6,7 +6,7 @@ vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: unknown }) => children,
 }));
 
-import { AllUsersTab } from "./SuperAdminPage";
+import { AllUsersTab, LettersTab } from "./SuperAdminPage";
 
 const fetchMock = vi.fn();
 let root: Root;
@@ -88,5 +88,32 @@ describe("Super-admin user directory", () => {
     expect(container.textContent).toContain("Unable to load the user directory.");
     expect(container.textContent).toContain("Internal server error");
     expect(container.textContent).not.toContain("No users found.");
+  });
+
+  it("renders recommendation-letter rows without missing-key warnings", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        letters: [{
+          id: 17,
+          candidateUserId: "candidate-123456",
+          authorName: "Example Author",
+          authorTitle: "Clinical Director",
+          organisation: "Example Care",
+          isEmployerVerified: false,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          content: "Reference details",
+        }],
+      }),
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await act(async () => {
+      root.render(<LettersTab />);
+    });
+
+    expect(container.textContent).toContain("Example Author");
+    expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/Each child in a list|unique.*key/i);
+    consoleError.mockRestore();
   });
 });

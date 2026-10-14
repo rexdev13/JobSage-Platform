@@ -130,7 +130,7 @@ export default function LoginPage() {
           className="w-full max-w-md"
         >
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-border/50 p-8">
-            <h2 className="text-2xl font-display font-bold text-foreground mb-1">Sign in</h2>
+            <h1 className="text-2xl font-display font-bold text-foreground mb-1">Sign in</h1>
             <p className="text-muted-foreground text-sm mb-6">
               Welcome back to JOBSAGE
             </p>

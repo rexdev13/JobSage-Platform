@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { resolveJobsageDeepLink } from "../lib/deep-link";
+import { authorizeDeepLinkAfterLogin, resolveJobsageDeepLink, resolvePushDestination } from "../lib/deep-link";
 
 describe("resolveJobsageDeepLink", () => {
   it("accepts a custom-scheme route with a host-form path", () => {
@@ -8,8 +8,8 @@ describe("resolveJobsageDeepLink", () => {
   });
 
   it("routes logged-out private destinations through sign-in", () => {
-    expect(resolveJobsageDeepLink("jobsage-mobile:///inbox", null))
-      .toEqual({ kind: "login", path: "/inbox" });
+    expect(resolveJobsageDeepLink("jobsage-mobile:///inbox?accountId=u1", null))
+      .toEqual({ kind: "login", path: "/inbox?accountId=u1" });
   });
 
   it("allows only explicit public destinations while logged out", () => {
@@ -32,5 +32,22 @@ describe("resolveJobsageDeepLink", () => {
   it("restricts the native candidate companion to candidates", () => {
     expect(resolveJobsageDeepLink("jobsage-mobile://companion", { id: "u1", role: "employer" }))
       .toEqual({ kind: "forbidden" });
+  });
+
+  it("validates account ownership and route allowlisting for push destinations", () => {
+    expect(resolvePushDestination("/inbox", "u1", { id: "u1", role: "candidate" }))
+      .toEqual({ kind: "open", path: "/inbox" });
+    expect(resolvePushDestination("/admin/users", "u1", { id: "u1", role: "admin" }))
+      .toEqual({ kind: "invalid" });
+    expect(resolvePushDestination("/inbox", "u2", { id: "u1", role: "candidate" }))
+      .toEqual({ kind: "forbidden" });
+    expect(resolvePushDestination("/inbox", "u1", null))
+      .toEqual({ kind: "login", path: "/inbox?accountId=u1" });
+  });
+
+  it("requires the same account after login before opening a notification destination", () => {
+    expect(authorizeDeepLinkAfterLogin("/inbox?accountId=u1", "u1")).toBe("/inbox");
+    expect(authorizeDeepLinkAfterLogin("/inbox?accountId=u2", "u1")).toBeNull();
+    expect(authorizeDeepLinkAfterLogin("https://attacker.invalid", "u1")).toBeNull();
   });
 });

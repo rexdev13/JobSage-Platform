@@ -154,6 +154,57 @@ describe("GET /applications", () => {
     });
   });
 
+  it("keeps different sponsor roles from the same employer visible with company names", async () => {
+    const firstAppliedAt = new Date("2025-02-02T12:00:00Z");
+    const secondAppliedAt = new Date("2025-02-01T12:00:00Z");
+    appResults.push(
+      [
+        { id: 18, userId: "cand-1", roleId: 2_000_123, applicationType: "platform", companyName: null, appliedAt: firstAppliedAt, cvDocumentId: null, status: "applied" },
+        { id: 19, userId: "cand-1", roleId: 2_000_124, applicationType: "platform", companyName: null, appliedAt: secondAppliedAt, cvDocumentId: null, status: "applied" },
+      ],
+      [],
+      [
+        {
+          id: 123,
+          title: "Registered Nurse",
+          location: "Leeds",
+          organisationName: "Sponsor NHS Trust",
+          companyName: "Sponsor NHS Trust",
+          liveness: "dead",
+          livenessReason: "Vacancy closed.",
+        },
+        {
+          id: 124,
+          title: "Senior Nurse",
+          location: "Leeds",
+          organisationName: "Sponsor NHS Trust",
+          companyName: "Sponsor NHS Trust",
+          liveness: "dead",
+          livenessReason: "Vacancy closed.",
+        },
+      ],
+    );
+
+    const res = await request(buildApp())
+      .get("/applications")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(2);
+    expect(res.body.applications).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        roleId: 2_000_123,
+        roleTitle: "Registered Nurse",
+        companyName: "Sponsor NHS Trust",
+      }),
+      expect.objectContaining({
+        roleId: 2_000_124,
+        roleTitle: "Senior Nurse",
+        companyName: "Sponsor NHS Trust",
+      }),
+    ]));
+  });
+
   it("marks a closed job-board listing as closed with its liveness reason", async () => {
     appResults.push(
       [{ id: 9, userId: "cand-1", roleId: 1_000_321, applicationType: "platform", companyName: null, appliedAt: new Date(), cvDocumentId: null, status: "applied" }],

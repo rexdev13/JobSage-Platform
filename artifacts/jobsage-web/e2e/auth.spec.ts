@@ -1,6 +1,46 @@
+import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 
 const BASE = process.env.JOBSAGE_WEB_BASE_PATH ?? "";
+
+async function capturedVerificationToken(email: string): Promise<string> {
+  const capturePath = process.env.JOBSAGE_DEV_EMAIL_CAPTURE_PATH;
+  if (!capturePath) {
+    throw new Error("JOBSAGE_DEV_EMAIL_CAPTURE_PATH is required for the registration verification E2E.");
+  }
+
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const contents = await readFile(capturePath, "utf8").catch(() => "");
+    for (const line of contents.split(/\r?\n/).filter(Boolean).reverse()) {
+      let message: { to?: unknown; subject?: unknown; html?: unknown };
+      try {
+        message = JSON.parse(line) as typeof message;
+      } catch {
+        continue;
+      }
+
+      const recipients = Array.isArray(message.to) ? message.to : [message.to];
+      if (
+        message.subject !== "JOBSAGE: Verify your email address" ||
+        !recipients.some((recipient) => typeof recipient === "string" && recipient.toLowerCase() === email.toLowerCase()) ||
+        typeof message.html !== "string"
+      ) {
+        continue;
+      }
+
+      const href = message.html.match(/href=["']([^"']*\/api\/auth\/verify-email\?[^"']+)["']/i)?.[1];
+      if (!href) continue;
+      const link = new URL(href);
+      if (link.pathname !== "/api/auth/verify-email") continue;
+      const token = link.searchParams.get("token");
+      if (token) return token;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error("Development email capture did not contain the synthetic account's verification link.");
+}
 
 test.describe("Authentication pages", () => {
   test("login page renders with all required elements", async ({ page }) => {
@@ -65,8 +105,22 @@ test.describe("Authentication pages", () => {
     if (count > 1) {
       await passwordFields.nth(1).fill("TestPass99!");
     }
+    await page.getByRole("checkbox", { name: /I am 18 or older/i }).check();
     await page.getByRole("button", { name: /register|create|sign up/i }).click();
     await expect(page.locator("body")).toContainText(/email|verify|check|sent/i, { timeout: 10000 });
+
+    const token = await capturedVerificationToken(uniqueEmail);
+    const baseUrl = process.env.BASE_URL;
+    if (!baseUrl) throw new Error("BASE_URL must point to the development preview for this E2E.");
+    const verifyUrl = new URL("/api/auth/verify-email", baseUrl);
+    verifyUrl.searchParams.set("token", token);
+    await page.goto(verifyUrl.toString());
+
+    const authUser = await page.evaluate(async () => {
+      const response = await fetch("/api/auth/user", { credentials: "include" });
+      return await response.json() as { user?: { email?: string } };
+    });
+    expect(authUser.user?.email).toBe(uniqueEmail);
   });
 
   test("forgot password page renders and accepts email submission", async ({ page }) => {
@@ -74,7 +128,7 @@ test.describe("Authentication pages", () => {
     await expect(page.locator("input[type='email'], input[name='email'], input[placeholder*='email' i]").first()).toBeVisible();
     const sendButton = page.getByRole("button", { name: /send|reset|submit/i });
     await expect(sendButton).toBeVisible();
-    await page.locator("input[type='email'], input[name='email'], input[placeholder*='email' i]").first().fill("test@example.com");
+    await page.locator("input[type='email'], input[name='email'], input[placeholder*='email' i]").first().fill(`e2e_forgot_${Date.now()}@jobsage.test`);
     await sendButton.click();
     await expect(page.locator("body")).toContainText(/sent|check|email|reset|success/i, { timeout: 8000 });
   });

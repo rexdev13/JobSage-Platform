@@ -179,7 +179,7 @@ export default function RegisterPage() {
           className="w-full max-w-md"
         >
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-border/50 p-8">
-            <h2 className="text-2xl font-display font-bold text-foreground mb-1">Create account</h2>
+            <h1 className="text-2xl font-display font-bold text-foreground mb-1">Create account</h1>
             <p className="text-muted-foreground text-sm mb-6">
               Join JOBSAGE — decision intelligence for healthcare professionals
             </p>
@@ -187,8 +187,9 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">First name</label>
+                  <label htmlFor="register-first-name" className="block text-sm font-medium text-foreground mb-1.5">First name</label>
                   <input
+                    id="register-first-name"
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
@@ -198,8 +199,9 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
+                  <label htmlFor="register-last-name" className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
                   <input
+                    id="register-last-name"
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -211,8 +213,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
+                <label htmlFor="register-email" className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
                 <input
+                  id="register-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -224,9 +227,10 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+                <label htmlFor="register-password" className="block text-sm font-medium text-foreground mb-1.5">Password</label>
                 <div className="relative">
                   <input
+                    id="register-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -238,8 +242,9 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                     className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
-                    tabIndex={-1}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -247,9 +252,10 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Confirm password</label>
+                <label htmlFor="register-confirm-password" className="block text-sm font-medium text-foreground mb-1.5">Confirm password</label>
                 <div className="relative">
                   <input
+                    id="register-confirm-password"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -261,8 +267,9 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                     className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
-                    tabIndex={-1}
+                    aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+                    aria-pressed={showConfirmPassword}
+                    className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground transition"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

@@ -8,6 +8,7 @@ const {
   fetchSponsorVacanciesAsRolesMock,
   sendJobAlertEmailMock,
   privacyNotificationsAllowedMock,
+  enqueuePushNotificationMock,
 } = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
   insertValuesMock: vi.fn(),
@@ -16,10 +17,15 @@ const {
   fetchSponsorVacanciesAsRolesMock: vi.fn(),
   sendJobAlertEmailMock: vi.fn(),
   privacyNotificationsAllowedMock: vi.fn(),
+  enqueuePushNotificationMock: vi.fn(),
 }));
 
 vi.mock("../../lib/privacyAccess", () => ({
   isPrivacyNotificationAllowed: privacyNotificationsAllowedMock,
+}));
+
+vi.mock("../../lib/pushNotifications", () => ({
+  enqueuePushNotification: enqueuePushNotificationMock,
 }));
 
 vi.mock("@workspace/db", () => {
@@ -183,6 +189,7 @@ describe("weekly candidate job alerts", () => {
     fetchSponsorVacanciesAsRolesMock.mockReset();
     sendJobAlertEmailMock.mockReset().mockResolvedValue({ success: true, messageId: "msg-1" });
     privacyNotificationsAllowedMock.mockReset().mockResolvedValue(true);
+    enqueuePushNotificationMock.mockReset().mockResolvedValue(true);
   });
 
   it("does not claim or email jobs when privacy preferences disable alerts", async () => {
@@ -234,6 +241,11 @@ describe("weekly candidate job alerts", () => {
       "Senior Staff Nurse 3",
       "Senior Staff Nurse 4",
     ]);
+    expect(enqueuePushNotificationMock).toHaveBeenCalledWith(expect.objectContaining({
+      eventKey: expect.stringMatching(/^job-alert:[a-f0-9]{64}$/),
+      userId: "candidate-1",
+      category: "jobAlerts",
+    }));
   });
 
   it("treats a legacy daily preference as weekly", async () => {

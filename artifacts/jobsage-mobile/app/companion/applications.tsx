@@ -172,7 +172,12 @@ export default function ApplicationsScreen() {
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Couldn't load applications</Text>
-          <Pressable onPress={() => refetch()} style={[styles.retryBtn, { borderColor: colors.border }]}>
+          <Pressable
+            onPress={() => refetch()}
+            style={[styles.retryBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading your applications"
+          >
             <Text style={[styles.retryText, { color: colors.foreground }]}>Try Again</Text>
           </Pressable>
         </View>

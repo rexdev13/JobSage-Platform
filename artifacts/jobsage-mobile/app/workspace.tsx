@@ -32,6 +32,7 @@ import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTyp
 
 import { NativeApplicationBrowser } from "@/components/NativeApplicationBrowser";
 import { CandidateCompanionShortcut } from "@/components/CandidateCompanionShortcut";
+import { PushNotifications } from "@/components/PushNotifications";
 import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal } from "@/lib/external-links";
@@ -387,6 +388,7 @@ export default function WorkspaceScreen() {
       ) : null}
 
       <CandidateCompanionShortcut role={user?.role} />
+      <PushNotifications />
 
       <View style={{ flex: 1 }}>
         {Platform.OS === "web" ? (

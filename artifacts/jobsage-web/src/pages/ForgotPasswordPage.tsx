@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
                 <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-xl font-display font-bold text-foreground mb-3">Email sent</h2>
+                <h1 className="text-xl font-display font-bold text-foreground mb-3">Email sent</h1>
                 <p className="text-muted-foreground text-sm mb-6">
                   If an account with that email exists, we've sent a password reset link. Check your inbox.
                 </p>
@@ -81,15 +81,16 @@ export default function ForgotPasswordPage() {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Back to sign in
                 </Link>
-                <h2 className="text-2xl font-display font-bold text-foreground mb-1">Forgot password?</h2>
+                <h1 className="text-2xl font-display font-bold text-foreground mb-1">Forgot password?</h1>
                 <p className="text-muted-foreground text-sm mb-6">
                   Enter your email and we'll send you a reset link.
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
+                    <label htmlFor="forgot-password-email" className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
                     <input
+                      id="forgot-password-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

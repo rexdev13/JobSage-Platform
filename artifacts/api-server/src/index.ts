@@ -25,6 +25,7 @@ import { shouldRunExternalBackgroundJobs } from "./lib/externalBackgroundJobsPol
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { logEmailConfiguration } from "./lib/email";
+import { startPushDeliveryWorker } from "./lib/pushNotifications";
 
 const rawPort = process.env["PORT"];
 
@@ -73,6 +74,7 @@ const server = createServer(app);
 void verifyDeletionStartupBarrier().then(() => server.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   startDeletionOutboxWorker();
+  startPushDeliveryWorker();
   logEmailConfiguration();
   void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {

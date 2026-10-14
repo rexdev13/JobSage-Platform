@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { PushNotifications } from "@/components/PushNotifications";
 
 interface ProfileData {
   profession?: string | null;
@@ -148,6 +149,8 @@ export default function ProfileScreen() {
           ) : null}
         </View>
       </View>
+
+      <PushNotifications />
 
       <Pressable
         style={({ pressed }) => [

@@ -23,6 +23,9 @@ const UK_COUNTRIES = new Set([
   "northern ireland",
 ]);
 
+const EXPLICIT_UK_AVAILABILITY_PATTERN =
+  /(?:available|based|located|working|work|open to candidates|for candidates|across|anywhere in|within|remote in)[^.;]{0,60}(?:uk|u\.?k\.?|united kingdom|great britain|england|scotland|wales|northern ireland)|(?:uk|u\.?k\.?|united kingdom|great britain|england|scotland|wales|northern ireland)[^.;]{0,60}(?:available|based|located|working|work|open to candidates|for candidates|across|anywhere in|within|remote)/i;
+
 const FOREIGN_COUNTRIES = [
   "united states of america",
   "united states",
@@ -225,12 +228,7 @@ function hasUkPostcode(text: string): boolean {
 }
 
 function hasExplicitUkAvailability(text: string): boolean {
-  const phrases =
-    "(?:uk|u\\.?k\\.?|united kingdom|great britain|england|scotland|wales|northern ireland)";
-  return new RegExp(
-    `(?:available|based|located|working|work|open to candidates|for candidates|across|anywhere in|within|remote in)[^.;]{0,60}${phrases}|${phrases}[^.;]{0,60}(?:available|based|located|working|work|open to candidates|for candidates|across|anywhere in|within|remote)`,
-    "i",
-  ).test(text);
+  return EXPLICIT_UK_AVAILABILITY_PATTERN.test(text);
 }
 
 function inspectStructuredMetadata(value: unknown): {

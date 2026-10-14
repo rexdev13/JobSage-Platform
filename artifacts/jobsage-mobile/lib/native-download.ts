@@ -60,6 +60,17 @@ export function cleanupTempDownloads(ownerId?: string) {
   }
 }
 
+/** Cleans one viewer-owned temporary download without touching other shares. */
+export function cleanupTempDownload(uri: string, ownerId: string) {
+  const entry = tempFiles.get(uri);
+  if (!entry) return;
+  if (entry.ownerId !== ownerId) {
+    throw new DownloadError("This temporary file belongs to a different signed-in account.");
+  }
+  if (entry.directory.exists) entry.directory.delete();
+  tempFiles.delete(uri);
+}
+
 /**
  * Downloads a first-party file to the cache and opens the system share sheet.
  * Use a single-use exchange to establish a host-scoped HttpOnly cookie.

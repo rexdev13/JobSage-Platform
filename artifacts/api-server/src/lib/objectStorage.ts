@@ -221,6 +221,11 @@ export class ObjectStorageService {
     await gcsFile.save(buffer, { contentType, resumable: false });
     return `/objects/uploads/${objectId}`;
   }
+
+  async deleteObjectEntityFile(objectPath: string): Promise<void> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    await objectFile.delete({ ignoreNotFound: true });
+  }
 }
 
 function parseObjectPath(path: string): {

@@ -26,6 +26,8 @@ import { classifyUkVacancyLocation } from "../lib/ukVacancyLocation";
 import { createSystemMessage } from "../lib/systemMessages";
 import { DBS_CLEARANCE_LEVELS, SAFEGUARDING_TRAINING_LEVELS } from "../lib/safeguarding";
 import { isMessageSenderBlocked, messageSenderKey, visibleMessageSender } from "../lib/messageSenderBlocks";
+import { enqueuePushNotification } from "../lib/pushNotifications";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 router.use("/candidate", (req, res, next) => {
@@ -1316,6 +1318,13 @@ router.post("/employer/contact-candidate", requireEmployer(), async (req, res): 
     }).catch((err: unknown) => {
       console.error("[employer] Failed to send candidate contact email:", err);
     });
+  }
+  if (message) {
+    void enqueuePushNotification({
+      eventKey: `employer-message:${message.id}`,
+      userId: recipient.id,
+      category: "messages",
+    }).catch(() => logger.warn({ category: "messages" }, "Could not queue an employer-message push notification"));
   }
 
   res.status(201).json({ message, sent: true });
