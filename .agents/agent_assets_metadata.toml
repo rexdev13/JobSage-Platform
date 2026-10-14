@@ -1762,3 +1762,171 @@ mtime_ms = 1792007087532
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e969431b-f65c-4ff6-855b-3913cb652056/c2f76b61-fc9f-4a1b-b532-05b64c22ce44"
 storage_version_token = "1792007150591090"
 content_type = "image/png"
+
+[[outputs]]
+id = "OnUGTiITykro9t48MZ3qL"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/phone/jobsage-phone-dashboard-DRAFT-1080x1920.png"
+type = "image"
+title = "Phone dashboard 1080×1920 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "16ad44cc-766c-47de-9e89-c47ec470e5bd"
+content_hash = "sha256:87a4ef3a74ddca820e3c6f7747081faa71c247ccd0549e15b78b04f529e07557"
+size = 146824
+mtime_ms = 1792007732208
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/16ad44cc-766c-47de-9e89-c47ec470e5bd/595c00b5-50d3-4b9b-af73-536bca40c610"
+storage_version_token = "1792007784900857"
+content_type = "image/png"
+
+[[outputs]]
+id = "l7Z3Vrd3hnggZz1JGRreT"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/phone/jobsage-phone-applications-DRAFT-1080x1920.png"
+type = "image"
+title = "Phone applications 1080×1920 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "609dcc2f-41a5-4583-9c20-3ab964bb0492"
+content_hash = "sha256:fee47e4a5a8bd3406970f04653ddfecccc131c33915a6fa3a82da65397369fe2"
+size = 129808
+mtime_ms = 1792007733108
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/609dcc2f-41a5-4583-9c20-3ab964bb0492/bf324207-4904-49c9-ab78-69b45d474a92"
+storage_version_token = "1792007785940482"
+content_type = "image/png"
+
+[[outputs]]
+id = "kCLxG2BLwRy-BkblQwPam"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/phone/jobsage-phone-my-path-DRAFT-1080x1920.png"
+type = "image"
+title = "Phone My Path 1080×1920 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "86ad7c51-df1c-4423-a578-104c0002651c"
+content_hash = "sha256:5e6a8b8eb6f8b85d3e3dfcdf6fe4a745df613758d365eb1425f2db2cdff0cf83"
+size = 134169
+mtime_ms = 1792007733820
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/86ad7c51-df1c-4423-a578-104c0002651c/f61f72b1-ebee-48ac-86a4-97d4476159a8"
+storage_version_token = "1792007786668307"
+content_type = "image/png"
+
+[[outputs]]
+id = "EqOLAeuc7FVLhu8cDp_hC"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/phone/jobsage-phone-profile-DRAFT-1080x1920.png"
+type = "image"
+title = "Phone profile 1080×1920 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "493861b8-ce7d-41f2-b834-39742a396aa4"
+content_hash = "sha256:515561281044177e4f3b88f9212f230079f089308e8317d1125ba314d341c688"
+size = 113128
+mtime_ms = 1792007734596
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/493861b8-ce7d-41f2-b834-39742a396aa4/7aa54b52-0a55-43af-b39d-2483b39301bd"
+storage_version_token = "1792007787532084"
+content_type = "image/png"
+
+[[outputs]]
+id = "69pHxLE4oBApzHDcIZKvf"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-7in/jobsage-tablet-7in-dashboard-DRAFT-1152x2048.png"
+type = "image"
+title = "7-inch tablet dashboard 1152×2048 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "9eefbcb6-ef65-41bb-bb04-d22c0c05d2c5"
+content_hash = "sha256:2ac9461c9f06e3b97059f516cd58e47e061597d29506ae09c501d415110e7bf1"
+size = 234327
+mtime_ms = 1792007735624
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9eefbcb6-ef65-41bb-bb04-d22c0c05d2c5/9b88d1a3-bbd6-46f5-8220-ce68d85668f9"
+storage_version_token = "1792007788395690"
+content_type = "image/png"
+
+[[outputs]]
+id = "Ttiy8fF3AZpGqG-y3n9Vs"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-7in/jobsage-tablet-7in-applications-DRAFT-1152x2048.png"
+type = "image"
+title = "7-inch tablet applications 1152×2048 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "3688679a-d41c-45d6-8b0d-28bc7b4c3f25"
+content_hash = "sha256:8f34755324b07783098a4891bc75995cc0d833a737d4a0dbe0a15b4a618a5b50"
+size = 203738
+mtime_ms = 1792007736532
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3688679a-d41c-45d6-8b0d-28bc7b4c3f25/c80ba636-0174-4527-ab9a-d79b536ee741"
+storage_version_token = "1792007789285489"
+content_type = "image/png"
+
+[[outputs]]
+id = "7Drk7lvGvWRs4fTHjwNRl"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-7in/jobsage-tablet-7in-my-path-DRAFT-1152x2048.png"
+type = "image"
+title = "7-inch tablet My Path 1152×2048 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "3f84100d-a978-4d0d-a2e5-7024a74ce353"
+content_hash = "sha256:114dba98653ff1bf7a85618d9df98ed9cc213b8321941720704d80529d4e79ce"
+size = 211768
+mtime_ms = 1792007737500
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3f84100d-a978-4d0d-a2e5-7024a74ce353/b9099fcc-6cca-445f-aa3b-4cabb321ce14"
+storage_version_token = "1792007790100126"
+content_type = "image/png"
+
+[[outputs]]
+id = "MSnE4Nxrq0q_siop-zJh1"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-7in/jobsage-tablet-7in-profile-DRAFT-1152x2048.png"
+type = "image"
+title = "7-inch tablet profile 1152×2048 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "a5521800-bc75-4894-8981-70e844bdb3fb"
+content_hash = "sha256:64c35cac96cf20635cbe3c6ec4e6051d9b7e26884d2bda976809fc2ea0366c55"
+size = 174558
+mtime_ms = 1792007738380
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/a5521800-bc75-4894-8981-70e844bdb3fb/cca9a76c-792d-479d-ade8-08cd7b11db85"
+storage_version_token = "1792007790953446"
+content_type = "image/png"
+
+[[outputs]]
+id = "8-Tr-OUd_e2lkPkJsMJ66"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-12in/jobsage-tablet-12in-dashboard-DRAFT-1440x2560.png"
+type = "image"
+title = "12-inch tablet dashboard 1440×2560 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "e7b2b0b8-0deb-41a3-ba0d-82ae1acd2745"
+content_hash = "sha256:7d7c0d63336475de56b0e8f77b5d7bb1306cb4dc3048c3a1c43275493ab4671f"
+size = 331111
+mtime_ms = 1792007739504
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e7b2b0b8-0deb-41a3-ba0d-82ae1acd2745/96b617c5-b227-4726-95cc-d0b36704dfe2"
+storage_version_token = "1792007791938448"
+content_type = "image/png"
+
+[[outputs]]
+id = "O1FPljRLowGQGttdCJYTC"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-12in/jobsage-tablet-12in-applications-DRAFT-1440x2560.png"
+type = "image"
+title = "12-inch tablet applications 1440×2560 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "52bb1cfa-68b0-40a8-ab6c-88b307f3fae6"
+content_hash = "sha256:659df8273052ba51b541754bc186d66ea63277a37bf6504db05e63bbc355cfa4"
+size = 288271
+mtime_ms = 1792007740620
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/52bb1cfa-68b0-40a8-ab6c-88b307f3fae6/6bc02736-6b99-4889-a174-119fd21415ba"
+storage_version_token = "1792007792820682"
+content_type = "image/png"
+
+[[outputs]]
+id = "Us-oenRQSOzEYelsNW8qB"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-12in/jobsage-tablet-12in-my-path-DRAFT-1440x2560.png"
+type = "image"
+title = "12-inch tablet My Path 1440×2560 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "d07fc294-d514-45e5-bb10-02e238fb1e32"
+content_hash = "sha256:a448ee36d938a776a0b00d7c703cfb4f9d7491ee6f69aa45d59ce86ed5b8c6f1"
+size = 300833
+mtime_ms = 1792007741676
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d07fc294-d514-45e5-bb10-02e238fb1e32/d938eada-2d47-4395-b409-14715a6c5568"
+storage_version_token = "1792007793654199"
+content_type = "image/png"
+
+[[outputs]]
+id = "4YVZJvrCwjDDsJ8ao9upS"
+uri = "file://attached_assets/generated_images/play-draft-screenshots/tablet-12in/jobsage-tablet-12in-profile-DRAFT-1440x2560.png"
+type = "image"
+title = "12-inch tablet profile 1440×2560 · DRAFT"
+description = "Portrait 9:16 PNG mockup based on JOBSAGE mobile screen structure, with synthetic data and a visible DRAFT watermark. Replace with a real capture before Play review."
+logical_id = "52efeb18-74ef-43e4-a8c3-57e68e13bc0f"
+content_hash = "sha256:696f0ef144b20580e21dcf9c714bb66a17fcf2d4689b726537ab5722b9d8b024"
+size = 249101
+mtime_ms = 1792007742704
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/52efeb18-74ef-43e4-a8c3-57e68e13bc0f/c4be1094-4846-45be-bd8b-942699b45242"
+storage_version_token = "1792007794578794"
+content_type = "image/png"
