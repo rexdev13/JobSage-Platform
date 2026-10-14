@@ -1,0 +1,68 @@
+Prepare a minimal, self-contained EAS Android build source and push it to a new branch named:
+
+mobile-eas-release
+
+Repository:
+https://github.com/rexdev13/JobSage-Platform.git
+
+Do not combine the application into one source-code file. Create a clean release branch containing only what is necessary to install, validate and build the current JOBSAGE mobile app.
+
+Include:
+- artifacts/jobsage-mobile and every source file and asset it requires
+- eas.json
+- app.json and app.config.js
+- The root package.json
+- pnpm-lock.yaml
+- pnpm-workspace.yaml
+- tsconfig.json and tsconfig.base.json
+- Every transitively required @workspace package under lib
+- All required mobile icons, splash images and fonts as actual files, not broken Git LFS pointers
+- Any scripts directly required by mobile configuration, deep links or builds
+
+Exclude:
+- node_modules
+- .env files and credentials
+- Database dumps or customer data
+- .agents outputs and memories
+- Audit exports
+- Screenshots unrelated to the mobile build
+- Old source ZIP files
+- Generated reports
+- Server datasets
+- Vacancy-import outputs
+- Unrelated web, extension and API artifacts
+- Large unused Git LFS files
+
+Requirements:
+1. Preserve the current application implementation. Do not simplify, remove or rewrite features.
+2. Preserve Android package ID `uk.co.jobsage.mobile`.
+3. Preserve Expo SDK 57 and the current compatible package versions.
+4. Preserve the production EAS profile that generates an AAB.
+5. Preserve `EXPO_PUBLIC_DOMAIN=jobsage.co.uk`.
+6. Do not run EAS CLI inside Replit.
+7. Do not generate signing credentials.
+8. Do not publish or submit anything.
+9. Ensure no secret or private production value is committed.
+10. Make the build context usable from Windows with Expo EAS Cloud Build.
+
+Before pushing, verify from the release branch:
+- `pnpm install --frozen-lockfile` succeeds
+- Mobile TypeScript check passes
+- Mobile unit and render tests pass
+- `npx expo config --type public` succeeds
+- `npx expo-doctor` completes, documenting any package-firewall-only warning
+- The configured Android output is an AAB
+- All icon, splash and notification asset paths resolve
+- No Git LFS pointer text remains in any required mobile image or asset
+
+Commit and push the branch to GitHub.
+
+Return:
+- Exact branch name
+- Exact commit SHA
+- Confirmation that the push reached GitHub
+- Complete list of files/directories included
+- Complete list of local workspace packages required by mobile
+- Exact Windows commands to clone, install and start the EAS cloud build
+
+Do not stop at documentation. Actually create and push the release branch, then verify the remote commit exists.
