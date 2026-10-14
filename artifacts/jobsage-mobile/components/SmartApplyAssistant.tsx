@@ -23,7 +23,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadError, downloadAndShare } from "@/lib/native-download";
-import { applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
+import { applicationAssistantStepKey } from "@/lib/smart-apply/auto-prefill";
 import { WORKSPACE_ORIGIN } from "@/lib/workspace-config";
 import {
   AnswerSource,
@@ -388,8 +388,11 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
     try {
       const p = await getSmartApplyCandidatePrefill();
       if (!alive.current) return;
-      const availableProfileFactCount = [p.firstName, p.lastName, p.fullName, p.email]
-        .filter((value) => typeof value === "string" && value.trim().length > 0).length;
+      const availableProfileFactCount = Object.values(p).filter((value) =>
+        (typeof value === "string" && value.trim().length > 0)
+        || (typeof value === "number" && Number.isFinite(value))
+        || (Array.isArray(value) && value.length > 0),
+      ).length;
       console.info("[SmartApply] profile prefill data loaded", { source, host, availableProfileFactCount });
       if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
       prefillTimeoutRef.current = setTimeout(() => {
@@ -401,7 +404,7 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
       }, 12_000);
       send({
         type: "prefill",
-        profile: { firstName: p.firstName, lastName: p.lastName, fullName: p.fullName, email: p.email },
+        profile: p,
         jobTitle: context.jobTitle ?? undefined,
       });
     } catch {
@@ -414,14 +417,19 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
   }, [context.jobTitle, host, send]);
 
   const autoPrefillPageKey = scan?.applicationPage
-    ? applicationPrefillPageKey(context.id, scan.context.pageUrl)
+    ? applicationAssistantStepKey(
+        context.id,
+        scan.context.pageUrl,
+        scan.questions.map((question) => question.signature || question.id),
+      )
     : null;
 
   useEffect(() => {
     if (!autoPrefillPageKey || !user?.id || autoPrefillAttemptedRef.current === autoPrefillPageKey) return;
     autoPrefillAttemptedRef.current = autoPrefillPageKey;
-    setTab("details");
-    setNotice({ tone: "ok", text: "Application form detected. Smart Apply is filling matching blank name and JOBSAGE-email fields." });
+    setTab("questions");
+    setSelectedId(null);
+    setNotice({ tone: "ok", text: "Application form detected. Smart Apply is filling matching blank fields from your saved profile." });
     void runPrefill("automatic");
   }, [autoPrefillPageKey, user?.id, runPrefill]);
 
@@ -726,8 +734,8 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
             )
           ) : tab === "details" ? (
             <>
-              <Text style={s.section}>Your name and contact email</Text>
-              <Text style={s.muted}>Smart Apply automatically fills matching blank name and JOBSAGE-email fields on detected forms. It never uses your sign-in email or overwrites existing answers.</Text>
+              <Text style={s.section}>Your saved profile details</Text>
+              <Text style={s.muted}>Smart Apply fills matching blank fields from your saved profile, including contact and professional details. It never uses your sign-in email or overwrites existing answers. Review filled fields before submitting.</Text>
               <Pressable style={[s.primary, prefilling && s.disabled]} onPress={() => void runPrefill("manual")} disabled={prefilling} accessibilityRole="button">
                 {prefilling ? <ActivityIndicator size="small" color={colors.accentForeground} /> : <Feather name="user-check" size={16} color={colors.accentForeground} />}
                 <Text style={s.primaryText}>{prefillResult ? "Fill my details again" : "Fill my details"}</Text>
@@ -737,7 +745,7 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
                   <Text style={s.muted}>
                     {prefillResult.filled.length
                       ? `${prefillResult.filled.length} detail type${prefillResult.filled.length === 1 ? "" : "s"} filled. Check them on the employer page.`
-                      : "No supported blank name or email fields were found on this step."}
+                      : "No supported blank profile fields were found on this step."}
                   </Text>
                   {prefillResult.warning ? <Text style={[s.muted, { color: colors.destructive }]}>{prefillResult.warning}</Text> : null}
                   {Object.entries(prefillResult.fieldResults).map(([k, r]) => (

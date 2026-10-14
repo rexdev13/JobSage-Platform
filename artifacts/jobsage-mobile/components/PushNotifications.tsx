@@ -17,7 +17,7 @@ import {
 
 type RegistrationState = "loading" | "ready" | "working" | "disabling" | "enabled" | "unconfirmed" | "blocked" | "unavailable";
 
-export function PushNotifications() {
+export function PushNotifications({ showSettings = true }: { showSettings?: boolean }) {
   const colors = useColors();
   const { user, token } = useAuth();
   const [state, setState] = useState<RegistrationState>("loading");
@@ -269,6 +269,8 @@ export function PushNotifications() {
   }, []);
 
   if (
+    !showSettings
+    ||
     state === "loading"
     || !user
     || Platform.OS === "web"

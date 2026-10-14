@@ -4392,8 +4392,8 @@ export function useGetSmartApplyQuestions<
 }
 
 /**
- * Returns an allowlisted subset of the authenticated candidate's contact details. Sensitive identity data and credentials are never returned.
- * @summary Get safe candidate contact fields for browser application form prefilling
+ * Returns only allowlisted profile facts. Sensitive identity data and credentials are never returned.
+ * @summary Get safe candidate profile facts for browser application form prefilling
  */
 export const getGetSmartApplyCandidatePrefillUrl = () => {
   return `/api/smart-apply/candidate-prefill`;
@@ -4449,7 +4449,7 @@ export type GetSmartApplyCandidatePrefillQueryResult = NonNullable<
 export type GetSmartApplyCandidatePrefillQueryError = ErrorType<ErrorEnvelope>;
 
 /**
- * @summary Get safe candidate contact fields for browser application form prefilling
+ * @summary Get safe candidate profile facts for browser application form prefilling
  */
 
 export function useGetSmartApplyCandidatePrefill<

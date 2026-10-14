@@ -315,7 +315,12 @@ function cleanText(text: string | null | undefined): string {
   return (text ?? "").replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim();
 }
 
+function isOpaqueQuestionLabel(text: string | null | undefined): boolean {
+  return /^jsq[\s_-]*\d+$/i.test(cleanText(text));
+}
+
 function humanizeMetadata(value: string): string {
+  if (isOpaqueQuestionLabel(value)) return "";
   const cleaned = cleanText(value)
     .replace(/\[(\d+)\]/g, " $1 ")
     .replace(/\[([^\]]+)\]/g, " $1 ")
@@ -372,7 +377,7 @@ function explicitFieldLabel(field: QuestionField): string {
         : field.id.replace(/["\\]/g, "\\$&");
     const label = doc.querySelector(`label[for="${escaped}"]`);
     const t = cleanText(label?.textContent);
-    if (t) return t;
+    if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
   // 2. Wrapping <label>
@@ -381,12 +386,12 @@ function explicitFieldLabel(field: QuestionField): string {
     const clone = wrapping.cloneNode(true) as HTMLElement;
     clone.querySelectorAll("input, textarea, select").forEach((e) => e.remove());
     const t = cleanText(clone.textContent);
-    if (t) return t;
+    if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
   // 3. aria-label
   const ariaLabel = cleanText(field.getAttribute("aria-label"));
-  if (ariaLabel) return ariaLabel;
+  if (ariaLabel && !isOpaqueQuestionLabel(ariaLabel)) return ariaLabel;
 
   // 4. aria-labelledby
   const labelledBy = field.getAttribute("aria-labelledby");
@@ -397,7 +402,7 @@ function explicitFieldLabel(field: QuestionField): string {
         .map((id) => doc.getElementById(id)?.textContent ?? "")
         .join(" ")
     );
-    if (t) return t;
+    if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
   // 5. Workday: label inside the same data-automation-id container
@@ -405,7 +410,7 @@ function explicitFieldLabel(field: QuestionField): string {
   if (wdContainer) {
     const wdLabel = wdContainer.querySelector("label, [data-automation-id*='label' i], legend");
     const t = cleanText(wdLabel?.textContent);
-    if (t) return t;
+    if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
   // 6. A nearby paragraph often carries the control-specific prompt.
@@ -420,13 +425,13 @@ function explicitFieldLabel(field: QuestionField): string {
     );
     for (let i = candidates.length - 1; i >= 0; i--) {
       const t = cleanText(candidates[i].textContent);
-      if (t.length >= 4) return t;
+      if (t.length >= 4 && !isOpaqueQuestionLabel(t)) return t;
     }
   }
 
   const row = field.closest("tr");
   const rowLabel = cleanText(row?.querySelector("th, td:first-child")?.textContent);
-  if (rowLabel && !rowLabel.includes(cleanText(field.value))) return rowLabel;
+  if (rowLabel && !isOpaqueQuestionLabel(rowLabel) && !rowLabel.includes(cleanText(field.value))) return rowLabel;
 
   // 7. Stable field metadata is preferable to a broad section heading.
   const metadata = humanizeMetadata(field.name || field.id);
@@ -440,7 +445,7 @@ function explicitFieldLabel(field: QuestionField): string {
     while (sib) {
       if (/^(P|LABEL|DIV|SPAN)$/.test(sib.tagName)) {
         const t = cleanText(sib.textContent);
-        if (t.length >= 4 && t.length <= 500) return t;
+      if (t.length >= 4 && t.length <= 500 && !isOpaqueQuestionLabel(t)) return t;
       }
       sib = sib.previousElementSibling;
     }
@@ -449,7 +454,8 @@ function explicitFieldLabel(field: QuestionField): string {
   }
 
   // 9. Placeholder as last resort
-  return cleanText(field.getAttribute("placeholder"));
+  const placeholder = cleanText(field.getAttribute("placeholder"));
+  return isOpaqueQuestionLabel(placeholder) ? "" : placeholder;
 }
 
 function sectionContext(field: QuestionField): string {
@@ -460,6 +466,7 @@ function sectionContext(field: QuestionField): string {
     context = cleanText(section?.querySelector("h1, h2, h3, h4, h5, h6, legend, caption")?.textContent);
   }
   if (/^(application( for employment)?|apply|application form)$/i.test(context)) context = "";
+  if (isOpaqueQuestionLabel(context)) context = "";
   const inferred = metadataContext(field);
   if (!context) return inferred;
   const indexMatch = cleanText(field.name || field.id).match(/\[(\d+)\]/);
@@ -470,7 +477,8 @@ function sectionContext(field: QuestionField): string {
 }
 
 function resolveQuestionText(field: QuestionField, defaultText = "Application response"): string {
-  const child = explicitFieldLabel(field) || defaultText;
+  const explicit = explicitFieldLabel(field);
+  const child = explicit && !isOpaqueQuestionLabel(explicit) ? explicit : defaultText;
   const context = sectionContext(field);
   if (isInput(field) && field.type === "radio") {
     return context || child;
@@ -566,7 +574,7 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
   const fields = Array.from(root.querySelectorAll("textarea, input, select"));
   const seenRadioGroups = new Set<string>();
 
-  for (const el of fields) {
+  for (const [fieldIndex, el] of fields.entries()) {
     if (!isCandidateField(el)) continue;
     const field = el;
     if (isInput(field) && field.type === "radio") {
@@ -575,7 +583,17 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
       if (radioKey) seenRadioGroups.add(radioKey);
     }
     const dedicated = isDedicatedField(field, hostname);
-    const question = resolveQuestionText(field, dedicated ? "Supporting statement" : "Application response");
+    const fallbackText = dedicated ? "Supporting statement" : "Application response";
+    const resolvedQuestion = resolveQuestionText(field, fallbackText);
+    const hasOpaqueIdentity = [
+      field.name,
+      field.id,
+      field.getAttribute("aria-label"),
+      field.getAttribute("placeholder"),
+    ].some(isOpaqueQuestionLabel);
+    const question = hasOpaqueIdentity
+      ? resolvedQuestion.replace(/Application response$/, `Application question ${fieldIndex + 1}`)
+      : resolvedQuestion;
     const bucket = classifyField(field, question, hostname, root);
     if (!bucket) continue;
 

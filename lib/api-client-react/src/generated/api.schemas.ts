@@ -1188,7 +1188,7 @@ export interface SmartApplyQuestionsResponse {
 }
 
 /**
- * Allowlisted candidate contact fields for application-form prefill. Additional contact fields are omitted unless supported by the candidate record.
+ * Allowlisted candidate profile facts for application-form prefill. Sensitive identity data and credentials are omitted.
  */
 export interface SmartApplyCandidatePrefill {
   /** @nullable */
@@ -1198,6 +1198,36 @@ export interface SmartApplyCandidatePrefill {
   fullName: string;
   /** @nullable */
   email: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  streetAddress: string | null;
+  /** @nullable */
+  city: string | null;
+  /** @nullable */
+  postcode: string | null;
+  /** @nullable */
+  country: string | null;
+  /** @nullable */
+  profession: string | null;
+  /** @nullable */
+  specialty: string | null;
+  /** @nullable */
+  qualificationCountry: string | null;
+  /** @nullable */
+  qualificationType: string | null;
+  /** @nullable */
+  qualificationYear: number | null;
+  /** @nullable */
+  experienceYears: number | null;
+  /** @nullable */
+  registrationStatus: string | null;
+  /** @nullable */
+  residencyStatus: string | null;
+  /** @nullable */
+  preferredStartDate: string | null;
+  /** @nullable */
+  languages: string[] | null;
 }
 
 export type SmartApplyRoleContextSponsorshipStatus =

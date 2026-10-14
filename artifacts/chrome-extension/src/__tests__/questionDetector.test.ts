@@ -97,6 +97,17 @@ describe("detectQuestions — Workday style forms", () => {
 });
 
 describe("detectQuestions — requiredness", () => {
+  it("shows an internal JSQ field ID as a readable application question label", () => {
+    setBody(`
+      <label for="jsq-1">JSQ-1</label>
+      <textarea id="jsq-1" name="jsq-1" aria-label="JSQ-1"></textarea>
+    `);
+
+    const [question] = detectQuestions();
+    expect(question.question).toBe("Application question 1");
+    expect(question.question.toLowerCase()).not.toContain("jsq");
+  });
+
   it("treats native required and aria-required true as confirmed required", () => {
     setBody(`
       <label for="native">Supporting statement</label>

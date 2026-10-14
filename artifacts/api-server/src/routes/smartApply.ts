@@ -27,8 +27,8 @@ router.get("/smart-apply/questions", requireAuthenticated, (_req: Request, res: 
 });
 
 /**
- * Safe identity/contact fields for browser-based application forms.
- * Keep this allowlist deliberately small: do not return an entire user or profile row.
+ * Safe, allowlisted profile facts for browser-based application forms.
+ * Do not return an entire user or profile row.
  */
 router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const user = req.user!;
@@ -66,7 +66,7 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
     streetAddress: profile?.streetAddress ?? null,
     city: profile?.city ?? null,
     postcode: profile?.postcode ?? null,
-    country: profile?.country ?? "United Kingdom",
+    country: profile?.country ?? null,
     profession: profile?.profession ?? null,
     specialty: profile?.specialty ?? null,
     qualificationCountry: profile?.qualificationCountry ?? null,

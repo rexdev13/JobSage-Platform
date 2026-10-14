@@ -460,7 +460,7 @@ export default function WorkspaceScreen() {
         </View>
       ) : null}
 
-      <PushNotifications />
+      <PushNotifications showSettings={false} />
 
       <View style={{ flex: 1 }}>
         {Platform.OS === "web" ? (

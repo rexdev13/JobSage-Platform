@@ -102,10 +102,10 @@ const { PushNotifications } = require("../components/PushNotifications") as type
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-async function renderPushNotifications() {
+async function renderPushNotifications(showSettings = true) {
   let screen!: Awaited<ReturnType<typeof render>>;
   await act(async () => {
-    screen = await render(<PushNotifications />);
+    screen = await render(<PushNotifications showSettings={showSettings} />);
     await Promise.resolve();
   });
   return screen;
@@ -158,6 +158,15 @@ describe("native push opt-in", () => {
     expect(mockRegisterPushDevice).toHaveBeenCalled();
     expect(mockRequestPermissions).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Notifications enabled")).toBeTruthy();
+  });
+
+  it("keeps notification routing listeners active without rendering a workspace banner", async () => {
+    const screen = await renderPushNotifications(false);
+    await waitFor(() => expect(mockGetPrivacySettings).toHaveBeenCalled());
+
+    expect(screen.queryByText("Get JOBSAGE updates")).toBeNull();
+    expect(screen.queryByTestId("enable-push-notifications")).toBeNull();
+    expect(mockAddResponseListener).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the opt-in hidden when every notification category is disabled", async () => {

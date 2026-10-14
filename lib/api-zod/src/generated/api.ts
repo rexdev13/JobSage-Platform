@@ -1415,8 +1415,8 @@ export const GetSmartApplyQuestionsResponse = zod.object({
 });
 
 /**
- * Returns an allowlisted subset of the authenticated candidate's contact details. Sensitive identity data and credentials are never returned.
- * @summary Get safe candidate contact fields for browser application form prefilling
+ * Returns only allowlisted profile facts. Sensitive identity data and credentials are never returned.
+ * @summary Get safe candidate profile facts for browser application form prefilling
  */
 export const GetSmartApplyCandidatePrefillResponse = zod
   .object({
@@ -1424,9 +1424,24 @@ export const GetSmartApplyCandidatePrefillResponse = zod
     lastName: zod.string().nullable(),
     fullName: zod.string(),
     email: zod.string().email().nullable(),
+    phone: zod.string().nullable(),
+    streetAddress: zod.string().nullable(),
+    city: zod.string().nullable(),
+    postcode: zod.string().nullable(),
+    country: zod.string().nullable(),
+    profession: zod.string().nullable(),
+    specialty: zod.string().nullable(),
+    qualificationCountry: zod.string().nullable(),
+    qualificationType: zod.string().nullable(),
+    qualificationYear: zod.number().nullable(),
+    experienceYears: zod.number().nullable(),
+    registrationStatus: zod.string().nullable(),
+    residencyStatus: zod.string().nullable(),
+    preferredStartDate: zod.string().nullable(),
+    languages: zod.array(zod.string()).nullable(),
   })
   .describe(
-    "Allowlisted candidate contact fields for application-form prefill. Additional contact fields are omitted unless supported by the candidate record.",
+    "Allowlisted candidate profile facts for application-form prefill. Sensitive identity data and credentials are omitted.",
   );
 
 /**

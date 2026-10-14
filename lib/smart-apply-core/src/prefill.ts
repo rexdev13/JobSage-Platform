@@ -68,7 +68,7 @@ function setTextValue(field: HTMLInputElement | HTMLTextAreaElement, value: stri
 }
 
 const SENSITIVE_FIELD_PATTERN =
-  /\b(password|passcode|username|user\s*name|national\s*insurance|ni\s*number|passport|date\s*of\s*birth|dob|birth\s*date|security\s*question|security\s*answer|caution|criminal|conviction|asbo|dbs|health|medical|ethnic|sex|gender|religion|sexual orientation|equal opportunit|diversity|declaration|consent)\b/i;
+  /\b(password|passcode|username|user\s*name|national\s*insurance|ni\s*number|passport|date\s*of\s*birth|dob|birth\s*date|security\s*question|security\s*answer|caution|criminal|conviction|asbo|dbs|health|medical|ethnic|sex|gender|religion|sexual orientation|equal opportunit|diversity|declaration|consent|residency status|immigration|visa|right to work|work permit|sponsorship)\b/i;
 
 const FIELD_RULES: Array<{ key: DetailKey; label: string; pattern: RegExp }> = [
   { key: "firstName", label: "first name", pattern: /\b(first|given|forename)\s*name\b|\bfirst_name\b/i },

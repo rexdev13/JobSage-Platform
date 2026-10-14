@@ -221,12 +221,7 @@ export function isRecognizedJobBoard(): boolean {
   );
 }
 
-/**
- * Return true when the page has an application-form signal rather than only
- * job-board navigation/search UI. This intentionally favors hiding the
- * launcher on listing pages: a candidate can still opt in from the popup
- * when a site uses a custom form that cannot be identified locally.
- */
+/** Return true when a page has a broadly recognizable job-application form. */
 export function hasApplicationForm(): boolean {
   const applicationFieldSelector = [
     "textarea",
@@ -246,12 +241,54 @@ export function hasApplicationForm(): boolean {
   if (document.querySelector(applicationFieldSelector)) return true;
 
   const path = `${location.pathname} ${location.search}`;
-  if (!/\b(apply|application|candidate)\b/i.test(path)) return false;
+  const applicationRoute = /\b(apply|application|candidate|career)\b/i.test(path);
 
-  // Some first application steps contain only ordinary text/select controls.
-  // Treat a form on an explicitly application-like route as useful, while
-  // avoiding the search form on ordinary vacancy listings.
-  return document.querySelector("form") !== null;
+  // Some first application steps contain only ordinary text/select controls,
+  // and ATS vendors often use opaque routes. Use accessible field labels and
+  // page/form copy as a second standards-based signal instead of vendor IDs.
+  const forms = Array.from(document.querySelectorAll("form"));
+  return forms.some((form) => {
+    const controls = Array.from(
+      form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select"),
+    ).filter((field) => {
+      if (field.disabled || field.getAttribute("aria-hidden") === "true") return false;
+      return field.tagName !== "INPUT"
+        || !["hidden", "password", "submit", "button", "reset"].includes((field as HTMLInputElement).type.toLowerCase());
+    });
+    if (controls.length < 2) return false;
+
+    const formText = (form.textContent ?? "").replace(/\s+/g, " ").slice(0, 5000);
+    if (/\b(sign in|log in|create account|forgot password)\b/i.test(formText)) return false;
+    if (applicationRoute) return true;
+
+    const formContext = `${formText} ${document.title} ${document.body?.textContent ?? ""}`.slice(0, 12000);
+    const applicationCopy =
+      /\b(application|apply for|candidate|vacancy|employment|supporting information|cover letter|curriculum vitae|resume|job title)\b/i.test(formContext);
+    if (applicationCopy) return true;
+
+    const profileFieldPattern =
+      /\b(first|given|forename|last|family|surname|e-?mail|phone|telephone|mobile|address|postcode|zip code)\b/i;
+    const profileFieldCount = controls.filter((field) => {
+      const labels = Array.from(field.labels ?? []).map((label) => label.textContent ?? "");
+      const wrappingLabel = field.closest("label")?.textContent ?? "";
+      const metadata = [
+        field.name,
+        field.id,
+        field.getAttribute("autocomplete"),
+        field.getAttribute("aria-label"),
+        field.getAttribute("placeholder"),
+        ...labels,
+        wrappingLabel,
+      ].join(" ");
+      return profileFieldPattern.test(metadata);
+    }).length;
+    const hasContinueAction = Array.from(form.querySelectorAll("button, input[type='submit']")).some((button) =>
+      /\b(continue|next|submit|apply|save and continue)\b/i.test(
+        (button.textContent ?? "") + " " + button.getAttribute("value"),
+      ),
+    );
+    return profileFieldCount >= 2 && hasContinueAction;
+  });
 }
 
 export function scrapeJobContext(): JobContext {

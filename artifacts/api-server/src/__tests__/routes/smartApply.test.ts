@@ -160,7 +160,7 @@ describe("Smart Apply extension endpoints", () => {
       streetAddress: null,
       city: null,
       postcode: null,
-      country: "United Kingdom",
+      country: null,
       profession: null,
       specialty: null,
       qualificationCountry: null,

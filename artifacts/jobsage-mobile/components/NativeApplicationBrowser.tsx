@@ -21,7 +21,7 @@ import {
   safeLinkLogContext,
   showInAppContactLink,
 } from "@/lib/external-links";
-import { applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
+import { applicationAssistantStepKey, applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
 import {
   PageCommand,
   PageMessage,
@@ -65,7 +65,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
   const [scan, setScan] = useState<ScanSnapshot | null>(null);
   const [lastEvent, setLastEvent] = useState<{ seq: number; message: PageMessage } | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const assistantAutoOpenedFor = useRef<number | null>(null);
+  const assistantAutoOpenedFor = useRef<string | null>(null);
   const signalPrompted = useRef(false);
   const confirmedRef = useRef(false);
   confirmedRef.current = confirmed;
@@ -224,8 +224,13 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
         structuredFieldCount: message.structuredFields.length,
       });
       setScan(message);
-      if (message.applicationPage && assistantAutoOpenedFor.current !== context.id) {
-        assistantAutoOpenedFor.current = context.id;
+      const stepKey = applicationAssistantStepKey(
+        context.id,
+        message.context.pageUrl,
+        message.questions.map((question) => question.signature || question.id),
+      );
+      if (message.applicationPage && stepKey && assistantAutoOpenedFor.current !== stepKey) {
+        assistantAutoOpenedFor.current = stepKey;
         setAssistantOpen(true);
       }
       return;

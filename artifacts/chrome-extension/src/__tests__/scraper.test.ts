@@ -38,6 +38,34 @@ describe("hasApplicationForm", () => {
 
     expect(hasApplicationForm()).toBe(true);
   });
+
+  it("recognises a labeled profile step on an opaque ATS route", () => {
+    document.body.innerHTML = `
+      <form>
+        <label for="first-name">First name</label>
+        <input id="first-name" autocomplete="given-name">
+        <label for="email-address">Email address</label>
+        <input id="email-address" type="email" autocomplete="email">
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    expect(hasApplicationForm()).toBe(true);
+  });
+
+  it("does not treat a sign-in form as a job application", () => {
+    document.body.innerHTML = `
+      <form>
+        <label for="email-address">Email address</label>
+        <input id="email-address" type="email" autocomplete="email">
+        <label for="password">Password</label>
+        <input id="password" type="password">
+        <button type="submit">Sign in</button>
+      </form>
+    `;
+
+    expect(hasApplicationForm()).toBe(false);
+  });
 });
 
 describe("scrapeJobContext — Pinpoint", () => {
