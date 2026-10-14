@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./accountDeletionReauthenticationStartInput";
+export * from "./accountDeletionReauthenticationStartResult";
+export * from "./accountDeletionReauthenticationVerifyInput";
+export * from "./accountDeletionReauthenticationVerifyResult";
 export * from "./activateImpersonationTokenParams";
 export * from "./adminAuditEvent";
 export * from "./adminAuditEventDetails";

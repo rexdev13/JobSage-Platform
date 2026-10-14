@@ -93,6 +93,33 @@ export interface PrivacyReauthenticationVerifyResult {
   expiresInSeconds: 300;
 }
 
+export interface AccountDeletionReauthenticationStartInput {
+  /** @minLength 1 */
+  expectedAccountId: string;
+}
+
+export interface AccountDeletionReauthenticationVerifyInput {
+  /** @minLength 1 */
+  expectedAccountId: string;
+  /** @pattern ^[0-9]{6}$ */
+  code: string;
+}
+
+export interface AccountDeletionReauthenticationStartResult {
+  sent: true;
+  message: string;
+}
+
+export interface AccountDeletionReauthenticationVerifyResult {
+  verified: true;
+  /**
+   * @minLength 40
+   * @maxLength 128
+   */
+  proofToken: string;
+  expiresInSeconds: 300;
+}
+
 export const PrivacyConfirmationInputValue = {
   confirmed: true,
 } as const;

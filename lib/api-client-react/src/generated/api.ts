@@ -17,6 +17,10 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AccountDeletionReauthenticationStartInput,
+  AccountDeletionReauthenticationStartResult,
+  AccountDeletionReauthenticationVerifyInput,
+  AccountDeletionReauthenticationVerifyResult,
   ActivateImpersonationTokenParams,
   AdminAuditEventList,
   AdminDescriptionFeedbackInbox,
@@ -582,6 +586,179 @@ export const useVerifyPrivacyReauthentication = <
   TContext
 > => {
   return useMutation(getVerifyPrivacyReauthenticationMutationOptions(options));
+};
+
+export const getStartAccountDeletionReauthenticationUrl = () => {
+  return `/api/privacy/account-deletion/reauthentication/start`;
+};
+
+export const startAccountDeletionReauthentication = async (
+  accountDeletionReauthenticationStartInput: AccountDeletionReauthenticationStartInput,
+  options?: RequestInit,
+): Promise<AccountDeletionReauthenticationStartResult> => {
+  return customFetch<AccountDeletionReauthenticationStartResult>(
+    getStartAccountDeletionReauthenticationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(accountDeletionReauthenticationStartInput),
+    },
+  );
+};
+
+export const getStartAccountDeletionReauthenticationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startAccountDeletionReauthentication>>,
+    TError,
+    { data: BodyType<AccountDeletionReauthenticationStartInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startAccountDeletionReauthentication>>,
+  TError,
+  { data: BodyType<AccountDeletionReauthenticationStartInput> },
+  TContext
+> => {
+  const mutationKey = ["startAccountDeletionReauthentication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startAccountDeletionReauthentication>>,
+    { data: BodyType<AccountDeletionReauthenticationStartInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startAccountDeletionReauthentication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartAccountDeletionReauthenticationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startAccountDeletionReauthentication>>
+>;
+export type StartAccountDeletionReauthenticationMutationBody =
+  BodyType<AccountDeletionReauthenticationStartInput>;
+export type StartAccountDeletionReauthenticationMutationError = ErrorType<void>;
+
+export const useStartAccountDeletionReauthentication = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startAccountDeletionReauthentication>>,
+    TError,
+    { data: BodyType<AccountDeletionReauthenticationStartInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startAccountDeletionReauthentication>>,
+  TError,
+  { data: BodyType<AccountDeletionReauthenticationStartInput> },
+  TContext
+> => {
+  return useMutation(
+    getStartAccountDeletionReauthenticationMutationOptions(options),
+  );
+};
+
+export const getVerifyAccountDeletionReauthenticationUrl = () => {
+  return `/api/privacy/account-deletion/reauthentication/verify`;
+};
+
+export const verifyAccountDeletionReauthentication = async (
+  accountDeletionReauthenticationVerifyInput: AccountDeletionReauthenticationVerifyInput,
+  options?: RequestInit,
+): Promise<AccountDeletionReauthenticationVerifyResult> => {
+  return customFetch<AccountDeletionReauthenticationVerifyResult>(
+    getVerifyAccountDeletionReauthenticationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(accountDeletionReauthenticationVerifyInput),
+    },
+  );
+};
+
+export const getVerifyAccountDeletionReauthenticationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>,
+    TError,
+    { data: BodyType<AccountDeletionReauthenticationVerifyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>,
+  TError,
+  { data: BodyType<AccountDeletionReauthenticationVerifyInput> },
+  TContext
+> => {
+  const mutationKey = ["verifyAccountDeletionReauthentication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>,
+    { data: BodyType<AccountDeletionReauthenticationVerifyInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyAccountDeletionReauthentication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyAccountDeletionReauthenticationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>
+>;
+export type VerifyAccountDeletionReauthenticationMutationBody =
+  BodyType<AccountDeletionReauthenticationVerifyInput>;
+export type VerifyAccountDeletionReauthenticationMutationError =
+  ErrorType<void>;
+
+export const useVerifyAccountDeletionReauthentication = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>,
+    TError,
+    { data: BodyType<AccountDeletionReauthenticationVerifyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyAccountDeletionReauthentication>>,
+  TError,
+  { data: BodyType<AccountDeletionReauthenticationVerifyInput> },
+  TContext
+> => {
+  return useMutation(
+    getVerifyAccountDeletionReauthenticationMutationOptions(options),
+  );
 };
 
 export const getDownloadPersonalDataUrl = () => {

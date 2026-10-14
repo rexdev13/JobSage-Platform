@@ -12,10 +12,15 @@ const fixtures = vi.hoisted(() => ({
   compare: vi.fn(),
   mail: vi.fn(),
   privacyCodeMail: vi.fn(),
+  deletionCodeMail: vi.fn(),
   createPrivacyCode: vi.fn(),
   verifyPrivacyCode: vi.fn(),
   consumePrivacyProof: vi.fn(),
   clearPrivacyCode: vi.fn(),
+  createDeletionCode: vi.fn(),
+  verifyDeletionCode: vi.fn(),
+  clearDeletionCode: vi.fn(),
+  deletionRequestsEnabled: false,
   archive: vi.fn(),
   auth: true,
   impersonating: false,
@@ -53,6 +58,15 @@ vi.mock("bcryptjs", () => ({ default: { compare: fixtures.compare } }));
 vi.mock("../../lib/email", () => ({
   sendSupportTicketNotification: fixtures.mail,
   sendPrivacyReauthenticationCode: fixtures.privacyCodeMail,
+  sendAccountDeletionReauthenticationCode: fixtures.deletionCodeMail,
+}));
+vi.mock("../../lib/accountDeletion/releaseReadiness", () => ({
+  get DELETION_REQUESTS_ENABLED() { return fixtures.deletionRequestsEnabled; },
+}));
+vi.mock("../../lib/accountDeletion/reauthentication", () => ({
+  createAccountDeletionEmailCode: fixtures.createDeletionCode,
+  verifyAccountDeletionEmailCode: fixtures.verifyDeletionCode,
+  clearAccountDeletionEmailCode: fixtures.clearDeletionCode,
 }));
 vi.mock("../../lib/privacyReauthentication", () => ({
   PERSONAL_DATA_REAUTH_PURPOSE: "personal_data",
@@ -98,12 +112,17 @@ beforeEach(() => {
   fixtures.reads.length = 0;
   fixtures.auth = true;
   fixtures.impersonating = false;
+  fixtures.deletionRequestsEnabled = false;
   fixtures.compare.mockResolvedValue(true);
   fixtures.privacyCodeMail.mockResolvedValue(undefined);
+  fixtures.deletionCodeMail.mockResolvedValue(undefined);
   fixtures.createPrivacyCode.mockResolvedValue("123456");
   fixtures.verifyPrivacyCode.mockResolvedValue(fixtureProofToken);
   fixtures.consumePrivacyProof.mockResolvedValue(true);
   fixtures.clearPrivacyCode.mockResolvedValue(undefined);
+  fixtures.createDeletionCode.mockResolvedValue("654321");
+  fixtures.verifyDeletionCode.mockResolvedValue("deletion-proof-fixture-token-value-1234567890abcdef");
+  fixtures.clearDeletionCode.mockResolvedValue(undefined);
   fixtures.execute.mockResolvedValue({ rows: [{ count: 1 }] });
   fixtures.deletedWhere.mockResolvedValue({});
   fixtures.mail.mockResolvedValue({ success: true });
@@ -178,6 +197,52 @@ describe("account-bound privacy routes (fixtures only)", () => {
     const unavailable = await request(app).get("/api/privacy/settings");
     expect(unavailable.status).toBe(200);
     expect(unavailable.body.reauthenticationMethod).toBe("unavailable");
+  });
+
+  it("keeps deletion reauthentication unavailable and sends no email while the release gate is closed", async () => {
+    freshActor();
+    const start = await action("post", "account-deletion/reauthentication/start")
+      .send({ expectedAccountId: actor.id });
+    freshActor();
+    const verify = await action("post", "account-deletion/reauthentication/verify")
+      .send({ expectedAccountId: actor.id, code: "654321" });
+    expect(start.status).toBe(503);
+    expect(verify.status).toBe(503);
+    expect(fixtures.createDeletionCode).not.toHaveBeenCalled();
+    expect(fixtures.verifyDeletionCode).not.toHaveBeenCalled();
+    expect(fixtures.deletionCodeMail).not.toHaveBeenCalled();
+  });
+
+  it("sends and verifies a deletion-only code only for the bound passwordless account", async () => {
+    fixtures.deletionRequestsEnabled = true;
+    const passwordless = { ...actor, passwordHash: null };
+    fixtures.reads.push([passwordless], [passwordless]);
+    const start = await action("post", "account-deletion/reauthentication/start")
+      .send({ expectedAccountId: actor.id });
+    expect(start.status).toBe(202);
+    expect(fixtures.createDeletionCode).toHaveBeenCalledWith({
+      sessionBinding: "fixture-auth-binding",
+      accountId: actor.id,
+      email: actor.email,
+    });
+    expect(fixtures.deletionCodeMail).toHaveBeenCalledWith(actor.email, "654321");
+
+    fixtures.reads.push([passwordless], [passwordless]);
+    const verify = await action("post", "account-deletion/reauthentication/verify")
+      .send({ expectedAccountId: actor.id, code: "654321" });
+    expect(verify.status).toBe(200);
+    expect(verify.body).toMatchObject({
+      verified: true,
+      proofToken: "deletion-proof-fixture-token-value-1234567890abcdef",
+      expiresInSeconds: 300,
+    });
+    expect(fixtures.verifyDeletionCode).toHaveBeenCalledWith({
+      sessionBinding: "fixture-auth-binding",
+      accountId: actor.id,
+      email: actor.email,
+      code: "654321",
+    });
+    expect(fixtures.verifyPrivacyCode).not.toHaveBeenCalled();
   });
 
   it("merges a notification update without erasing other saved choices", async () => {

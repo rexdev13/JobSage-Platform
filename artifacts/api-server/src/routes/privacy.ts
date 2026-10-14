@@ -14,8 +14,17 @@ import {
   verifyPrivacyEmailCode,
 } from "../lib/privacyReauthentication";
 import { DELETION_REQUESTS_ENABLED } from "../lib/accountDeletion/releaseReadiness";
+import {
+  clearAccountDeletionEmailCode,
+  createAccountDeletionEmailCode,
+  verifyAccountDeletionEmailCode,
+} from "../lib/accountDeletion/reauthentication";
 import { encryptDeletionResource } from "../lib/accountDeletion/crypto";
-import { sendPrivacyReauthenticationCode, sendSupportTicketNotification } from "../lib/email";
+import {
+  sendAccountDeletionReauthenticationCode,
+  sendPrivacyReauthenticationCode,
+  sendSupportTicketNotification,
+} from "../lib/email";
 import { buildPersonalDataArchive } from "../lib/privacyExport/service";
 import { ExportUnavailable } from "../lib/privacyExport/archive";
 
@@ -35,6 +44,12 @@ const reauthenticationStartInput = z.object({
   purpose: z.literal(PERSONAL_DATA_REAUTH_PURPOSE),
 }).strict();
 const reauthenticationVerifyInput = reauthenticationStartInput.extend({
+  code: z.string().regex(/^\d{6}$/),
+}).strict();
+const accountDeletionReauthenticationStartInput = z.object({
+  expectedAccountId: z.string().min(1).max(256),
+}).strict();
+const accountDeletionReauthenticationVerifyInput = accountDeletionReauthenticationStartInput.extend({
   code: z.string().regex(/^\d{6}$/),
 }).strict();
 const confirmationInput = z.object({ confirmed: z.literal(true) }).strict();
@@ -142,6 +157,75 @@ router.post("/privacy/reauthentication/verify", requirePrivacyActor, async (req,
     code: parsed.data.code,
   });
   if (!proofToken) { res.status(403).json({ error: "The code is invalid or expired. Request a new code and try again." }); return; }
+  res.json({ verified: true, proofToken, expiresInSeconds: 300 });
+});
+router.post("/privacy/account-deletion/reauthentication/start", requirePrivacyActor, async (req, res): Promise<void> => {
+  if (!DELETION_REQUESTS_ENABLED) {
+    res.status(503).json({ error: "Account deletion is not currently available." });
+    return;
+  }
+  const parsed = accountDeletionReauthenticationStartInput.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid account-deletion verification request." }); return; }
+  if (parsed.data.expectedAccountId !== req.user!.id) {
+    res.status(403).json({ error: "The signed-in account changed." });
+    return;
+  }
+  if (!await rateLimitActor(req.user!.id)) {
+    res.status(429).json({ error: "Too many attempts. Try again in 15 minutes." });
+    return;
+  }
+  const account = await readPrivacyAccount(req.user!.id);
+  const sessionBinding = getPrivacyAuthenticationBinding(req);
+  if (!account || account.passwordHash || !account.email || !account.emailVerified || !sessionBinding) {
+    res.status(403).json({ error: "Email-code reauthentication is unavailable for this account." });
+    return;
+  }
+  const challenge = { sessionBinding, accountId: account.id };
+  try {
+    const code = await createAccountDeletionEmailCode({ ...challenge, email: account.email });
+    await sendAccountDeletionReauthenticationCode(account.email, code);
+  } catch (error) {
+    try { await clearAccountDeletionEmailCode(challenge); } catch { /* The short-lived challenge also expires automatically. */ }
+    req.log.warn({ err: error }, "Account-deletion reauthentication email could not be delivered");
+    res.status(503).json({ error: "We could not send a deletion verification code. Try again later." });
+    return;
+  }
+  res.status(202).json({
+    sent: true,
+    message: "A deletion-specific verification code was sent to your verified account email. It expires in 10 minutes.",
+  });
+});
+router.post("/privacy/account-deletion/reauthentication/verify", requirePrivacyActor, async (req, res): Promise<void> => {
+  if (!DELETION_REQUESTS_ENABLED) {
+    res.status(503).json({ error: "Account deletion is not currently available." });
+    return;
+  }
+  const parsed = accountDeletionReauthenticationVerifyInput.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Enter the six-digit deletion verification code." }); return; }
+  if (parsed.data.expectedAccountId !== req.user!.id) {
+    res.status(403).json({ error: "The signed-in account changed." });
+    return;
+  }
+  if (!await rateLimitActor(req.user!.id)) {
+    res.status(429).json({ error: "Too many attempts. Try again in 15 minutes." });
+    return;
+  }
+  const account = await readPrivacyAccount(req.user!.id);
+  const sessionBinding = getPrivacyAuthenticationBinding(req);
+  if (!account || account.passwordHash || !account.email || !account.emailVerified || !sessionBinding) {
+    res.status(403).json({ error: "Email-code reauthentication is unavailable for this account." });
+    return;
+  }
+  const proofToken = await verifyAccountDeletionEmailCode({
+    sessionBinding,
+    accountId: account.id,
+    email: account.email,
+    code: parsed.data.code,
+  });
+  if (!proofToken) {
+    res.status(403).json({ error: "The deletion code is invalid or expired. Request a new code and try again." });
+    return;
+  }
   res.json({ verified: true, proofToken, expiresInSeconds: 300 });
 });
 router.post("/privacy/export", requirePrivacyActor, async (req, res) => {

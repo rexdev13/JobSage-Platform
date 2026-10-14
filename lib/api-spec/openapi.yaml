@@ -134,6 +134,56 @@ paths:
                 $ref: "#/components/schemas/PrivacyReauthenticationVerifyResult"
         "403": { description: "Code invalid, expired, or account changed" }
         "429": { description: Too many attempts }
+  /privacy/account-deletion/reauthentication/start:
+    post:
+      operationId: startAccountDeletionReauthentication
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountDeletionReauthenticationStartInput"
+      responses:
+        "202":
+          description: A deletion-specific code was sent to the verified email of a passwordless account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionReauthenticationStartResult"
+        "403": { description: Account is not eligible for email-code reauthentication }
+        "429": { description: Too many attempts }
+        "503": { description: Account deletion is disabled or email delivery is unavailable }
+  /privacy/account-deletion/reauthentication/verify:
+    post:
+      operationId: verifyAccountDeletionReauthentication
+      tags: [Consent]
+      parameters:
+        - in: header
+          name: x-jobsage-privacy-account
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountDeletionReauthenticationVerifyInput"
+      responses:
+        "200":
+          description: One-use, short-lived proof scoped exclusively to account deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionReauthenticationVerifyResult"
+        "403": { description: "Code invalid, expired, or account changed" }
+        "429": { description: Too many attempts }
+        "503": { description: Account deletion is disabled }
   /privacy/export:
     post:
       operationId: downloadPersonalData
@@ -5656,6 +5706,32 @@ components:
         sent: { type: boolean, const: true }
         message: { type: string }
     PrivacyReauthenticationVerifyResult:
+      type: object
+      required: [verified, proofToken, expiresInSeconds]
+      properties:
+        verified: { type: boolean, const: true }
+        proofToken: { type: string, minLength: 40, maxLength: 128 }
+        expiresInSeconds: { type: integer, const: 300 }
+    AccountDeletionReauthenticationStartInput:
+      type: object
+      additionalProperties: false
+      required: [expectedAccountId]
+      properties:
+        expectedAccountId: { type: string, minLength: 1 }
+    AccountDeletionReauthenticationVerifyInput:
+      type: object
+      additionalProperties: false
+      required: [expectedAccountId, code]
+      properties:
+        expectedAccountId: { type: string, minLength: 1 }
+        code: { type: string, pattern: "^[0-9]{6}$" }
+    AccountDeletionReauthenticationStartResult:
+      type: object
+      required: [sent, message]
+      properties:
+        sent: { type: boolean, const: true }
+        message: { type: string }
+    AccountDeletionReauthenticationVerifyResult:
       type: object
       required: [verified, proofToken, expiresInSeconds]
       properties:

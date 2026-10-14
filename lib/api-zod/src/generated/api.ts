@@ -66,6 +66,39 @@ export const VerifyPrivacyReauthenticationResponse = zod.object({
   expiresInSeconds: zod.number(),
 });
 
+export const StartAccountDeletionReauthenticationHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const StartAccountDeletionReauthenticationBody = zod.object({
+  expectedAccountId: zod.string().min(1),
+});
+
+export const VerifyAccountDeletionReauthenticationHeader = zod.object({
+  "x-jobsage-privacy-account": zod.string(),
+});
+
+export const verifyAccountDeletionReauthenticationBodyCodeRegExp = new RegExp(
+  "^[0-9]{6}$",
+);
+
+export const VerifyAccountDeletionReauthenticationBody = zod.object({
+  expectedAccountId: zod.string().min(1),
+  code: zod.string().regex(verifyAccountDeletionReauthenticationBodyCodeRegExp),
+});
+
+export const verifyAccountDeletionReauthenticationResponseProofTokenMin = 40;
+export const verifyAccountDeletionReauthenticationResponseProofTokenMax = 128;
+
+export const VerifyAccountDeletionReauthenticationResponse = zod.object({
+  verified: zod.boolean(),
+  proofToken: zod
+    .string()
+    .min(verifyAccountDeletionReauthenticationResponseProofTokenMin)
+    .max(verifyAccountDeletionReauthenticationResponseProofTokenMax),
+  expiresInSeconds: zod.number(),
+});
+
 export const DownloadPersonalDataHeader = zod.object({
   "x-jobsage-privacy-account": zod.string(),
 });

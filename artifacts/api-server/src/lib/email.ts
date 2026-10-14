@@ -621,6 +621,23 @@ export async function sendPrivacyReauthenticationCode(to: string, code: string):
   if (result.error) throw new Error(result.error.message || "Privacy verification email could not be sent.");
 }
 
+export async function sendAccountDeletionReauthenticationCode(to: string, code: string): Promise<void> {
+  assertEmailConfiguration("Account-deletion reauthentication");
+  const result = await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to,
+    subject: "JOBSAGE: Account deletion verification code",
+    text: `Your JOBSAGE account-deletion verification code is ${code}. It expires in 10 minutes and can be used once. This code does not delete your account. If you did not start an account-deletion request, ignore this email and do not share the code.`,
+    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#162436;line-height:1.6">
+      <h1 style="font-size:20px">Verify an account-deletion request</h1>
+      <p>Enter this code in the signed-in JOBSAGE account:</p>
+      <p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeEmailHtml(code)}</p>
+      <p>This code expires in 10 minutes and can be used once. It does not delete your account. If you did not start an account-deletion request, ignore this email and do not share the code.</p>
+    </body></html>`,
+  });
+  if (result.error) throw new Error(result.error.message || "Account-deletion verification email could not be sent.");
+}
+
 export async function sendEmployerInvitationEmail(opts: {
   to: string;
   companyName: string;
