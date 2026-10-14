@@ -6,11 +6,23 @@ import { isFirstPartyUrl } from "@/lib/workspace-config";
 
 export type LinkKind = "first-party" | "https" | "system" | "blocked";
 
+export type EmployerWindowTarget =
+  | { kind: "in-app"; url: string }
+  | { kind: "system" }
+  | { kind: "blocked" };
+
 export function classifyUrl(value: string): LinkKind {
   if (isFirstPartyUrl(value)) return "first-party";
   if (/^(mailto|tel|webcal):/i.test(value)) return value.length < 2048 && !/[\r\n]/.test(value) ? "system" : "blocked";
   if (/^about:(blank|srcdoc)$/i.test(value)) return "first-party";
   return safeEmployerUrl(value) ? "https" : "blocked";
+}
+
+/** Route employer pop-up links into the controlled browser whenever safe. */
+export function classifyEmployerWindowTarget(value: string): EmployerWindowTarget {
+  const url = safeEmployerUrl(value);
+  if (url) return { kind: "in-app", url };
+  return classifyUrl(value) === "system" ? { kind: "system" } : { kind: "blocked" };
 }
 
 /** Opens a link outside the workspace. Returns false when blocked. */

@@ -7,14 +7,14 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
-import type { ShouldStartLoadRequest, WebViewMessageEvent } from "react-native-webview/lib/WebViewTypes";
+import type { ShouldStartLoadRequest, WebViewMessageEvent, WebViewOpenWindowEvent } from "react-native-webview/lib/WebViewTypes";
 
 import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadError, downloadAndShare } from "@/lib/native-download";
-import { classifyUrl, openExternal } from "@/lib/external-links";
+import { classifyEmployerWindowTarget, classifyUrl, openExternal } from "@/lib/external-links";
 import {
   PageCommand,
   PageMessage,
@@ -82,6 +82,24 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
     else Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
     return false;
   };
+
+  const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
+    const targetUrl = event.nativeEvent.targetUrl;
+    const target = classifyEmployerWindowTarget(targetUrl);
+    if (target.kind === "in-app") {
+      // target="_blank" and window.open links stay in the controlled browser,
+      // where Smart Apply can continue to scan the employer's application form.
+      webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(target.url)});true;`);
+      return;
+    }
+    if (target.kind === "system") {
+      void openExternal(targetUrl).then((ok) => {
+        if (!ok) Alert.alert("Link unavailable", "This link could not be opened.");
+      });
+      return;
+    }
+    Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
+  }, []);
 
   const shareCv = async () => {
     setBusy("cv");
@@ -175,6 +193,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
               source={{ uri: startUrl }}
               originWhitelist={["https://*", "mailto:*", "tel:*", "about:*"]}
               onShouldStartLoadWithRequest={onShouldStart}
+              onOpenWindow={onOpenWindow}
               injectedJavaScript={injected}
               injectedJavaScriptForMainFrameOnly
               onMessage={onMessage}
