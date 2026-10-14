@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect x="42" y="34" width="548" height="432" rx="32" fill="#fffaf6" fill-opacity="0.91" stroke="#d9b2aa" stroke-opacity="0.65" stroke-width="2"/>
+  <text x="82" y="242" font-family="DejaVu Sans, Arial, sans-serif" font-size="40" font-weight="700" fill="#5a1d2c">Your UK job search,</text>
+  <text x="82" y="296" font-family="DejaVu Sans, Arial, sans-serif" font-size="40" font-weight="700" fill="#5a1d2c">all in one place.</text>
+  <circle cx="90" cy="354" r="5" fill="#a51d1d"/>
+  <text x="108" y="361" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="500" fill="#6c4347">Opportunities  ·  applications  ·  progress</text>
+</svg>
