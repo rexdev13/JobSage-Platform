@@ -46,6 +46,7 @@ COMPANY_SITE_SCHEMA_IMPORT_ENABLED = "true"
 COMPANY_SITE_REVIEWED_IMPORT_ENABLED = "true"
 
 [userenv.development]
+ENABLE_DEVELOPMENT_EXTERNAL_PROVIDERS = "true"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e"
