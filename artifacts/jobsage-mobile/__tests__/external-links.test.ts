@@ -9,7 +9,7 @@ jest.mock("@/lib/workspace-config", () => ({
   isFirstPartyUrl: () => false,
 }));
 
-import { classifyEmployerWindowTarget } from "@/lib/external-links";
+import { classifyEmployerWindowTarget, safeLinkLogContext } from "@/lib/external-links";
 
 describe("employer browser pop-up links", () => {
   it("keeps safe HTTPS destinations inside the controlled browser", () => {
@@ -28,5 +28,12 @@ describe("employer browser pop-up links", () => {
     expect(classifyEmployerWindowTarget("http://apply.example.org/jobs/42")).toEqual({ kind: "blocked" });
     expect(classifyEmployerWindowTarget("https://localhost/apply")).toEqual({ kind: "blocked" });
     expect(classifyEmployerWindowTarget("javascript:alert(1)")).toEqual({ kind: "blocked" });
+  });
+
+  it("exposes only scheme and host in navigation logs", () => {
+    expect(safeLinkLogContext("https://apply.example.org/apply?email=private@example.org#step-2")).toEqual({
+      scheme: "https",
+      host: "apply.example.org",
+    });
   });
 });

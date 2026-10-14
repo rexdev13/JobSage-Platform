@@ -3,7 +3,7 @@ import { safeEmployerUrl } from "@workspace/mobile-core";
 import { confirmApplicationSubmission, getDownloadSmartApplyCurrentCvUrl } from "@workspace/api-client-react";
 import type { MobileApplicationContext } from "@workspace/api-client-react";
 import { nativeSmartApplyScript } from "@workspace/smart-apply-core/native-script";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
@@ -14,7 +14,8 @@ import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadError, downloadAndShare } from "@/lib/native-download";
-import { classifyEmployerWindowTarget, classifyUrl, openExternal } from "@/lib/external-links";
+import { classifyEmployerWindowTarget, classifyUrl, openExternal, safeLinkLogContext } from "@/lib/external-links";
+import { applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
 import {
   PageCommand,
   PageMessage,
@@ -57,6 +58,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
   const [scan, setScan] = useState<ScanSnapshot | null>(null);
   const [lastEvent, setLastEvent] = useState<{ seq: number; message: PageMessage } | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const assistantAutoOpenedFor = useRef<number | null>(null);
   const signalPrompted = useRef(false);
   const confirmedRef = useRef(false);
   confirmedRef.current = confirmed;
@@ -74,12 +76,44 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
     }
   })();
 
+  useEffect(() => {
+    console.info("[SmartApply] application browser opened", {
+      host: safeLinkLogContext(startUrl ?? "").host,
+      safeUrlAvailable: !!startUrl,
+    });
+  }, [startUrl]);
+
+  useEffect(() => {
+    assistantAutoOpenedFor.current = null;
+  }, [context.id, visible]);
+
   const onShouldStart = (req: ShouldStartLoadRequest) => {
-    if (req.isTopFrame === false) return /^https:/i.test(req.url) || /^about:/i.test(req.url);
-    if (safeEmployerUrl(req.url)) return true;
+    const urlContext = safeLinkLogContext(req.url);
+    if (req.isTopFrame === false) {
+      const allowed = /^about:(blank|srcdoc)$/i.test(req.url) || !!safeEmployerUrl(req.url);
+      console.info("[SmartApply] web navigation", {
+        frame: "subframe",
+        action: allowed ? "in-app" : "blocked",
+        ...urlContext,
+      });
+      return allowed;
+    }
+    if (/^about:(blank|srcdoc)$/i.test(req.url)) {
+      console.info("[SmartApply] web navigation", { frame: "main", action: "in-app", ...urlContext });
+      return true;
+    }
+    if (safeEmployerUrl(req.url)) {
+      console.info("[SmartApply] web navigation", { frame: "main", action: "in-app", ...urlContext });
+      return true;
+    }
     const kind = classifyUrl(req.url);
-    if (kind === "system") void openExternal(req.url);
-    else Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
+    if (kind === "system") {
+      console.info("[SmartApply] web navigation", { frame: "main", action: "system-app", ...urlContext });
+      void openExternal(req.url);
+    } else {
+      console.warn("[SmartApply] web navigation", { frame: "main", action: "blocked", ...urlContext });
+      Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
+    }
     return false;
   };
 
@@ -87,17 +121,29 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
     const targetUrl = event.nativeEvent.targetUrl;
     const target = classifyEmployerWindowTarget(targetUrl);
     if (target.kind === "in-app") {
+      console.info("[SmartApply] new-window link", {
+        action: "in-app",
+        ...safeLinkLogContext(targetUrl),
+      });
       // target="_blank" and window.open links stay in the controlled browser,
       // where Smart Apply can continue to scan the employer's application form.
       webRef.current?.injectJavaScript(`window.location.assign(${JSON.stringify(target.url)});true;`);
       return;
     }
     if (target.kind === "system") {
+      console.info("[SmartApply] new-window link", {
+        action: "system-app",
+        ...safeLinkLogContext(targetUrl),
+      });
       void openExternal(targetUrl).then((ok) => {
         if (!ok) Alert.alert("Link unavailable", "This link could not be opened.");
       });
       return;
     }
+    console.warn("[SmartApply] new-window link", {
+      action: "blocked",
+      ...safeLinkLogContext(targetUrl),
+    });
     Alert.alert("Link blocked", "This page tried to open an address that is not a secure public website.");
   }, []);
 
@@ -152,8 +198,36 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
       setCurrentUrl(actualUrl);
     }
     if (message.type === "scan") {
+      console.info("[SmartApply] application page scan", {
+        host: safeLinkLogContext(actualUrl).host,
+        applicationPage: message.applicationPage,
+        questionCount: message.questions.length,
+        structuredFieldCount: message.structuredFields.length,
+      });
       setScan(message);
+      if (message.applicationPage && assistantAutoOpenedFor.current !== context.id) {
+        assistantAutoOpenedFor.current = context.id;
+        setAssistantOpen(true);
+      }
       return;
+    }
+    if (message.type === "prefill") {
+      console.info("[SmartApply] page prefill result", {
+        host: safeLinkLogContext(actualUrl).host,
+        filledTypeCount: message.result.filled.length,
+        missingTypeCount: message.result.missing.length,
+        requiredMissingTypeCount: message.result.requiredMissing.length,
+        skippedTypeCount: message.result.skipped.length,
+      });
+    } else if (message.type === "structured") {
+      console.info("[SmartApply] structured profile fill result", {
+        host: safeLinkLogContext(actualUrl).host,
+        filledCount: message.filled,
+      });
+    } else if (message.type === "error") {
+      console.warn("[SmartApply] employer page rejected a fill command", {
+        host: safeLinkLogContext(actualUrl).host,
+      });
     }
     if (message.type === "submission") {
       if (!signalPrompted.current && !confirmedRef.current) {
@@ -181,9 +255,6 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
               <Text style={s.host} numberOfLines={1}>{host || "Employer site"}</Text>
             </View>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open in browser" onPress={() => void openExternal(currentUrl)} hitSlop={10} style={s.iconBtn}>
-            <Feather name="external-link" size={20} color={colors.foreground} />
-          </Pressable>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -191,7 +262,9 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
             <WebView
               ref={webRef}
               source={{ uri: startUrl }}
-              originWhitelist={["https://*", "mailto:*", "tel:*", "about:*"]}
+              // Wildcard is intentional: non-whitelisted navigations otherwise bypass
+              // onShouldStartLoadWithRequest and can be handed to the OS browser.
+              originWhitelist={["*"]}
               onShouldStartLoadWithRequest={onShouldStart}
               onOpenWindow={onOpenWindow}
               injectedJavaScript={injected}
@@ -209,9 +282,15 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
                 setLoading(true);
               }}
               onLoadEnd={() => setLoading(false)}
-              onError={(e) => setLoadError(e.nativeEvent.description || "The employer page could not be loaded.")}
+              onError={(e) => {
+                console.warn("[SmartApply] employer page load failed", {
+                  host: safeLinkLogContext(e.nativeEvent.url).host,
+                  code: e.nativeEvent.code,
+                });
+                setLoadError(e.nativeEvent.description || "The employer page could not be loaded.");
+              }}
               javaScriptCanOpenWindowsAutomatically={false}
-              setSupportMultipleWindows={false}
+              setSupportMultipleWindows
               allowFileAccess={false}
               allowFileAccessFromFileURLs={false}
               allowUniversalAccessFromFileURLs={false}
@@ -241,7 +320,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
           ) : null}
           {assistantOpen && startUrl && !loadError ? (
             <SmartApplyAssistant
-              key={`${context.id}:${currentUrl}:${user?.id ?? "signed-out"}`}
+              key={`${applicationPrefillPageKey(context.id, currentUrl) ?? `${context.id}:${host}`}:${user?.id ?? "signed-out"}`}
               context={context}
               scan={scan}
               lastEvent={lastEvent}

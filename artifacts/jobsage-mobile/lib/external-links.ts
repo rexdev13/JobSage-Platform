@@ -11,6 +11,16 @@ export type EmployerWindowTarget =
   | { kind: "system" }
   | { kind: "blocked" };
 
+/** Safe-to-log URL metadata. Never return paths, query values, or fragments. */
+export function safeLinkLogContext(value: string): { scheme: string; host: string | null } {
+  try {
+    const url = new URL(value);
+    return { scheme: url.protocol.replace(/:$/, ""), host: url.host || null };
+  } catch {
+    return { scheme: "invalid", host: null };
+  }
+}
+
 export function classifyUrl(value: string): LinkKind {
   if (isFirstPartyUrl(value)) return "first-party";
   if (/^(mailto|tel|webcal):/i.test(value)) return value.length < 2048 && !/[\r\n]/.test(value) ? "system" : "blocked";

@@ -96,7 +96,7 @@
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
 - [Secret scope verification](secret-scope-verification.md) — confirm published-app scope; production environment changes require republishing before they take effect.
 - [Git authentication and merge-safe pushes](git-auth-vs-connectors.md) — CLI auth is separate from connectors; inspect and preserve merge commits when Git-pane sync triggers a rebase.
-- [In-app Smart Apply scope](smart-apply-browser-scope.md) — keep extension success silent; prompt on unconfirmed desktop returns and use the assisted flow on mobile/extensionless browsers.
+- [In-app Smart Apply scope](smart-apply-browser-scope.md) — preserve desktop return logic; keep native employer links in-app and auto-fill only exact blank name/JOBSAGE-email fields.
 - [Mobile tab-return testing](mobile-tab-lifecycle-testing.md) — headless tab activation may not change focus/visibility; separate simulated handlers from genuine returns.
 - [api-zod success response generation](api-zod-success-response-generation.md) — confirm the generated server validator exists; this workspace's Orval setup omitted one for a 201 response.
 - [Audit CSV alignment](scan-csv-alignment.md) — check named header/value pairings on target and candidate rows; equal column counts can still hide shifted fields.

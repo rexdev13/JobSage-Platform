@@ -16,13 +16,14 @@ import { File } from "expo-file-system";
 import { findBestRememberedAnswer } from "@workspace/smart-apply-core/answerLibrary";
 import type { PrefillResult, RememberedAnswer } from "@workspace/smart-apply-core";
 import * as Clipboard from "expo-clipboard";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadError, downloadAndShare } from "@/lib/native-download";
+import { applicationPrefillPageKey } from "@/lib/smart-apply/auto-prefill";
 import { WORKSPACE_ORIGIN } from "@/lib/workspace-config";
 import {
   AnswerSource,
@@ -77,6 +78,8 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
   const [remember, setRemember] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const prefillTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoPrefillAttemptedRef = useRef<string | null>(null);
   const alive = useRef(true);
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [prefillResult, setPrefillResult] = useState<PrefillResult | null>(null);
@@ -99,7 +102,11 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
 
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; abortRef.current?.abort(); };
+    return () => {
+      alive.current = false;
+      abortRef.current?.abort();
+      if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -151,8 +158,17 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
     if (!lastEvent) return;
     const m = lastEvent.message;
     if (m.type === "prefill") {
+      if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
+      prefillTimeoutRef.current = null;
       setPrefilling(false);
       setPrefillResult(m.result);
+      const filledTypeCount = m.result.filled.length;
+      setNotice({
+        tone: "ok",
+        text: filledTypeCount
+          ? `Smart Apply filled ${filledTypeCount} matching detail type${filledTypeCount === 1 ? "" : "s"}. Review them on the employer page.`
+          : "No blank name or JOBSAGE-email fields matched. Existing entries and sensitive fields were left unchanged.",
+      });
     } else if (m.type === "structured") {
       setStructuredBusy(false);
       setStructured(null);
@@ -166,6 +182,8 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
       setCvState("attached");
       setCvMessage(`Attached ${m.filename}. Check the employer's page shows your CV before continuing.`);
     } else if (m.type === "error") {
+      if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
+      prefillTimeoutRef.current = null;
       if (cvState === "sent") {
         setCvState("failed");
         setCvMessage(`${m.message} Use My CV to save or share your CV, then choose it with the employer's file picker.`);
@@ -220,6 +238,7 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
       maxLength: charLimit(q),
     };
     const limit = charLimit(q);
+    console.info("[SmartApply] answer draft generation started", { host, maxCharacters: limit });
     // Only this controller may write into the draft; user editing is disabled while generating.
     const write = (text: string) => {
       if (!alive.current || controller.signal.aborted || abortRef.current !== controller) return;
@@ -283,11 +302,19 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
         write(text);
       }
       if (!controller.signal.aborted && !text.trim()) throw new Error("No draft was returned. Please try again.");
-      if (!controller.signal.aborted) write(text.trim());
+      if (!controller.signal.aborted) {
+        write(text.trim());
+        console.info("[SmartApply] answer draft generation completed", { host, characterCount: text.trim().length });
+      }
     } catch (e) {
       if (controller.signal.aborted) {
+        console.info("[SmartApply] answer draft generation cancelled", { host, partialCharacterCount: text.length });
         if (text) setNotice({ tone: "ok", text: "Generation cancelled. The partial draft is unreviewed." });
       } else {
+        console.warn("[SmartApply] answer draft generation failed", {
+          host,
+          errorType: e instanceof Error ? e.name : "unknown",
+        });
         setNotice({
           tone: "error",
           text: `${e instanceof Error && e.message ? e.message : "The draft could not be generated."}${text ? " The partial draft is kept and unreviewed." : ""}`,
@@ -342,6 +369,7 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
     const problem = limitProblem(live, d.value);
     if (problem || !d.reviewed || !d.value.trim()) return;
     send({ type: "insert", questionId: live.id, value: d.value });
+    console.info("[SmartApply] reviewed answer inserted", { host, characterCount: d.value.length });
     if (remember && user?.id && isRememberEligible(live, d.value, d.source)) {
       try {
         const entry = await rememberAnswer(user.id, live, d.value, host);
@@ -352,36 +380,67 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
     }
   };
 
-  const runPrefill = async () => {
+  const runPrefill = useCallback(async (source: "automatic" | "manual" = "manual") => {
     setPrefilling(true);
     setNotice(null);
+    setPrefillResult(null);
+    console.info("[SmartApply] profile prefill started", { source, host });
     try {
       const p = await getSmartApplyCandidatePrefill();
       if (!alive.current) return;
+      const availableProfileFactCount = [p.firstName, p.lastName, p.fullName, p.email]
+        .filter((value) => typeof value === "string" && value.trim().length > 0).length;
+      console.info("[SmartApply] profile prefill data loaded", { source, host, availableProfileFactCount });
+      if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
+      prefillTimeoutRef.current = setTimeout(() => {
+        if (!alive.current) return;
+        prefillTimeoutRef.current = null;
+        setPrefilling(false);
+        setNotice({ tone: "error", text: "The employer page did not confirm the fill. Refresh the scan and try again." });
+        console.warn("[SmartApply] profile prefill page response timed out", { source, host });
+      }, 12_000);
       send({
         type: "prefill",
         profile: { firstName: p.firstName, lastName: p.lastName, fullName: p.fullName, email: p.email },
         jobTitle: context.jobTitle ?? undefined,
       });
     } catch {
+      if (prefillTimeoutRef.current) clearTimeout(prefillTimeoutRef.current);
+      prefillTimeoutRef.current = null;
       setPrefilling(false);
       setNotice({ tone: "error", text: "Your details could not be loaded. Please try again." });
+      console.warn("[SmartApply] profile prefill request failed", { source, host });
     }
-  };
+  }, [context.jobTitle, host, send]);
+
+  const autoPrefillPageKey = scan?.applicationPage
+    ? applicationPrefillPageKey(context.id, scan.context.pageUrl)
+    : null;
+
+  useEffect(() => {
+    if (!autoPrefillPageKey || !user?.id || autoPrefillAttemptedRef.current === autoPrefillPageKey) return;
+    autoPrefillAttemptedRef.current = autoPrefillPageKey;
+    setTab("details");
+    setNotice({ tone: "ok", text: "Application form detected. Smart Apply is filling matching blank name and JOBSAGE-email fields." });
+    void runPrefill("automatic");
+  }, [autoPrefillPageKey, user?.id, runPrefill]);
 
   const loadStructured = async () => {
     if (!scan?.structuredFields.length) return;
     setStructuredBusy(true);
     setStructuredReviewed(false);
+    console.info("[SmartApply] structured suggestions requested", { host, fieldCount: scan.structuredFields.length });
     try {
       const res = await getNativeStructuredPrefill({ fields: scan.structuredFields });
       const byId = new Map(scan.structuredFields.map((f) => [f.id, f]));
       const rows = res.values
         .filter((v) => byId.has(v.id) && typeof v.value === "string" && v.value.length <= 8000)
         .map((v) => ({ id: v.id, label: byId.get(v.id)!.label, value: v.value, pick: true }));
+      console.info("[SmartApply] structured suggestions received", { host, suggestionCount: rows.length });
       setStructured(rows);
       if (!rows.length) setNotice({ tone: "ok", text: "Your profile has no matching answers for these fields." });
     } catch {
+      console.warn("[SmartApply] structured suggestions request failed", { host });
       setNotice({ tone: "error", text: "Suggestions could not be loaded." });
     } finally {
       setStructuredBusy(false);
@@ -668,13 +727,18 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
           ) : tab === "details" ? (
             <>
               <Text style={s.section}>Your name and contact email</Text>
-              <Text style={s.muted}>Fills name and email fields on this page from your JOBSAGE profile. Your sign-in email is not used.</Text>
-              <Pressable style={[s.primary, prefilling && s.disabled]} onPress={runPrefill} disabled={prefilling} accessibilityRole="button">
+              <Text style={s.muted}>Smart Apply automatically fills matching blank name and JOBSAGE-email fields on detected forms. It never uses your sign-in email or overwrites existing answers.</Text>
+              <Pressable style={[s.primary, prefilling && s.disabled]} onPress={() => void runPrefill("manual")} disabled={prefilling} accessibilityRole="button">
                 {prefilling ? <ActivityIndicator size="small" color={colors.accentForeground} /> : <Feather name="user-check" size={16} color={colors.accentForeground} />}
-                <Text style={s.primaryText}>Fill my details</Text>
+                <Text style={s.primaryText}>{prefillResult ? "Fill my details again" : "Fill my details"}</Text>
               </Pressable>
               {prefillResult ? (
                 <View style={{ marginTop: 10 }}>
+                  <Text style={s.muted}>
+                    {prefillResult.filled.length
+                      ? `${prefillResult.filled.length} detail type${prefillResult.filled.length === 1 ? "" : "s"} filled. Check them on the employer page.`
+                      : "No supported blank name or email fields were found on this step."}
+                  </Text>
                   {prefillResult.warning ? <Text style={[s.muted, { color: colors.destructive }]}>{prefillResult.warning}</Text> : null}
                   {Object.entries(prefillResult.fieldResults).map(([k, r]) => (
                     <View key={k} style={s.resultRow}>
