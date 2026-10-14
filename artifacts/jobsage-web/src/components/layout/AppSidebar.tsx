@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/auth-web";
-import { AccountDeletionDisclosure } from "@/components/AccountDeletionDisclosure";
 import {
   ArrowRight, BarChart2, BookOpen, Briefcase, Building2, CalendarDays,
   CheckCircle2, ChevronRight, ClipboardList, FileText, GraduationCap, HelpCircle,
@@ -330,14 +329,15 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
           </div>
         </div>
         <Link href="/privacy-settings" data-testid="link-privacy-settings" onClick={onNavigate}
-          className="mb-2 flex min-h-11 w-full items-center rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent">
-          Privacy, legal &amp; account
+          className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-sidebar-accent">
+          Privacy &amp; account
         </Link>
-        <AccountDeletionDisclosure />
-        <button onClick={logout} data-testid="button-logout"
-          className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
-          <LogOut className="mr-3 h-5 w-5 opacity-80" />Log out
-        </button>
+        <div className="mt-2 border-t border-sidebar-border pt-2">
+          <button onClick={logout} data-testid="button-logout"
+            className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
+            <LogOut className="mr-3 h-5 w-5 opacity-80" />Log out
+          </button>
+        </div>
       </div>
     </aside>
   );

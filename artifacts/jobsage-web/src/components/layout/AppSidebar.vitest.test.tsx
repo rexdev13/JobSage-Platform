@@ -59,6 +59,20 @@ describe("rendered candidate navigation", () => {
     expect(screen.queryByRole("link", { name: /professional exams/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /exam preparation/i })).not.toBeInTheDocument();
   });
+
+  it("keeps privacy and account settings in one link, separate from log out", () => {
+    const onNavigate = vi.fn();
+    render(<AppSidebar onNavigate={onNavigate} />);
+
+    const privacyLink = screen.getByRole("link", { name: "Privacy & account" });
+    expect(privacyLink).toHaveAttribute("href", "/privacy-settings");
+    fireEvent.click(privacyLink);
+    expect(onNavigate).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: /account deletion/i })).not.toBeInTheDocument();
+
+    const logoutButton = screen.getByRole("button", { name: /log out/i });
+    expect(logoutButton.parentElement).toHaveClass("border-t");
+  });
 });
 
 describe("other-role navigation", () => {
