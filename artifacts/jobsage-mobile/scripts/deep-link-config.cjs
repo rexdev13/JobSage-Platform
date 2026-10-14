@@ -2,11 +2,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const TEMPLATE_DIR = path.resolve(__dirname, "../links");
+const ANDROID_APPLICATION_ID = require("../app.json").expo.android.package;
+const DEFAULT_PUBLIC_DOMAIN = "jobsage.co.uk";
 const REQUIRED_VARIABLES = [
-  "JOBSAGE_PUBLIC_DOMAIN",
   "JOBSAGE_IOS_BUNDLE_ID",
   "JOBSAGE_IOS_TEAM_ID",
-  "JOBSAGE_ANDROID_APPLICATION_ID",
   "JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS",
 ];
 
@@ -58,6 +58,31 @@ function parseFingerprints(value) {
   return [...new Set(fingerprints)];
 }
 
+function resolveAndroidApplicationId(env) {
+  const canonicalId = validatePackageId(ANDROID_APPLICATION_ID, "app.json expo.android.package");
+  const configuredId = String(env.JOBSAGE_ANDROID_APPLICATION_ID || "").trim();
+  if (configuredId && validatePackageId(configuredId, "JOBSAGE_ANDROID_APPLICATION_ID") !== canonicalId) {
+    throw new Error("JOBSAGE_ANDROID_APPLICATION_ID must match app.json expo.android.package.");
+  }
+  return canonicalId;
+}
+
+function resolveAndroidLinkConfig(env = process.env, options = {}) {
+  const fingerprints = String(env.JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS || "").trim();
+  if (!fingerprints) {
+    if (options.required) {
+      throw new Error("Android App Links are not configured. Set JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS.");
+    }
+    return null;
+  }
+
+  return {
+    domain: validateDomain(env.JOBSAGE_PUBLIC_DOMAIN || DEFAULT_PUBLIC_DOMAIN),
+    androidApplicationId: resolveAndroidApplicationId(env),
+    androidFingerprints: parseFingerprints(fingerprints),
+  };
+}
+
 function resolveUniversalLinkConfig(env = process.env, options = {}) {
   const missing = missingVariables(env);
   if (missing.length === REQUIRED_VARIABLES.length) {
@@ -71,10 +96,10 @@ function resolveUniversalLinkConfig(env = process.env, options = {}) {
   }
 
   return {
-    domain: validateDomain(env.JOBSAGE_PUBLIC_DOMAIN),
+    domain: validateDomain(env.JOBSAGE_PUBLIC_DOMAIN || DEFAULT_PUBLIC_DOMAIN),
     iosBundleId: validatePackageId(env.JOBSAGE_IOS_BUNDLE_ID, "JOBSAGE_IOS_BUNDLE_ID"),
     iosTeamId: validateTeamId(env.JOBSAGE_IOS_TEAM_ID),
-    androidApplicationId: validatePackageId(env.JOBSAGE_ANDROID_APPLICATION_ID, "JOBSAGE_ANDROID_APPLICATION_ID"),
+    androidApplicationId: resolveAndroidApplicationId(env),
     androidFingerprints: parseFingerprints(env.JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS),
   };
 }
@@ -123,17 +148,18 @@ function renderTemplate(filename, substitutions) {
 }
 
 function buildAssociationDocuments(links) {
-  const apple = renderTemplate("apple-app-site-association.template.json", {
-    IOS_APP_ID: `${links.iosTeamId}.${links.iosBundleId}`,
-  });
+  const documents = {};
+  if (links.iosTeamId && links.iosBundleId) {
+    documents["apple-app-site-association"] = renderTemplate("apple-app-site-association.template.json", {
+      IOS_APP_ID: `${links.iosTeamId}.${links.iosBundleId}`,
+    });
+  }
   const android = renderTemplate("assetlinks.template.json", {
     ANDROID_APPLICATION_ID: links.androidApplicationId,
     ANDROID_FINGERPRINTS_JSON: JSON.stringify(links.androidFingerprints),
   });
-  return {
-    "apple-app-site-association": apple,
-    "assetlinks.json": android,
-  };
+  documents["assetlinks.json"] = android;
+  return documents;
 }
 
 module.exports = {
@@ -141,5 +167,6 @@ module.exports = {
   applyUniversalLinkConfig,
   buildAssociationDocuments,
   parseFingerprints,
+  resolveAndroidLinkConfig,
   resolveUniversalLinkConfig,
 };

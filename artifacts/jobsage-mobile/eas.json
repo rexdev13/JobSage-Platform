@@ -16,6 +16,9 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "jobsage.co.uk"
+      },
       "android": {
         "buildType": "app-bundle"
       },

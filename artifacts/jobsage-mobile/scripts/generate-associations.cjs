@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   buildAssociationDocuments,
+  resolveAndroidLinkConfig,
   resolveUniversalLinkConfig,
 } = require("./deep-link-config.cjs");
 
@@ -47,18 +48,21 @@ function writeAssociationFiles(links, outputDirectory, manifestPath) {
 function main(argv = process.argv.slice(2), env = process.env) {
   const required = argv.includes("--required") || argv.includes("--validate-only");
   const validateOnly = argv.includes("--validate-only");
-  const links = resolveUniversalLinkConfig(env, { required });
+  const androidOnly = argv.includes("--android-only");
+  const links = androidOnly
+    ? resolveAndroidLinkConfig(env, { required })
+    : resolveUniversalLinkConfig(env, { required });
   if (!links) {
     removeGeneratedFiles(defaultOutputDirectory, defaultManifestPath);
-    console.warn("Universal/App Links were not generated; final owner-approved domain, app identifiers, and signing fingerprint are not configured.");
+    console.warn("App Links were not generated; the required domain, app identifiers, or signing fingerprint are not configured.");
     return;
   }
   if (validateOnly) {
-    console.log("Universal/App Links configuration is valid.");
+    console.log(`${androidOnly ? "Android App Links" : "Universal/App Links"} configuration is valid.`);
     return;
   }
   writeAssociationFiles(links, defaultOutputDirectory, defaultManifestPath);
-  console.log("Generated apple-app-site-association and assetlinks.json from owner-provided configuration.");
+  console.log(`Generated ${androidOnly ? "assetlinks.json" : "Apple and Android association files"}.`);
 }
 
 if (require.main === module) {

@@ -5,6 +5,7 @@ const {
   applyUniversalLinkConfig,
   buildAssociationDocuments,
   parseFingerprints,
+  resolveAndroidLinkConfig,
   resolveUniversalLinkConfig,
 } = require("../scripts/deep-link-config.cjs");
 const { removeGeneratedFiles, writeAssociationFiles } = require("../scripts/generate-associations.cjs");
@@ -14,7 +15,7 @@ const completeEnv = {
   JOBSAGE_PUBLIC_DOMAIN: "jobsage.example",
   JOBSAGE_IOS_BUNDLE_ID: "com.example.jobsage",
   JOBSAGE_IOS_TEAM_ID: "A1B2C3D4E5",
-  JOBSAGE_ANDROID_APPLICATION_ID: "com.example.jobsage",
+  JOBSAGE_ANDROID_APPLICATION_ID: "uk.co.jobsage.mobile",
   JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS: fingerprint,
 };
 
@@ -26,7 +27,19 @@ describe("native Universal/App Links configuration", () => {
 
   it("fails production configuration with a precise list of missing owner values", () => {
     expect(() => applyUniversalLinkConfig({ name: "JOBSAGE" }, { EAS_BUILD_PROFILE: "production" }))
-      .toThrow(/JOBSAGE_PUBLIC_DOMAIN.*JOBSAGE_IOS_BUNDLE_ID.*JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS/);
+      .toThrow(/JOBSAGE_IOS_BUNDLE_ID.*JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS/);
+  });
+
+  it("validates Android association data without requiring Apple account values", () => {
+    const androidLinks = resolveAndroidLinkConfig({
+      JOBSAGE_ANDROID_SHA256_CERT_FINGERPRINTS: fingerprint,
+    }, { required: true });
+    expect(androidLinks).toEqual({
+      domain: "jobsage.co.uk",
+      androidApplicationId: "uk.co.jobsage.mobile",
+      androidFingerprints: [fingerprint],
+    });
+    expect(Object.keys(buildAssociationDocuments(androidLinks))).toEqual(["assetlinks.json"]);
   });
 
   it("adds matching iOS and Android domain associations when all owner values are present", () => {
@@ -37,7 +50,7 @@ describe("native Universal/App Links configuration", () => {
     expect(config.ios.bundleIdentifier).toBe("com.example.jobsage");
     expect(config.ios.appleTeamId).toBe("A1B2C3D4E5");
     expect(config.ios.associatedDomains).toEqual(["applinks:jobsage.example"]);
-    expect(config.android.package).toBe("com.example.jobsage");
+    expect(config.android.package).toBe("uk.co.jobsage.mobile");
     expect(config.android.intentFilters).toEqual([{
       action: "VIEW",
       autoVerify: true,
@@ -51,6 +64,8 @@ describe("native Universal/App Links configuration", () => {
       .toThrow(/JOBSAGE_IOS_TEAM_ID/);
     expect(() => resolveUniversalLinkConfig({ ...completeEnv, JOBSAGE_PUBLIC_DOMAIN: "https://jobsage.example/path" }))
       .toThrow(/hostname only/);
+    expect(() => resolveUniversalLinkConfig({ ...completeEnv, JOBSAGE_ANDROID_APPLICATION_ID: "com.other.app" }))
+      .toThrow(/must match app.json expo.android.package/);
     expect(parseFingerprints(`${fingerprint},${fingerprint}`)).toEqual([fingerprint]);
     expect(() => parseFingerprints("not-a-certificate")).toThrow(/SHA-256/);
   });
@@ -61,7 +76,7 @@ describe("native Universal/App Links configuration", () => {
     const apple = JSON.parse(documents["apple-app-site-association"]);
     const android = JSON.parse(documents["assetlinks.json"]);
     expect(apple.applinks.details[0].appID).toBe("A1B2C3D4E5.com.example.jobsage");
-    expect(android[0].target.package_name).toBe("com.example.jobsage");
+    expect(android[0].target.package_name).toBe("uk.co.jobsage.mobile");
     expect(android[0].target.sha256_cert_fingerprints).toEqual([fingerprint]);
     expect(JSON.stringify(documents)).not.toContain("{{");
   });
