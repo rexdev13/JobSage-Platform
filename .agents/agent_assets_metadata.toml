@@ -1734,3 +1734,31 @@ mtime_ms = 1791703991443
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/be294f0b-e6e1-4774-85e4-51ab90f0a231/6d9e0277-4eab-4e84-956e-270f54c3f444"
 storage_version_token = "1791704326662160"
 content_type = "image/png"
+
+[[outputs]]
+id = "GiS5X0xgY_5Qwa3l-VEWl"
+uri = "file://attached_assets/generated_images/jobsage-play-app-icon.png"
+type = "image"
+title = "JOBSAGE Play app icon (512 × 512)"
+description = "Play Console-ready 512 × 512 RGBA PNG, resized from the current approved JOBSAGE mobile icon."
+logical_id = "8d55f18a-3a9d-4973-966c-d2a2a310b51f"
+content_hash = "sha256:383f46bccddeb855d63aca1913c4298000159c3e71dc00e0a3f9757bff9b0b88"
+size = 29258
+mtime_ms = 1792007035668
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8d55f18a-3a9d-4973-966c-d2a2a310b51f/4bd89fd3-9ed4-41ff-a2ff-ddd06fbabc5b"
+storage_version_token = "1792007149300835"
+content_type = "image/png"
+
+[[outputs]]
+id = "mx2DDpH7txOVDQvTEdY25"
+uri = "file://attached_assets/generated_images/jobsage-play-feature-graphic.png"
+type = "image"
+title = "JOBSAGE Play feature graphic (1024 × 500)"
+description = "Play Console-ready 1024 × 500 RGB PNG with the JOBSAGE wordmark and a UK job-search career-path visual."
+logical_id = "e969431b-f65c-4ff6-855b-3913cb652056"
+content_hash = "sha256:43de23f0f81638bc36c453f83ee0d6c3678948d0978a2d8700590c00575d586f"
+size = 369351
+mtime_ms = 1792007087532
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e969431b-f65c-4ff6-855b-3913cb652056/c2f76b61-fc9f-4a1b-b532-05b64c22ce44"
+storage_version_token = "1792007150591090"
+content_type = "image/png"
