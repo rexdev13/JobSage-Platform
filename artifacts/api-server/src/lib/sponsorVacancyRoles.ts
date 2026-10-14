@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { and, eq, gt, ne, sql } from "drizzle-orm";
+import { logger } from "./logger";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import { getCandidateVacancyStatus } from "./vacancyLiveness";
@@ -413,6 +414,24 @@ export interface SponsorVacancyRoleQueryOptions {
   onlyVerifiedLive?: boolean;
 }
 
+const inFlightSponsorVacancyRoleQueries = new Map<
+  string,
+  Promise<SponsorVacancyAsRole[]>
+>();
+
+function sponsorVacancyRoleQueryKey(
+  category: OpportunityCategory,
+  options: SponsorVacancyRoleQueryOptions,
+): string {
+  return JSON.stringify([
+    category,
+    options.since == null ? null : String(options.since.getTime()),
+    options.sourceType ?? null,
+    options.requireSpecificVacancyUrl === true,
+    options.onlyVerifiedLive === true,
+  ]);
+}
+
 /**
  * Fetch live (non-dead) AI-discovered sponsor-licence vacancies relevant to a
  * candidate regulator, shaped like catalogue roles so the Opportunities data
@@ -433,6 +452,25 @@ export async function fetchSponsorVacanciesAsRoles(
   category: OpportunityCategory,
   options: SponsorVacancyRoleQueryOptions = {},
 ): Promise<SponsorVacancyAsRole[]> {
+  const queryKey = sponsorVacancyRoleQueryKey(category, options);
+  const existing = inFlightSponsorVacancyRoleQueries.get(queryKey);
+  if (existing) return existing;
+
+  const pending = loadSponsorVacanciesAsRoles(category, options);
+  inFlightSponsorVacancyRoleQueries.set(queryKey, pending);
+  try {
+    return await pending;
+  } finally {
+    if (inFlightSponsorVacancyRoleQueries.get(queryKey) === pending) {
+      inFlightSponsorVacancyRoleQueries.delete(queryKey);
+    }
+  }
+}
+
+async function loadSponsorVacanciesAsRoles(
+  category: OpportunityCategory,
+  options: SponsorVacancyRoleQueryOptions,
+): Promise<SponsorVacancyAsRole[]> {
   const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
   if (options.onlyVerifiedLive) {
     conditions.push(eq(sponsorLicenceVacanciesTable.liveness, "live"));
@@ -443,6 +481,20 @@ export async function fetchSponsorVacanciesAsRoles(
   if (options.since) {
     conditions.push(gt(sponsorLicenceVacanciesTable.createdAt, options.since));
   }
+  const normalizedSponsorName = sql<string>`lower(btrim(${sponsorLicencesTable.organisationName}))`;
+  const sponsorsByNormalizedName = db
+    .selectDistinctOn([normalizedSponsorName], {
+      normalizedName: normalizedSponsorName.as("normalizedName"),
+      industry: sponsorLicencesTable.industry,
+      contactEmail: sponsorLicencesTable.contactEmail,
+      contactPhone: sponsorLicencesTable.contactPhone,
+      website: sponsorLicencesTable.website,
+    })
+    .from(sponsorLicencesTable)
+    .orderBy(normalizedSponsorName, sponsorLicencesTable.id)
+    .as("sponsor_by_normalized_name");
+
+  const queryStartedAt = performance.now();
   const rows = await db
     .select({
       vac: {
@@ -474,24 +526,27 @@ export async function fetchSponsorVacanciesAsRoles(
         externalListingId: sponsorLicenceVacanciesTable.externalListingId,
       },
       lic: {
-        industry: sponsorLicencesTable.industry,
-        contactEmail: sponsorLicencesTable.contactEmail,
-        contactPhone: sponsorLicencesTable.contactPhone,
-        website: sponsorLicencesTable.website,
+        industry: sponsorsByNormalizedName.industry,
+        contactEmail: sponsorsByNormalizedName.contactEmail,
+        contactPhone: sponsorsByNormalizedName.contactPhone,
+        website: sponsorsByNormalizedName.website,
       },
     })
     .from(sponsorLicenceVacanciesTable)
     .leftJoin(
-      sponsorLicencesTable,
+      sponsorsByNormalizedName,
       // Persistence resolves sponsor identities case-insensitively after
       // trimming. Use the same strict identity here so a stored contact does
       // not disappear from Opportunities solely because casing/whitespace
-      // differs between the vacancy and sponsor-register rows.
+      // differs between rows. Collapse duplicate sponsor-register names first:
+      // joining all licence rows can fan one vacancy out into millions of rows.
       sql`lower(btrim(${sponsorLicenceVacanciesTable.organisationName})) =
-          lower(btrim(${sponsorLicencesTable.organisationName}))`,
+          ${sponsorsByNormalizedName.normalizedName}`,
     )
     .where(and(...conditions));
 
+  const queryDurationMs = Math.round(performance.now() - queryStartedAt);
+  const transformStartedAt = performance.now();
   const seen = new Set<number>();
   const out: SponsorVacancyAsRole[] = [];
 
@@ -611,6 +666,19 @@ export async function fetchSponsorVacanciesAsRoles(
       boardName: vac.boardName,
       externalListingId: vac.externalListingId,
     });
+  }
+
+  const transformDurationMs = Math.round(performance.now() - transformStartedAt);
+  if (queryDurationMs >= 250 || transformDurationMs >= 250) {
+    logger.warn(
+      {
+        queryDurationMs,
+        transformDurationMs,
+        rowsRead: rows.length,
+        rolesReturned: out.length,
+      },
+      "Sponsor vacancy role processing was slow",
+    );
   }
 
   return out;

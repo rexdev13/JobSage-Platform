@@ -149,6 +149,27 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      <Pressable
+        style={({ pressed }) => [
+          styles.workspaceBtn,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+        onPress={() => router.push("/workspace")}
+        accessibilityRole="button"
+        accessibilityLabel="Open full JOBSAGE workspace"
+        testID="profile-open-workspace"
+      >
+        <Ionicons name="grid-outline" size={18} color={colors.accent} />
+        <Text style={[styles.workspaceBtnText, { color: colors.foreground }]}>
+          Open full JOBSAGE workspace
+        </Text>
+        <Ionicons name="chevron-forward" size={17} color={colors.mutedForeground} />
+      </Pressable>
+
       {isLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color={colors.accent} />
@@ -414,6 +435,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: "Inter_500Medium",
+  },
+  workspaceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+  },
+  workspaceBtnText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
   logoutBtn: {
     flexDirection: "row",

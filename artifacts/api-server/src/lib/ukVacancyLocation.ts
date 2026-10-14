@@ -181,22 +181,37 @@ function normalizeText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
-function containsPhrase(text: string, phrase: string): boolean {
-  const normalized = normalizeText(phrase);
-  return new RegExp(`(?:^| )${normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: |$)`).test(text);
+function phrasePattern(phrases: readonly string[]): RegExp {
+  const alternatives = phrases
+    .map(normalizeText)
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length)
+    .map((phrase) => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(
+    alternatives.length
+      ? `(?:^| )(?:${alternatives.join("|")})(?: |$)`
+      : "(?!)",
+  );
 }
 
-function foreignCountryInText(text: string): boolean {
-  const withoutNorthernIreland = normalizeText(text).replace(/\bnorthern ireland\b/g, " ");
-  return FOREIGN_COUNTRIES.some((country) => containsPhrase(withoutNorthernIreland, country));
+const FOREIGN_COUNTRY_PATTERN = phrasePattern(FOREIGN_COUNTRIES);
+const US_STATE_PATTERN = phrasePattern(US_STATES);
+const CANADIAN_PROVINCE_PATTERN = phrasePattern(CANADIAN_PROVINCES);
+const FOREIGN_CITY_PATTERN = phrasePattern(FOREIGN_CITIES);
+const UK_CITY_PATTERN = phrasePattern(UK_CITIES);
+
+function foreignCountryInNormalizedText(normalizedText: string): boolean {
+  const withoutNorthernIreland = normalizedText.replace(/\bnorthern ireland\b/g, " ");
+  return FOREIGN_COUNTRY_PATTERN.test(withoutNorthernIreland);
 }
 
-function hasForeignStateOrProvinceContext(text: string): boolean {
-  const normalized = normalizeText(text);
-  if (US_STATES.some((state) => containsPhrase(normalized, state))) return true;
-  if (CANADIAN_PROVINCES.some((province) => containsPhrase(normalized, province))) return true;
+function hasForeignStateOrProvinceContext(
+  originalLocation: string,
+  normalizedLocation: string,
+): boolean {
+  if (US_STATE_PATTERN.test(normalizedLocation)) return true;
+  if (CANADIAN_PROVINCE_PATTERN.test(normalizedLocation)) return true;
 
-  const originalLocation = text;
   const suffixes = originalLocation.matchAll(/(?:,|\s)\s*([A-Z]{2})\b/gi);
   for (const match of suffixes) {
     const code = match[1]!.toUpperCase();
@@ -238,7 +253,7 @@ function inspectStructuredMetadata(value: unknown): {
           ukCountry = true;
         } else if (
           FOREIGN_COUNTRY_CODES.has(normalized) ||
-          foreignCountryInText(normalized) ||
+          foreignCountryInNormalizedText(normalized) ||
           /^[a-z]{2,3}$/.test(normalized)
         ) {
           foreignCountry = true;
@@ -272,13 +287,13 @@ function locationEvidence(location: string): {
   if (!normalized) return { uk: false, foreign: false };
 
   const foreign =
-    foreignCountryInText(normalized) ||
-    hasForeignStateOrProvinceContext(location) ||
-    FOREIGN_CITIES.some((city) => containsPhrase(normalized, city)) ||
+    foreignCountryInNormalizedText(normalized) ||
+    hasForeignStateOrProvinceContext(location, normalized) ||
+    FOREIGN_CITY_PATTERN.test(normalized) ||
     /(?:^| )(?:us|usa|united states|canada|can)(?: |$)/i.test(normalized) ||
     /(?:,|\s)\s*(?:US|USA|CAN|AU|NZ|IN|SG|ZA|IE|FR|DE|NL|BE|CH|ES|IT|PT|PL|SE|NO|DK|FI|AT|AE|SA|JP|CN|HK|KR|BR|MX|AR|IL|TR|CZ|RO|UA|GR|LU|MT|CY|PK|BD|PH|ID|TH|KE|NG|GH|EG|QA|KW|BH|OM|TW|VN)\s*$/i.test(location);
   const uk =
-    UK_CITIES.some((city) => containsPhrase(normalized, city)) ||
+    UK_CITY_PATTERN.test(normalized) ||
     regionsFromLocationText(location).length > 0 ||
     hasUkPostcode(location) ||
     /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland|remote uk|uk remote|gb|gbr)\b/i.test(location);

@@ -42,6 +42,7 @@
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
 - [Sponsor website promotion evidence](sponsor-website-promotion-evidence.md) — brand-token overlap can over-score generic or partial matches; promotion also needs independent identity and same-site evidence.
 - [Sponsor vacancy identity join](sponsor-vacancy-identity-join.md) — keep the sponsor-name functional index and source/liveness index aligned with the candidate feed join and filters.
+- [Sponsor vacancy role query performance](sponsor-vacancy-role-query-performance.md) — precompile location patterns and coalesce identical in-flight reads only; do not cache completed candidate-feed results.
 - [Production vacancy schedulers](production-vacancy-schedulers.md) — keep discovery on external capped workers; pilot employer allowlists filter before priority selection and limit.
 - [Smart Apply alias privacy](smart-apply-alias-privacy.md) — external ATS prefill and tracking use the canonical JOBSAGE alias; personal login email stays out of extension evidence.
 - [Shadow-root input capture](shadow-root-input-capture.md) — document-capture field listeners can erase extension textarea keystrokes before React handles them; verify in Chromium with an employer form.
@@ -113,4 +114,4 @@
 - [Approved deletion policy](account-deletion-policy.md) — owner-approved 30-day erasure, 90-day backup limit, restricted legal retention and shared-record safeguards.
 - [Mobile compliance safety scope](mobile-compliance-safety.md) — keep deletion disabled and limit this work to source/fixture checks; no production/customer/store actions.
 - [Employer staff permissions](employer-staff-permissions.md) — implement the five owner-approved organization roles with API authorization and no implied platform-wide powers.
-- [Employer context routing](employer-context-routing.md) — wait for identity and organization data before sending employer accounts to onboarding.
+- [Employer context routing](employer-context-routing.md) — wait for verified organization context; the mobile candidate companion requires an empty active and archived membership result.

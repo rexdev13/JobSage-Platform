@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const BASE = "/jobsage";
+const BASE = process.env.JOBSAGE_WEB_BASE_PATH ?? "";
 
 test.describe("Authentication pages", () => {
   test("login page renders with all required elements", async ({ page }) => {
@@ -44,7 +44,7 @@ test.describe("Authentication pages", () => {
     await page.goto(`${BASE}/register`);
     const emailField = page.locator("input[type='email'], input[name='email'], input[placeholder*='email' i]").first();
     const passwordField = page.locator("input[type='password']").first();
-    await emailField.fill(`e2e_${Date.now()}@qatest.dev`);
+    await emailField.fill(`e2e_${Date.now()}@jobsage.test`);
     await passwordField.fill("abc");
     await page.getByRole("button", { name: /register|create|sign up/i }).click();
     const errorVisible = await page.locator("body").evaluate(
@@ -55,7 +55,7 @@ test.describe("Authentication pages", () => {
   });
 
   test("successful registration shows email verification message", async ({ page }) => {
-    const uniqueEmail = `e2e_${Date.now()}@qatest.dev`;
+    const uniqueEmail = `e2e_${Date.now()}@jobsage.test`;
     await page.goto(`${BASE}/register`);
     const emailField = page.locator("input[type='email'], input[name='email'], input[placeholder*='email' i]").first();
     await emailField.fill(uniqueEmail);

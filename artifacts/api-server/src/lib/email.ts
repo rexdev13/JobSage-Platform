@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { appendFile, chmod, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Resend } from "resend";
 
 const DEFAULT_FROM = "noreply@jobsage.co.uk";
@@ -11,6 +14,7 @@ function extractEmailAddress(value: string | undefined): string | null {
 }
 
 export interface EmailConfigurationStatus {
+  deliveryMode: "development_capture" | "resend";
   resendApiKeyPresent: boolean;
   senderAddress: string | null;
   senderSource: "EMAIL_FROM" | "default";
@@ -19,29 +23,45 @@ export interface EmailConfigurationStatus {
   diagnostics: string[];
 }
 
+export function getEmailDeliveryMode(
+  env: NodeJS.ProcessEnv = process.env,
+): EmailConfigurationStatus["deliveryMode"] {
+  return env.NODE_ENV === "development" ? "development_capture" : "resend";
+}
+
 /** Safe startup diagnostics: reports configuration state, never credential values. */
 export function getEmailConfigurationStatus(
   env: NodeJS.ProcessEnv = process.env,
 ): EmailConfigurationStatus {
+  const deliveryMode = getEmailDeliveryMode(env);
   const configuredFrom = env.EMAIL_FROM?.trim();
   const senderSource = configuredFrom ? "EMAIL_FROM" : "default";
   const senderAddress = extractEmailAddress(configuredFrom || DEFAULT_FROM);
-  const resendApiKeyPresent = Boolean(env.RESEND_API_KEY?.trim());
+  const resendApiKeyPresent = deliveryMode === "resend" && Boolean(env.RESEND_API_KEY?.trim());
   const diagnostics: string[] = [];
-  if (!resendApiKeyPresent) diagnostics.push("RESEND_API_KEY is missing");
+  if (deliveryMode === "development_capture") {
+    diagnostics.push("Development email capture is active; external delivery is disabled");
+  } else if (!resendApiKeyPresent) {
+    diagnostics.push("RESEND_API_KEY is missing");
+  }
   if (!senderAddress) diagnostics.push("EMAIL_FROM is missing or not a usable email address");
   return {
+    deliveryMode,
     resendApiKeyPresent,
     senderAddress,
     senderSource,
     senderUsable: senderAddress !== null,
-    ready: resendApiKeyPresent && senderAddress !== null,
+    ready: deliveryMode === "development_capture" || (resendApiKeyPresent && senderAddress !== null),
     diagnostics,
   };
 }
 
 export function logEmailConfiguration(): void {
   const status = getEmailConfigurationStatus();
+  if (status.deliveryMode === "development_capture") {
+    console.log("[email] Development capture active; external email delivery is disabled.");
+    return;
+  }
   if (!status.ready) {
     console.error(`[email] CRITICAL: outbound email is not ready — ${status.diagnostics.join("; ")}`);
     return;
@@ -51,7 +71,58 @@ export function logEmailConfiguration(): void {
   );
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+type EmailPayload = Parameters<Resend["emails"]["send"]>[0];
+type EmailSendResult = Awaited<ReturnType<Resend["emails"]["send"]>>;
+type EmailClient = Pick<Resend, "emails">;
+
+const DEFAULT_DEVELOPMENT_CAPTURE_PATH = "/tmp/jobsage-dev-email-capture.jsonl";
+
+export function getDevelopmentEmailCapturePath(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return env.JOBSAGE_DEV_EMAIL_CAPTURE_PATH?.trim() || DEFAULT_DEVELOPMENT_CAPTURE_PATH;
+}
+
+async function captureDevelopmentEmail(
+  payload: EmailPayload,
+  capturePath: string,
+): Promise<EmailSendResult> {
+  const id = `dev-capture-${randomUUID()}`;
+  const serialized = JSON.stringify({
+    id,
+    capturedAt: new Date().toISOString(),
+    ...payload,
+  });
+  if (Buffer.byteLength(serialized, "utf8") > 1_048_576) {
+    throw new Error("Development email capture exceeded the 1 MiB message limit.");
+  }
+
+  await mkdir(dirname(capturePath), { recursive: true, mode: 0o700 });
+  await appendFile(capturePath, `${serialized}\n`, { encoding: "utf8", mode: 0o600 });
+  await chmod(capturePath, 0o600);
+  return {
+    data: { id },
+    error: null,
+  } as unknown as EmailSendResult;
+}
+
+/** In development, capture mail locally instead of ever contacting Resend. */
+export function createEmailClient(
+  env: NodeJS.ProcessEnv = process.env,
+  provider?: EmailClient,
+): EmailClient {
+  if (getEmailDeliveryMode(env) === "development_capture") {
+    const capturePath = getDevelopmentEmailCapturePath(env);
+    return {
+      emails: {
+        send: async (...args) => captureDevelopmentEmail(args[0], capturePath),
+      },
+    } as EmailClient;
+  }
+  return provider ?? new Resend(env.RESEND_API_KEY);
+}
+
+const resend = createEmailClient();
 const initialEmailConfig = getEmailConfigurationStatus();
 // Keep a safe syntactic fallback for non-Send-CV templates. The Send CV path
 // calls assertEmailConfiguration before reaching Resend and will fail clearly

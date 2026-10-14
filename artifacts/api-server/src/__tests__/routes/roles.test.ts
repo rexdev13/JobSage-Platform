@@ -37,6 +37,15 @@ vi.mock("@workspace/db", () => {
       leftJoin() { return chain; },
       where() { return chain; },
       orderBy() { return chain; },
+      as() {
+        return {
+          normalizedName: "normalizedSponsorName",
+          industry: "sponsorIndustry",
+          contactEmail: "sponsorContactEmail",
+          contactPhone: "sponsorContactPhone",
+          website: "sponsorWebsite",
+        };
+      },
       limit() { return chain; },
       values() { return chain; },
       set() { return chain; },
@@ -53,6 +62,7 @@ vi.mock("@workspace/db", () => {
   return {
     db: {
       select: () => makeChain(),
+      selectDistinctOn: () => makeChain(),
       insert: () => makeChain(),
       update: () => makeChain(),
       delete: () => makeChain(),

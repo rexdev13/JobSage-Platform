@@ -21,6 +21,7 @@ import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
 import { bootstrapSuperAdmins } from "./lib/bootstrapSuperAdmins";
 import { runVacancyPipelineCatchupsIfStale } from "./lib/vacancyPipelineCatchup";
 import { startCalendlySyncScheduler } from "./lib/calendlySyncScheduler";
+import { shouldRunExternalBackgroundJobs } from "./lib/externalBackgroundJobsPolicy";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { logEmailConfiguration } from "./lib/email";
@@ -40,6 +41,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const STALE_SYNC_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+const runExternalBackgroundJobs = shouldRunExternalBackgroundJobs();
 
 async function triggerSyncIfStale(): Promise<void> {
   try {
@@ -79,53 +81,59 @@ void verifyDeletionStartupBarrier().then(() => server.listen(port, () => {
   bootstrapSuperAdmins().catch((err) => {
     console.error("[bootstrap-super-admin] Failed:", err);
   });
-  startAlertScheduler();
-  startSponsorLicenceScheduler();
-  startDailyVacancySyncScheduler();
-  startSponsorVacancyCleanupScheduler();
-  startApplyUrlBackfillScheduler();
-  startCalendlySyncScheduler();
-  if (process.env.NODE_ENV === "production") {
-    console.log("[vacancy-scheduling] External HTTP cron owns short job_board, company_site, and liveness batches");
-  } else {
-    startVacancyCheckScheduler();
-    startCompanySiteDiscoveryScheduler();
-    startVacancyLivenessSweepScheduler();
-    const catchupTimer = setTimeout(() => {
-      runVacancyPipelineCatchupsIfStale().catch((err) => {
-        console.error("[pipeline-catchup] Post-boot catch-up failed:", err);
-      });
-    }, 5_000);
-    catchupTimer.unref();
-  }
-  if (process.env.ENABLE_CONTACT_BACKFILL === "true") {
-    const contactBackfillResult = startContactBackfill(500);
-    if (contactBackfillResult.started) {
-      console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+  if (runExternalBackgroundJobs) {
+    startAlertScheduler();
+    startSponsorLicenceScheduler();
+    startDailyVacancySyncScheduler();
+    startSponsorVacancyCleanupScheduler();
+    startApplyUrlBackfillScheduler();
+    startCalendlySyncScheduler();
+    if (process.env.NODE_ENV === "production") {
+      console.log("[vacancy-scheduling] External HTTP cron owns short job_board, company_site, and liveness batches");
     } else {
-      console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+      startVacancyCheckScheduler();
+      startCompanySiteDiscoveryScheduler();
+      startVacancyLivenessSweepScheduler();
+      const catchupTimer = setTimeout(() => {
+        runVacancyPipelineCatchupsIfStale().catch((err) => {
+          console.error("[pipeline-catchup] Post-boot catch-up failed:", err);
+        });
+      }, 5_000);
+      catchupTimer.unref();
+    }
+    if (process.env.ENABLE_CONTACT_BACKFILL === "true") {
+      const contactBackfillResult = startContactBackfill(500);
+      if (contactBackfillResult.started) {
+        console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+      } else {
+        console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+      }
+    } else {
+      console.log("[contact-backfill] Skipped — set ENABLE_CONTACT_BACKFILL=true to run on startup");
+    }
+    void triggerSyncIfStale();
+    if (process.env.ENABLE_INDUSTRY_BACKFILL === "true") {
+      runIndustryBackfill().catch((err) => {
+        console.error("[industry-backfill] Startup backfill failed:", err);
+      });
+    } else {
+      console.log("[industry-backfill] Skipped — set ENABLE_INDUSTRY_BACKFILL=true to run on startup");
+    }
+    // Most unmapped rows contain free-form county values the current mapper
+    // cannot resolve. Re-scanning all of them on every autoscale cold start
+    // competes with candidate-facing requests, so run this migration only when
+    // explicitly requested.
+    if (process.env.ENABLE_REGION_BACKFILL === "true") {
+      runRegionBackfill().catch((err) => {
+        console.error("[region-backfill] Startup backfill failed:", err);
+      });
+    } else {
+      console.log("[region-backfill] Skipped — set ENABLE_REGION_BACKFILL=true to run on startup");
     }
   } else {
-    console.log("[contact-backfill] Skipped — set ENABLE_CONTACT_BACKFILL=true to run on startup");
-  }
-  void triggerSyncIfStale();
-  if (process.env.ENABLE_INDUSTRY_BACKFILL === "true") {
-    runIndustryBackfill().catch((err) => {
-      console.error("[industry-backfill] Startup backfill failed:", err);
-    });
-  } else {
-    console.log("[industry-backfill] Skipped — set ENABLE_INDUSTRY_BACKFILL=true to run on startup");
-  }
-  // Most unmapped rows contain free-form county values the current mapper
-  // cannot resolve. Re-scanning all of them on every autoscale cold start
-  // competes with candidate-facing requests, so run this migration only when
-  // explicitly requested.
-  if (process.env.ENABLE_REGION_BACKFILL === "true") {
-    runRegionBackfill().catch((err) => {
-      console.error("[region-backfill] Startup backfill failed:", err);
-    });
-  } else {
-    console.log("[region-backfill] Skipped — set ENABLE_REGION_BACKFILL=true to run on startup");
+    console.log(
+      "[startup] Development safe mode: external schedulers and provider-backed background work are disabled. Set ENABLE_DEVELOPMENT_EXTERNAL_BACKGROUND_JOBS=true only for controlled testing.",
+    );
   }
   runDocumentAclBackfill().catch((err) => {
     console.error("[doc-acl-backfill] Startup backfill failed:", err);

@@ -364,6 +364,59 @@ describe("PUT /profiles/me", () => {
   });
 });
 
+// ─── PATCH /profiles/me/boost ────────────────────────────────────────
+describe("PATCH /profiles/me/boost", () => {
+  beforeEach(() => {
+    profileResults.length = 0;
+    updateSetCalls.length = 0;
+    mockGetSession.mockResolvedValue(candidateSession);
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    mockGetSession.mockResolvedValue(null);
+    const resp = await request(buildApp())
+      .patch("/profiles/me/boost")
+      .send({ boost: true });
+    expect(resp.status).toBe(401);
+  });
+
+  it("rejects non-boolean values without updating the profile", async () => {
+    const resp = await request(buildApp())
+      .patch("/profiles/me/boost")
+      .set("Authorization", AUTH_HEADER)
+      .send({ boost: "true" });
+
+    expect(resp.status).toBe(400);
+    expect(resp.body.error).toMatch(/boost must be a boolean/i);
+    expect(updateSetCalls).toHaveLength(0);
+  });
+
+  it.each([true, false])("persists boost=%s and returns the saved state", async (boost) => {
+    profileResults.push([{ boostProfile: boost }]);
+
+    const resp = await request(buildApp())
+      .patch("/profiles/me/boost")
+      .set("Authorization", AUTH_HEADER)
+      .send({ boost });
+
+    expect(resp.status).toBe(200);
+    expect(resp.body).toEqual({ boostProfile: boost });
+    expect(updateSetCalls).toHaveLength(1);
+    expect(updateSetCalls[0]).toMatchObject({ boostProfile: boost });
+    expect(updateSetCalls[0].updatedAt).toBeInstanceOf(Date);
+  });
+
+  it("returns 404 when the candidate has no profile to update", async () => {
+    const resp = await request(buildApp())
+      .patch("/profiles/me/boost")
+      .set("Authorization", AUTH_HEADER)
+      .send({ boost: true });
+
+    expect(resp.status).toBe(404);
+    expect(resp.body.error).toMatch(/profile not found/i);
+  });
+});
+
 // ─── GET /professions ───────────────────────────────────────────────
 describe("GET /professions", () => {
   beforeEach(() => {

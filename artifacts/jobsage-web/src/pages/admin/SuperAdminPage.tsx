@@ -1819,7 +1819,7 @@ function EmployersTab() {
               {loading && <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Loading...</td></tr>}
               {!loading && employers.length === 0 && <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">No employers found.</td></tr>}
               {!loading && employers.map((e) => (
-                <>
+                <Fragment key={e.id}>
                   <tr
                     key={e.id}
                     className="border-b border-border/50 hover:bg-muted/30 cursor-pointer"
@@ -1845,7 +1845,7 @@ function EmployersTab() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

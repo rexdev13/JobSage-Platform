@@ -25,27 +25,27 @@ describe("colors constants", () => {
   });
 
   it("light text and background are accessible contrast (dark text on light bg)", () => {
-    expect(colors.light.text).toBe("#0f172a");
-    expect(colors.light.background).toBe("#f8fafc");
+    expect(colors.light.text).toBe("#1c1917");
+    expect(colors.light.background).toBe("#fdfcfc");
   });
 
   it("dark text and background are accessible contrast (light text on dark bg)", () => {
-    expect(colors.dark.text).toBe("#f8fafc");
-    expect(colors.dark.background).toBe("#0f172a");
+    expect(colors.dark.text).toBe("#f5f2f0");
+    expect(colors.dark.background).toBe("#141110");
   });
 
   it("tint colour is the same in both palettes (brand consistency)", () => {
     expect(colors.light.tint).toBe(colors.dark.tint);
   });
 
-  it("accent colour matches tint (brand primary is sky-500)", () => {
+  it("accent colour matches tint in both brand palettes", () => {
     expect(colors.light.accent).toBe(colors.light.tint);
     expect(colors.dark.accent).toBe(colors.dark.tint);
   });
 
   it("destructive colour is red in both palettes", () => {
-    expect(colors.light.destructive).toBe("#ef4444");
-    expect(colors.dark.destructive).toBe("#ef4444");
+    expect(colors.light.destructive).toBe("#ef4343");
+    expect(colors.dark.destructive).toBe("#ef4343");
   });
 
   it("radius is a positive number", () => {

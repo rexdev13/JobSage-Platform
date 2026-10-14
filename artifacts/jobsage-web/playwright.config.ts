@@ -1,10 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = process.env.PORT ?? "18557";
-const BASE_URL = `http://localhost:${PORT}`;
+const PORT = process.env.PORT ?? "18286";
+const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? "/tmp/jobsage-playwright-results",
   fullyParallel: false,
   retries: 1,
   timeout: 30000,

@@ -1,11 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { selectMock, leftJoinMock, eqMock, gtMock, sqlMock } = vi.hoisted(() => ({
+const {
+  selectMock,
+  selectDistinctOnMock,
+  leftJoinMock,
+  orderByMock,
+  eqMock,
+  gtMock,
+  sqlMock,
+} = vi.hoisted(() => ({
   selectMock: vi.fn(),
+  selectDistinctOnMock: vi.fn(),
   leftJoinMock: vi.fn(),
+  orderByMock: vi.fn(),
   eqMock: vi.fn(),
   gtMock: vi.fn(),
-  sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })),
+  sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings,
+    values,
+    as: (alias: string) => ({ strings, values, alias }),
+  })),
 }));
 
 let rows: unknown[] = [];
@@ -21,8 +35,26 @@ vi.mock("@workspace/db", () => {
     then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(rows).then(resolve, reject),
   };
+  const sponsorByName = {
+    normalizedName: "normalizedSponsorName",
+    industry: "sponsorIndustry",
+    contactEmail: "sponsorContactEmail",
+    contactPhone: "sponsorContactPhone",
+    website: "sponsorWebsite",
+  };
+  const distinctChain: any = {
+    from: () => distinctChain,
+    orderBy: (...args: unknown[]) => {
+      orderByMock(...args);
+      return distinctChain;
+    },
+    as: () => sponsorByName,
+  };
   return {
-    db: { select: selectMock.mockImplementation(() => chain) },
+    db: {
+      select: selectMock.mockImplementation(() => chain),
+      selectDistinctOn: selectDistinctOnMock.mockImplementation(() => distinctChain),
+    },
     sponsorLicenceVacanciesTable: {
       id: "id",
       organisationName: "vacancyOrganisationName",
@@ -30,7 +62,14 @@ vi.mock("@workspace/db", () => {
       createdAt: "createdAt",
       sourceType: "sourceType",
     },
-    sponsorLicencesTable: { organisationName: "sponsorOrganisationName" },
+    sponsorLicencesTable: {
+      id: "sponsorId",
+      organisationName: "sponsorOrganisationName",
+      industry: "sponsorIndustry",
+      contactEmail: "sponsorContactEmail",
+      contactPhone: "sponsorContactPhone",
+      website: "sponsorWebsite",
+    },
   };
 });
 
@@ -84,28 +123,58 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   beforeEach(() => {
     rows = [];
     selectMock.mockClear();
+    selectDistinctOnMock.mockClear();
     leftJoinMock.mockClear();
+    orderByMock.mockClear();
     eqMock.mockClear();
     gtMock.mockClear();
     sqlMock.mockClear();
   });
 
-  it("joins vacancy contacts to sponsors using trimmed case-insensitive identity", async () => {
+  it("deduplicates normalized sponsor identities before the vacancy join", async () => {
     rows = [vacancyRow()];
 
     await fetchSponsorVacanciesAsRoles("NMC");
 
-    expect(sqlMock).toHaveBeenCalledWith(
-      expect.any(Array),
-      "vacancyOrganisationName",
-      "sponsorOrganisationName",
-    );
-    expect(leftJoinMock).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(selectDistinctOnMock).toHaveBeenCalledWith(
+      [expect.objectContaining({ values: ["sponsorOrganisationName"] })],
       expect.objectContaining({
-        values: ["vacancyOrganisationName", "sponsorOrganisationName"],
+        normalizedName: expect.objectContaining({
+          values: ["sponsorOrganisationName"],
+          alias: "normalizedName",
+        }),
       }),
     );
+    expect(orderByMock).toHaveBeenCalledWith(
+      expect.objectContaining({ values: ["sponsorOrganisationName"] }),
+      "sponsorId",
+    );
+    expect(leftJoinMock).toHaveBeenCalledWith(
+      expect.objectContaining({ normalizedName: "normalizedSponsorName" }),
+      expect.objectContaining({
+        values: ["vacancyOrganisationName", "normalizedSponsorName"],
+      }),
+    );
+  });
+
+  it("shares identical concurrent role reads without retaining stale results", async () => {
+    rows = [vacancyRow()];
+
+    const [defaultOptions, explicitDefaults] = await Promise.all([
+      fetchSponsorVacanciesAsRoles("NMC"),
+      fetchSponsorVacanciesAsRoles("NMC", {
+        sourceType: null,
+        requireSpecificVacancyUrl: false,
+        onlyVerifiedLive: false,
+      }),
+    ]);
+
+    expect(selectMock).toHaveBeenCalledTimes(1);
+    expect(defaultOptions).toBe(explicitDefaults);
+
+    rows = [];
+    expect(await fetchSponsorVacanciesAsRoles("NMC")).toEqual([]);
+    expect(selectMock).toHaveBeenCalledTimes(2);
   });
 
   it("preserves dead URL evidence and distinguishes none, stale, and live", () => {

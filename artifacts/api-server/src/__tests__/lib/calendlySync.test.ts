@@ -31,6 +31,14 @@ describe("Calendly connection failure classification", () => {
     expect(getCalendlyConnectionIssue(issue)?.connectionStatus).toBe("disconnected");
   });
 
+  it("treats a connector 401 with an explicit missing-connection message as disconnected", () => {
+    const issue = classifyCalendlyConnectionFailure(
+      401,
+      "No connection found for this customer or user with connector: calendly",
+    );
+    expect(issue?.connectionStatus).toBe("disconnected");
+  });
+
   it("distinguishes revoked authorization from a missing connection", () => {
     expect(classifyCalendlyConnectionFailure(401, "")?.connectionStatus).toBe("reauthorization_required");
     expect(classifyCalendlyConnectionFailure(403, "")?.connectionStatus).toBe("reauthorization_required");

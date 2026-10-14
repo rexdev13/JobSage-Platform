@@ -2,6 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Redirect, Tabs } from "expo-router";
 import { SymbolView } from "expo-symbols";
+import {
+  getListEmployerOrganizationsQueryKey,
+  useListEmployerOrganizations,
+} from "@workspace/api-client-react";
 import React from "react";
 import { ActivityIndicator, Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -16,8 +20,19 @@ export default function TabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
-
-  if (isLoading) {
+  const organizationsQuery = useListEmployerOrganizations({
+    query: {
+      queryKey: [...getListEmployerOrganizationsQueryKey(), user?.id ?? "anonymous"],
+      enabled: !isLoading && user?.role === "candidate" && !!user.id,
+      retry: false,
+      staleTime: 0,
+      refetchOnMount: "always",
+    },
+  });
+  if (
+    isLoading
+    || (user?.role === "candidate" && !!user.id && (organizationsQuery.isLoading || organizationsQuery.isFetching))
+  ) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.accent} />
@@ -29,7 +44,10 @@ export default function TabLayout() {
     return <Redirect href="/login" />;
   }
 
-  if (!canAccessCandidateCompanion(user.role)) {
+  if (
+    organizationsQuery.isError
+    || !canAccessCandidateCompanion(user.role, user.id, organizationsQuery.data)
+  ) {
     return <Redirect href="/workspace" />;
   }
 

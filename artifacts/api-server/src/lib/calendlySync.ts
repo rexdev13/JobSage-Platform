@@ -84,7 +84,10 @@ export function classifyCalendlyConnectionFailure(
   status: number,
   detail: string,
 ): CalendlyConnectionIssue | null {
-  if (status === 404 && /no calendly connection found/i.test(detail)) {
+  if (
+    [401, 403, 404].includes(status)
+    && /no (?:calendly )?connection found/i.test(detail)
+  ) {
     return new CalendlyConnectionIssue("disconnected");
   }
   if (status === 401 || status === 403) {

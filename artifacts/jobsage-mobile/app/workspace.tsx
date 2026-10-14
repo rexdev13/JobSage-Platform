@@ -31,6 +31,7 @@ import type { WebViewMessageEvent, WebViewSource } from "react-native-webview/li
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 
 import { NativeApplicationBrowser } from "@/components/NativeApplicationBrowser";
+import { CandidateCompanionShortcut } from "@/components/CandidateCompanionShortcut";
 import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal } from "@/lib/external-links";
@@ -384,6 +385,8 @@ export default function WorkspaceScreen() {
           <Text style={s.bannerText}>You are offline. Changes will not be saved until you reconnect.</Text>
         </View>
       ) : null}
+
+      <CandidateCompanionShortcut role={user?.role} />
 
       <View style={{ flex: 1 }}>
         {Platform.OS === "web" ? (

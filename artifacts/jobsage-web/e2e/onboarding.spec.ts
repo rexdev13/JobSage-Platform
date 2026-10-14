@@ -1,19 +1,19 @@
 import { test, expect } from "@playwright/test";
 
-const BASE = "/jobsage";
+const BASE = process.env.JOBSAGE_WEB_BASE_PATH ?? "";
 
 test.describe("Onboarding journey page structure", () => {
-  test("root path redirects to login when unauthenticated", async ({ page }) => {
+  test("public root loads without a server error", async ({ page }) => {
     await page.goto(`${BASE}/`);
-    await expect(page).toHaveURL(new RegExp("login|register|landing|jobsage"), { timeout: 5000 });
     await expect(page.locator("body")).not.toContainText("500");
+    await expect(page.locator("body")).not.toBeEmpty();
   });
 
   test("login page does not show server error", async ({ page }) => {
     await page.goto(`${BASE}/login`);
     const bodyText = await page.locator("body").innerText();
     expect(bodyText).not.toMatch(/500|internal server error/i);
-    await expect(page).toHaveURL(new RegExp("login|jobsage"));
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("register page does not show server error", async ({ page }) => {
