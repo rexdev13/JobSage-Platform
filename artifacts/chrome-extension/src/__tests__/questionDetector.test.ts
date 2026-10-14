@@ -108,6 +108,43 @@ describe("detectQuestions — requiredness", () => {
     expect(question.question.toLowerCase()).not.toContain("jsq");
   });
 
+  it("uses the actual prompt from a nearby rich-text question card instead of its JSQ ID", () => {
+    setBody(`
+      <section class="application-question">
+        <div class="question-id">JSQ-17</div>
+        <div class="question-description">Describe how your experience prepares you for this position.</div>
+        <div class="editor-shell"><div class="editor-input">
+          <textarea id="response-17" name="question-jsq-17" aria-label="Response"></textarea>
+        </div></div>
+      </section>
+    `);
+
+    const [question] = detectQuestions();
+    expect(question.question).toBe("Describe how your experience prepares you for this position.");
+    expect(question.question.toLowerCase()).not.toContain("jsq");
+  });
+
+  it("strips an internal JSQ prefix when the visible label also includes the prompt", () => {
+    setBody(`
+      <label for="response-18">JSQ-18: What motivates you to apply for this role?</label>
+      <textarea id="response-18" name="jsq-18"></textarea>
+    `);
+
+    const [question] = detectQuestions();
+    expect(question.question).toBe("What motivates you to apply for this role?");
+  });
+
+  it("reads the real prompt from aria-describedby when JSQ is the visible control label", () => {
+    setBody(`
+      <label for="response-19">JSQ-19</label>
+      <textarea id="response-19" name="jsq-19" aria-label="Response" aria-describedby="prompt-19"></textarea>
+      <span id="prompt-19">What strengths would you bring to the team?</span>
+    `);
+
+    const [question] = detectQuestions();
+    expect(question.question).toBe("What strengths would you bring to the team?");
+  });
+
   it("treats native required and aria-required true as confirmed required", () => {
     setBody(`
       <label for="native">Supporting statement</label>

@@ -232,6 +232,78 @@ function referencedText(field: QuestionField, attribute: "aria-labelledby" | "ar
     .join(" ");
 }
 
+function promptCandidate(element: Element): string {
+  if (element.querySelector("input, textarea, select")) return "";
+  const text = cleanPromptText(element.textContent);
+  if (text.length < 4 || text.length > 500 || isOpaqueQuestionLabel(text) || isWeakQuestionLabel(text)) {
+    return "";
+  }
+  return text;
+}
+
+/**
+ * Some ATS forms expose an internal JSQ label on the field while rendering the
+ * actual prompt in a sibling or aria-describedby node several wrappers away.
+ * Walk only the field's nearby question group; never infer from a whole form.
+ */
+function nearbyQuestionPrompt(field: QuestionField): string {
+  const described = cleanPromptText(referencedText(field, "aria-describedby"));
+  if (described && described.length <= 500 && !isWeakQuestionLabel(described)) return described;
+
+  let branch: Element = field;
+  let parent = field.parentElement;
+  let depth = 0;
+  while (parent && parent !== field.ownerDocument.body && parent.tagName !== "FORM" && depth < 9) {
+    const fieldCount = parent.querySelectorAll("input, textarea, select").length;
+    const isQuestionGroup = parent.matches(
+      "fieldset, [role='group'], [role='radiogroup'], [data-testid*='question' i], [data-automation-id*='question' i], [class*='question-' i], [id*='question-' i]",
+    );
+
+    if (fieldCount <= 1 || isQuestionGroup) {
+      const semantic = Array.from(parent.querySelectorAll(QUESTION_PROMPT_SELECTOR))
+        .filter((element) => !element.contains(field) && !field.contains(element));
+      const preceding = semantic.filter(
+        (element) => !!(field.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_PRECEDING),
+      );
+      const following = semantic.filter(
+        (element) => !!(field.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING),
+      );
+      for (const candidate of [...preceding.reverse(), ...following]) {
+        if (isVisible(candidate as HTMLElement)) {
+          const text = promptCandidate(candidate);
+          if (text) return text;
+        }
+      }
+
+      const siblings = Array.from(parent.children);
+      const branchIndex = siblings.indexOf(branch);
+      const before = siblings.slice(0, branchIndex).reverse();
+      const after = siblings.slice(branchIndex + 1);
+      for (const candidate of before) {
+        if (isVisible(candidate as HTMLElement)) {
+          const text = promptCandidate(candidate);
+          if (text) return text;
+        }
+      }
+      for (const candidate of after) {
+        const looksLikePrompt =
+          candidate.matches("p, label, legend, h1, h2, h3, h4, h5, h6, [role='heading']")
+          || candidate.matches(QUESTION_PROMPT_SELECTOR);
+        if (looksLikePrompt && isVisible(candidate as HTMLElement)) {
+          const text = promptCandidate(candidate);
+          if (text) return text;
+        }
+      }
+    }
+
+    if (fieldCount > 1 && !isQuestionGroup) break;
+    branch = parent;
+    parent = parent.parentElement;
+    depth++;
+  }
+  return "";
+}
+
 function nearbyRequiredMarker(field: QuestionField): boolean {
   const markerSelector =
     "[class*='required' i], [class*='mandatory' i], [data-required='true'], [data-mandatory='true']";
@@ -319,8 +391,38 @@ function isOpaqueQuestionLabel(text: string | null | undefined): boolean {
   return /^jsq[\s_-]*\d+$/i.test(cleanText(text));
 }
 
+const OPAQUE_QUESTION_ID_PATTERN = /\bjsq[\s_-]*\d+\b/i;
+const WEAK_QUESTION_LABEL_PATTERN =
+  /^(?:application response|application question(?:\s+\d+)?|question(?:\s+\d+)?|answer|response|enter (?:your )?answer|type (?:your )?answer|supporting information)$/i;
+const QUESTION_PROMPT_SELECTOR = [
+  "[data-question-text]",
+  "[data-testid*='question-text' i]",
+  "[data-automation-id*='question' i]",
+  "[class*='question-text' i]",
+  "[class*='question-title' i]",
+  "[class*='question-prompt' i]",
+  "[id*='question-text' i]",
+  "[class*='prompt' i]",
+  "[id*='prompt' i]",
+].join(", ");
+
+function hasOpaqueQuestionIdentity(text: string | null | undefined): boolean {
+  return OPAQUE_QUESTION_ID_PATTERN.test(cleanText(text));
+}
+
+function cleanPromptText(text: string | null | undefined): string {
+  return cleanText(text)
+    .replace(/^\s*jsq[\s_-]*\d+\s*(?:(?:[:.)-]|[–—])\s*)?/i, "")
+    .replace(/^\s*(?:application\s+)?question\s*\d+\s*(?:(?:[:.)-]|[–—])\s*)?/i, "")
+    .trim();
+}
+
+function isWeakQuestionLabel(text: string | null | undefined): boolean {
+  return WEAK_QUESTION_LABEL_PATTERN.test(cleanPromptText(text));
+}
+
 function humanizeMetadata(value: string): string {
-  if (isOpaqueQuestionLabel(value)) return "";
+  if (hasOpaqueQuestionIdentity(value)) return "";
   const cleaned = cleanText(value)
     .replace(/\[(\d+)\]/g, " $1 ")
     .replace(/\[([^\]]+)\]/g, " $1 ")
@@ -376,7 +478,7 @@ function explicitFieldLabel(field: QuestionField): string {
         ? CSS.escape(field.id)
         : field.id.replace(/["\\]/g, "\\$&");
     const label = doc.querySelector(`label[for="${escaped}"]`);
-    const t = cleanText(label?.textContent);
+    const t = cleanPromptText(label?.textContent);
     if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
@@ -385,18 +487,18 @@ function explicitFieldLabel(field: QuestionField): string {
   if (wrapping) {
     const clone = wrapping.cloneNode(true) as HTMLElement;
     clone.querySelectorAll("input, textarea, select").forEach((e) => e.remove());
-    const t = cleanText(clone.textContent);
+    const t = cleanPromptText(clone.textContent);
     if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
   // 3. aria-label
-  const ariaLabel = cleanText(field.getAttribute("aria-label"));
+  const ariaLabel = cleanPromptText(field.getAttribute("aria-label"));
   if (ariaLabel && !isOpaqueQuestionLabel(ariaLabel)) return ariaLabel;
 
   // 4. aria-labelledby
   const labelledBy = field.getAttribute("aria-labelledby");
   if (labelledBy) {
-    const t = cleanText(
+    const t = cleanPromptText(
       labelledBy
         .split(/\s+/)
         .map((id) => doc.getElementById(id)?.textContent ?? "")
@@ -409,7 +511,7 @@ function explicitFieldLabel(field: QuestionField): string {
   const wdContainer = field.closest("[data-automation-id]");
   if (wdContainer) {
     const wdLabel = wdContainer.querySelector("label, [data-automation-id*='label' i], legend");
-    const t = cleanText(wdLabel?.textContent);
+    const t = cleanPromptText(wdLabel?.textContent);
     if (t && !isOpaqueQuestionLabel(t)) return t;
   }
 
@@ -478,7 +580,15 @@ function sectionContext(field: QuestionField): string {
 
 function resolveQuestionText(field: QuestionField, defaultText = "Application response"): string {
   const explicit = explicitFieldLabel(field);
-  const child = explicit && !isOpaqueQuestionLabel(explicit) ? explicit : defaultText;
+  const opaqueIdentity = [
+    field.name,
+    field.id,
+    field.getAttribute("aria-label"),
+    field.getAttribute("placeholder"),
+  ].some(hasOpaqueQuestionIdentity);
+  const child = opaqueIdentity && (!explicit || isWeakQuestionLabel(explicit))
+    ? nearbyQuestionPrompt(field) || defaultText
+    : explicit && !isOpaqueQuestionLabel(explicit) ? explicit : defaultText;
   const context = sectionContext(field);
   if (isInput(field) && field.type === "radio") {
     return context || child;
@@ -590,7 +700,7 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
       field.id,
       field.getAttribute("aria-label"),
       field.getAttribute("placeholder"),
-    ].some(isOpaqueQuestionLabel);
+    ].some(hasOpaqueQuestionIdentity);
     const question = hasOpaqueIdentity
       ? resolvedQuestion.replace(/Application response$/, `Application question ${fieldIndex + 1}`)
       : resolvedQuestion;
