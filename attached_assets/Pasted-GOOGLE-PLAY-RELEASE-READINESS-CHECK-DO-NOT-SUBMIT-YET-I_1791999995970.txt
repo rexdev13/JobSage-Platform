@@ -1,0 +1,280 @@
+GOOGLE PLAY RELEASE-READINESS CHECK — DO NOT SUBMIT YET
+
+I want to publish JOBSAGE to Google Play first.
+
+Do not submit, publish, deploy, purchase anything or modify the Play Console. Do not request or expose passwords, private signing keys or other secrets.
+
+Inspect the current JOBSAGE Expo/Android project and tell me exactly:
+
+1. What information you need from me.
+2. What is already correctly configured.
+3. What is missing.
+4. What you can prepare without Play Console access.
+5. What I must personally complete in Play Console.
+6. The complete release flow from the current source to internal testing and production.
+7. Which future changes require another Play Store release.
+8. Which changes can be delivered through the backend, WebView or EAS Update.
+
+CURRENT CONTEXT
+
+- JOBSAGE uses Expo.
+- I currently have access to Google Play Console.
+- Apple access is still being resolved and must not block Android preparation.
+- Account deletion remains disabled and must not be resumed.
+- Do not treat iOS credentials as an Android blocker.
+- The app has not yet been submitted to Google Play.
+- Store submission is not authorised by this instruction.
+
+PART 1 — INSPECT THE ANDROID PROJECT
+
+Inspect:
+
+- `app.json`
+- `app.config.*`
+- `eas.json`
+- `package.json`
+- Expo SDK version
+- Expo Router configuration
+- Android plugins
+- Native dependencies
+- Permissions
+- Deep-link configuration
+- Notification configuration
+- Runtime-version policy
+- EAS Update configuration
+- Build profiles
+- Submit profiles
+- Environment-variable requirements
+- Current Android application/package ID
+- App version
+- Android `versionCode`
+- Target SDK/API level
+- Minimum SDK level
+- Adaptive icon
+- Splash assets
+- Notification icon
+- Privacy and account-deletion URLs
+
+Run safe checks:
+
+- Expo Doctor
+- Expo config inspection
+- Expo dependency compatibility
+- Android JavaScript export
+- Typecheck
+- Relevant mobile tests
+- Deep-link validation
+- Permission/configuration inspection
+
+Do not create a signed production build yet.
+
+PART 2 — GOOGLE PLAY REQUIREMENTS
+
+Check whether the source is prepared for the current Google Play requirements, including:
+
+- Android 16 / target API level 36
+- Unique permanent Android package name
+- Android App Bundle output
+- Play App Signing
+- Increasing `versionCode`
+- 64-bit support
+- Required permissions
+- Background behaviour
+- Foreground-service declarations, if applicable
+- Notification permission
+- Camera/file permissions
+- Data Safety declaration
+- Privacy Policy
+- Account-deletion page and in-app deletion status
+- App access/reviewer credentials
+- Ads declaration
+- Content rating
+- Target audience and age
+- News, health, finance or government applicability
+- User-generated-content safeguards
+- AI-related disclosures where applicable
+- Billing/payment applicability
+- Intellectual-property/licence declarations
+- Store listing requirements
+- Release notes
+- Internal/closed/production testing tracks
+
+Determine whether the Play Console account is Personal or Organization only if account information is available safely. Otherwise, tell me exactly where I should check:
+
+Play Console → Developer account → About you → Account type.
+
+Explain whether the 12-testers/14-days requirement applies based on that account type.
+
+PART 3 — INFORMATION NEEDED FROM ME
+
+Give me one concise form to complete containing only unresolved owner inputs, such as:
+
+- Confirmed Play Console account type
+- Final app name
+- Permanent Android package ID
+- Legal developer/organisation name
+- Public developer name
+- Support email
+- Support telephone number
+- Support website
+- Privacy Policy URL
+- Terms/EULA URL
+- Account-deletion URL
+- Production website/API domain
+- App category
+- Countries of distribution
+- Age/target audience
+- Ads status
+- Billing/subscription decision
+- Reviewer/demo account
+- Whether Google Play App Signing should manage the signing key
+- Expo/EAS account and project ownership
+- Final store description and marketing claims
+
+Do not ask me for information that can be obtained from the repository.
+
+Do not ask me to paste passwords, service-account JSON, signing keys or private credentials into chat.
+
+PART 4 — STORE ASSETS
+
+Inventory and validate:
+
+- App icon
+- Adaptive foreground/background icon
+- Feature graphic
+- Phone screenshots
+- Tablet screenshots if supported
+- Short description
+- Full description
+- Privacy Policy
+- Support details
+- Release notes
+- App category
+- Tags
+- Content-rating answers
+- Reviewer instructions
+
+For each item, label:
+
+- READY
+- NEEDS OWNER CONFIRMATION
+- MISSING
+- INVALID
+
+Do not invent claims or screenshots.
+
+PART 5 — BILLING AND MONETIZATION
+
+Inspect the existing JOBSAGE checkout/subscription behaviour.
+
+Explain:
+
+- Whether the Android app sells digital functionality.
+- Whether Google Play Billing is required.
+- Whether the current WebView exposes external checkout.
+- What must remain hidden or disabled until the billing decision is approved.
+- Whether account entitlements already exist in the backend.
+- What source work remains for subscription purchase and restoration.
+
+Keep unapproved native billing and external checkout fail-closed.
+
+PART 6 — DATA SAFETY
+
+Produce a draft Google Data Safety mapping based on actual source and providers:
+
+- Data collected
+- Data shared
+- Purpose
+- Required or optional
+- Linked to identity
+- Ephemeral processing
+- Encryption in transit
+- Deletion support
+- Provider/processor involvement
+
+Clearly identify facts requiring owner or provider confirmation.
+
+Do not claim that account deletion is operational while `DELETION_REQUESTS_ENABLED=false`.
+
+PART 7 — BUILD AND RELEASE FLOW
+
+Provide the exact recommended flow:
+
+1. Confirm package ID and owner inputs.
+2. Configure Expo/EAS project.
+3. Configure Android application ID.
+4. Configure environment variables.
+5. Confirm API 36 compatibility.
+6. Create Android development build/APK for testing.
+7. Test on physical Android devices.
+8. Fix defects.
+9. Increment production `versionCode`.
+10. Create signed production `.aab`.
+11. Create the app in Play Console.
+12. Enable/configure Play App Signing.
+13. Complete store listing and policy forms.
+14. Add reviewer credentials.
+15. Upload to internal testing.
+16. Test the Play-delivered build.
+17. Move to closed testing if required.
+18. Apply for production access if the account requires it.
+19. Submit production release.
+20. Monitor review, crashes and policy messages.
+21. Use staged rollout where appropriate.
+
+For every step, state:
+
+- Replit/Expo action
+- Owner/Play Console action
+- Required input
+- Expected result
+- Failure signal
+
+PART 8 — FUTURE UPDATE RULES
+
+Explain using this table:
+
+| Change type | Backend only | EAS Update possible | New AAB required | Play review likely |
+
+Include:
+
+- Server/API change
+- Database change
+- WebView website change
+- JavaScript bug fix
+- Image/text asset change
+- Native dependency
+- Expo SDK upgrade
+- Android permission
+- Package ID
+- Deep-link domain/configuration
+- Push-notification native configuration
+- App icon/splash
+- Billing
+- Privacy behaviour
+- Major feature change
+
+Explain that EAS Update must not be used to bypass Google Play review or deliver native changes incompatible with the installed runtime.
+
+FINAL RESPONSE
+
+Return:
+
+1. Android readiness verdict.
+2. Current configuration.
+3. Missing configuration.
+4. Owner-input form.
+5. Store-asset status.
+6. Data Safety draft status.
+7. Billing status.
+8. Exact testing and release flow.
+9. Exact commands that will eventually build the APK and AAB.
+10. Future-update rules.
+11. External blockers.
+12. Recommended next action.
+
+Do not build or submit the production release yet.
+
+Do not work on account deletion.
+
+Perform the inspection now and return the completed Android release-readiness report.
