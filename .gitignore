@@ -47,6 +47,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+# Uploaded billing screenshots can contain private account details; keep them out of Git.
+/attached_assets/image_179166*.png
 
 # Review-first sponsor contact discovery outputs
 /data/sponsor_contacts_*.csv
