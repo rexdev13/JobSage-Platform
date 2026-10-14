@@ -812,7 +812,7 @@ export function SmartApplyAssistant({ context, scan, lastEvent, host, bottomInse
 
 const styles = (c: ReturnType<typeof useColors>) =>
   StyleSheet.create({
-    overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end" },
+    overlay: { ...StyleSheet.absoluteFill, justifyContent: "flex-end" },
     sheet: { height: "68%", backgroundColor: c.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, boxShadow: `0px -4px 16px ${c.foreground}1F` },
     handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: "center", marginTop: 8 },
     headRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 6 },

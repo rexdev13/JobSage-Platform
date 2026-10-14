@@ -117,3 +117,4 @@
 - [Employer staff permissions](employer-staff-permissions.md) — implement the five owner-approved organization roles with API authorization and no implied platform-wide powers.
 - [Employer context routing](employer-context-routing.md) — wait for verified organization context; the mobile candidate companion requires an empty active and archived membership result.
 - [Expo notification web loading](expo-notification-web.md) — keep native notifications out of web module loading; component-level dynamic imports can bypass Jest mocks.
+- [Expo Go dev mode](expo-go-dev-mode.md) — preserve `expo-dev-client` for existing EAS builds, but force `--go` when Replit previews must target stock Expo Go.
