@@ -1,0 +1,27 @@
+Please audit the JobSage vacancy system to confirm whether the fix that prevents Canadian and other non-UK vacancies from appearing on the platform has actually been implemented and is working correctly.
+
+Important: This is an audit only. Do not modify any code or database records yet.
+
+Check the entire vacancy pipeline, including:
+
+1. Vacancy collection: Are jobs outside the UK (Canada, USA, Germany, India, remote roles restricted to other countries, etc.) excluded during collection from company websites and ATS/job boards such as Ashby, Greenhouse, and Lever?
+2. Location validation: How does the system determine whether a vacancy is UK-based? Does it validate country codes, city names, remote locations, hybrid roles, and ambiguous or missing location data?
+3. Database imports: Can non-UK vacancies still enter the development or production database through imports, background workers, scheduled crawlers, or other ingestion paths?
+4. Frontend/API: Can existing non-UK vacancies still appear on the Opportunities page, search results, filters, or public APIs?
+5. Existing records: Perform read-only queries to identify any Canadian or other non-UK vacancies already stored in the database, separating confirmed non-UK records from ambiguous locations.
+
+Test the implementation using representative examples of UK vacancies, Canadian vacancies, US vacancies, international remote roles, UK-eligible remote roles, and vacancies with missing locations.
+
+Use the actual code and existing tests. Do not assume that a filter works just because the relevant function exists.
+
+Report back with:
+
+* Whether the fix is implemented: YES, PARTIALLY, or NO.
+* Whether it actually works, supported by test results.
+* Which files and functions enforce UK-only filtering.
+* Every ingestion or display path that bypasses the filter.
+* Number of confirmed non-UK vacancies found in each accessible database.
+* Any loopholes that could allow Canadian or other non-UK vacancies through.
+* The specific changes required to make UK-only filtering reliable.
+
+Do not deploy, delete vacancies, modify database records, or implement fixes without approval. Clearly distinguish verified findings from anything you could not test.
