@@ -11,6 +11,7 @@
 - [api-client-react base URL](api-client-base-url.md) — shared proxy handles routing; don't add setBaseUrl(), which causes double-prefix bugs.
 - [drizzle-kit push prompts](drizzle-push-interactive.md) — push blocks on raw-TTY prompts; apply DDL manually via SQL then re-run push to confirm zero drift.
 - [Drizzle migration snapshots](drizzle-migration-snapshot-drift.md) — sparse snapshot history can turn new migration generation into unrelated DDL; inspect and narrow before applying.
+- [Publish foreign-key prerequisites](publish-foreign-key-prerequisites.md) — if Publish orders a new FK before its missing referenced unique key, stage the key first and restore the FK in a later publish.
 - [OpenAPI generated-client drift](openapi-generated-drift.md) — regen can drop hand-added members missing from openapi.yaml; diff generated files after codegen and restore via the spec.
 - [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
