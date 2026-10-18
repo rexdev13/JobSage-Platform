@@ -1,8 +1,8 @@
 import {
-  pgTable, serial, integer, varchar, text, timestamp, uniqueIndex, index, check, foreignKey,
+  pgTable, serial, integer, varchar, text, timestamp, uniqueIndex, index, check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { employerProfilesTable, jobListingsTable } from "./employer";
+import { employerProfilesTable } from "./employer";
 import { usersTable } from "./auth";
 import { applicationsTable } from "./applications";
 
@@ -69,11 +69,6 @@ export const employerJobAssignmentsTable = pgTable("employer_job_assignments", {
 }, table => [
   uniqueIndex("employer_job_assignments_job_user_unique").on(table.jobListingId, table.userId),
   index("employer_job_assignments_org_user_idx").on(table.employerProfileId, table.userId),
-  foreignKey({
-    name: "employer_job_assignments_job_org_fk",
-    columns: [table.jobListingId, table.employerProfileId],
-    foreignColumns: [jobListingsTable.id, jobListingsTable.employerProfileId],
-  }).onDelete("cascade"),
 ]);
 
 export const employerCandidateFeedbackTable = pgTable("employer_candidate_feedback", {
@@ -91,11 +86,6 @@ export const employerCandidateFeedbackTable = pgTable("employer_candidate_feedba
 }, table => [
   uniqueIndex("employer_candidate_feedback_application_author_unique").on(table.applicationId, table.authorUserId),
   index("employer_candidate_feedback_org_job_idx").on(table.employerProfileId, table.jobListingId),
-  foreignKey({
-    name: "employer_candidate_feedback_job_org_fk",
-    columns: [table.jobListingId, table.employerProfileId],
-    foreignColumns: [jobListingsTable.id, jobListingsTable.employerProfileId],
-  }).onDelete("cascade"),
 ]);
 
 export const employerInterviewParticipantsTable = pgTable("employer_interview_participants", {
@@ -114,11 +104,6 @@ export const employerInterviewParticipantsTable = pgTable("employer_interview_pa
 }, table => [
   uniqueIndex("employer_interview_participants_application_user_unique").on(table.applicationId, table.userId),
   index("employer_interview_participants_org_job_idx").on(table.employerProfileId, table.jobListingId),
-  foreignKey({
-    name: "employer_interview_participants_job_org_fk",
-    columns: [table.jobListingId, table.employerProfileId],
-    foreignColumns: [jobListingsTable.id, jobListingsTable.employerProfileId],
-  }).onDelete("cascade"),
 ]);
 
 export type EmployerMembership = typeof employerMembershipsTable.$inferSelect;
