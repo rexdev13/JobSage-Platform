@@ -1,72 +1,71 @@
 # Chrome Web Store submission guide — JOBSAGE Smart Apply
 
-Everything is prepared; only the steps below require your Google account.
+## Prepared for upload
 
-## What's already prepared
+- **Store package:** `release/jobsage-smart-apply-extension-v0.4.21.zip`
+- **Listing copy and permission/data-use text:** `store/LISTING.md`
+- **Screenshots:** three 1280×800 PNGs in `store/screenshots/`; each uses synthetic demo data.
+- **Privacy policy:** `https://jobsage.co.uk/extension-privacy`
+- **Production-only build:** `pnpm --filter jobsage-chrome-extension run package`
 
-- **Submission zip:** `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.12.zip`
-  (regenerate any time with `pnpm --filter jobsage-chrome-extension run package` — this also refreshes the direct-download zip on the website)
-- **Privacy policy (live page):** `https://jobsage.co.uk/extension-privacy`
-- **All listing text and permission justifications:** `store/LISTING.md` (copy-paste ready)
-- Manifest V3 with icons at 16/32/48/128 and the permissions needed for JOBSAGE tracking and CV fallback (`cookies`, `storage`, `downloads`, all-HTTPS host access for employer-site form detection and redirect tracking)
+The package command builds with the development environment selector and Replit origin disabled, checks the generated bundle and manifest for development-only settings, creates the Chrome Web Store ZIP, and refreshes the website's direct-download ZIP.
 
-## Step 1 — Developer account (one-time, ~10 minutes)
+## Before uploading
 
-1. Sign in to https://chrome.google.com/webstore/devconsole with the Google account that should own the extension (use a team/company account, not a personal one, if possible).
-2. Accept the developer agreement and pay the **one-time $5 registration fee**.
-3. In *Account* settings, verify your **contact email** (required before you can publish) and set publisher name to **JOBSAGE**.
-4. Recommended: verify the `jobsage.co.uk` domain under *Account → Verified domains* (via Google Search Console) so the listing can display "by jobsage.co.uk".
+1. Confirm `https://jobsage.co.uk/extension-privacy` is live and includes the OpenAI processing disclosure for requested AI features.
+2. Upload all three screenshots and check that their synthetic-data label is visible.
+3. In the Privacy tab, disclose the exact application-flow URL handling under **Web history**, and disclose the limited OpenAI processing described in `store/LISTING.md`. Do not state that no data is shared with third parties.
+4. Keep the broad HTTPS host-access justification with the listing: employer application forms and redirect destinations cannot be enumerated in advance.
 
-## Step 2 — Upload
+## Step 1 — Developer account
 
-1. In the dashboard, click **+ New item** and upload `release/jobsage-smart-apply-extension-v0.4.12.zip`.
-2. The dashboard parses the manifest and opens the draft listing.
+1. Sign in to the Chrome Web Store Developer Dashboard with the account that should own the extension.
+2. Complete the developer agreement and account registration.
+3. Verify the contact email and set the publisher name to **JOBSAGE**.
+4. Verify `jobsage.co.uk` as a publisher domain if available for the account.
 
-## Step 3 — Fill in the listing
+## Step 2 — Upload the package
 
-Open `store/LISTING.md` and paste each field:
+1. Create a new item and upload `release/jobsage-smart-apply-extension-v0.4.21.zip`.
+2. Confirm the dashboard shows **JOBSAGE Smart Apply**, version **0.4.21**, and the expected permissions.
+3. Do not upload `dist/` as a folder or the website's direct-download ZIP.
 
-- **Store listing tab:** description, category (Productivity → Workflow & Planning), language.
-- **Graphic assets:** upload at least one 1280×800 screenshot (see the capture list at the bottom of LISTING.md — you need to take these; the store rejects listings without screenshots).
-- **Privacy tab:** single-purpose description, privacy policy URL, per-permission justifications, data-usage disclosures, and the "no remote code" declaration — all provided verbatim in LISTING.md.
-- **Distribution tab:** Public, free, all regions (or restrict to the UK if preferred — candidates are often applying from abroad, so worldwide is recommended).
+## Step 3 — Complete the listing
+
+Use `store/LISTING.md` for the copy-ready fields:
+
+- **Store listing:** name, short and detailed descriptions, category, and language.
+- **Graphic assets:** upload the three screenshots from `store/screenshots/`.
+- **Privacy:** single-purpose description, policy URL, every permission justification, data-use disclosures, third-party processing, and the no-remote-code declaration.
+- **Distribution:** choose the desired visibility and regions.
+
+The extension requests `cookies`, `storage`, `webNavigation`, `tabs`, and `downloads`, and uses broad HTTPS access for employer application flows. Each permission has a justification in the listing file.
 
 ## Step 4 — Submit for review
 
-1. Click **Submit for review**.
-2. Leave "Publish automatically after review" ON unless you want to time the launch.
-3. **Expected review time:** because the content script matches `https://*/*` (broad host access), the extension goes through in-depth review — typically a few days, occasionally up to 2–3 weeks. This is normal; the justification text in LISTING.md addresses exactly what reviewers ask about.
+Review times vary. Broad HTTPS access can receive additional scrutiny; explain that the extension checks for application forms locally and carries a user-selected JOBSAGE application URL only through that application flow. If asked about data sharing, explain that JOBSAGE sends relevant context and profile/CV facts to OpenAI when structured mapping runs in a tracked application flow or the candidate requests AI drafting.
 
-## If the review asks questions / rejects
+## If a reviewer asks for changes
 
-Common prompts and the answers:
+- **Broad host access:** use the host and content-script justifications in `store/LISTING.md`; do not claim that no data is shared with service providers.
+- **Third-party data use:** describe the limited OpenAI processing, its purpose, and that mapping can run after the candidate follows a JOBSAGE-selected application link while AI answer drafting is explicitly requested.
+- **Privacy policy:** provide `https://jobsage.co.uk/extension-privacy`.
+- **Permission minimization:** if Chrome requests narrower access, review whether `tabs` or any other permission can be removed without disrupting the current-page helper flow before replying.
 
-- **"Why do you need access to all websites?"** → paste the broad-match justification from LISTING.md (employer application forms live on unenumerable domains; detection is local; data only goes to the user's own JOBSAGE account).
-- **"Narrow your permissions"** → all-HTTPS host access is required because applicants move between unenumerable employer domains and ATS confirmation pages. The extension uses it only for local form detection and to retain a JOBSAGE-originated click through that application flow; it only communicates with JOBSAGE. If reviewers insist, a fallback is to enumerate the top domains (nhs.jobs, trac.jobs, etc.) and ship broader support later — but try the justification first.
-- **"Where is your privacy policy?"** → https://jobsage.co.uk/extension-privacy
+## Publishing updates
 
-Reply via the dashboard's review thread; resubmission after edits restarts the review.
-
-## Publishing updates later
-
-1. Bump `version` in `manifest.json` (e.g. `0.2.1` — Chrome requires each upload to have a higher version).
+1. Increase the `version` in `manifest.json`.
 2. Run `pnpm --filter jobsage-chrome-extension run package`.
-3. In the dashboard: your item → **Package → Upload new package** → submit for review.
+3. Upload the newly generated versioned ZIP from `release/` in the Developer Dashboard.
+4. Re-check listing disclosures and screenshots if the feature behavior or data handling changed.
 
-## Note on the current install flow
+## Current behavior in v0.4.21
 
-The website's "Load unpacked" download flow keeps working unchanged and stays useful while the store review is pending. Once the store listing is live, consider updating `SmartApplyExtensionPrompt.tsx` on the web app to link to the store page (one-click install) instead of the manual unzip instructions.
+- The store build connects only to `https://jobsage.co.uk`; it does not include the development selector or a Replit development origin.
+- The extension reads the JOBSAGE session cookie only on `jobsage.co.uk`.
+- Form detection runs locally. The helper fills only supported fields; candidates review answers and complete sensitive or personal declarations themselves.
+- Application URLs are carried through employer redirects only when the flow starts from a JOBSAGE-selected link.
+- AI answer drafting is candidate-requested. Structured mapping can run in a tracked application flow; relevant role/question context and candidate profile/CV facts are processed by OpenAI through JOBSAGE.
+- The CV is retrieved from the authenticated JOBSAGE API, attached only to a matching CV/resumé file input, and otherwise offered as a download.
 
-## Smart Apply v0.4.12 behaviour
-
-- The helper can only prefill empty, visible, unambiguous contact fields. It never fills passwords, usernames, dates of birth, National Insurance/passport fields, or an ambiguous “Name” input.
-- A tracked JOBSAGE application opens the helper and keeps a minimizable launcher available through ATS redirects. This only occurs after the first-party JOBSAGE page registers the exact outbound URL; a public `ref=jobsage` parameter alone never triggers prefill. Dismissing the helper on an unrelated site still works as before.
-- The sidebar opens automatically on JOBSAGE and on verified employer/ATS pages reached from a JOBSAGE opportunity. Minimising always leaves a working launcher that reopens the sidebar when clicked.
-- Raw PHP warnings and notices rendered by an employer page are hidden when they match a server-runtime diagnostic pattern; application form controls are never removed.
-- The launcher keeps opening separate from its drag grip; an open panel closes with an outside click/tap or Escape and can be resized from its left edge.
-- JOBSAGE itself mounts the assistant immediately and never lets a prior site-level launcher hide prevent it from appearing; verified vacancy links still activate the assistant automatically on their employer/ATS destination.
-- NHS Jobs, Trac, and Workday use dedicated long-form selectors in addition to the generic question fallback:
-  - **NHS Jobs:** supporting-information and personal-statement ids/names.
-  - **Trac:** supporting-statement and `question…` textareas.
-  - **Workday:** `data-automation-id` containers for question, long-text, supporting, and statement fields.
-- The CV is downloaded from the authenticated JOBSAGE API, attached only to a matching CV/resumé file input, and otherwise downloaded with the instruction: **“Upload this file on the form.”**
+The website's manual “Load unpacked” flow continues to use the refreshed production ZIP while store review is pending. After the listing is published, update that web flow to point candidates to the Chrome Web Store install page.

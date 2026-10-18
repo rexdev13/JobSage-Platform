@@ -1930,3 +1930,45 @@ mtime_ms = 1792007742704
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/52efeb18-74ef-43e4-a8c3-57e68e13bc0f/c4be1094-4846-45be-bd8b-942699b45242"
 storage_version_token = "1792007794578794"
 content_type = "image/png"
+
+[[outputs]]
+id = "9Gnvl_18vtKJjOWHA3dyR"
+uri = "file://artifacts/chrome-extension/store/screenshots/01-smart-apply-helper.png"
+type = "image"
+title = "Chrome Web Store screenshot 1 — Smart Apply helper"
+description = "1280×800 screenshot of the helper on a supported application form, using synthetic demo data."
+logical_id = "04d23373-0b5b-4c00-9cd8-0de9cf78b0aa"
+content_hash = "sha256:72d25f249b4dd37dfa1163e86b8b852369aa3929ff808bfd1e99f30b6f78beed"
+size = 98370
+mtime_ms = 1792335555015
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/04d23373-0b5b-4c00-9cd8-0de9cf78b0aa/dbbbec9c-c18b-40e3-8e9f-44efce12c5cd"
+storage_version_token = "1792336289629579"
+content_type = "image/png"
+
+[[outputs]]
+id = "JtKpV8lBwsrMRidA-sS8k"
+uri = "file://artifacts/chrome-extension/store/screenshots/02-review-ai-answer.png"
+type = "image"
+title = "Chrome Web Store screenshot 2 — Review an AI answer"
+description = "1280×800 screenshot of a candidate reviewing an AI-drafted application answer, using synthetic demo data."
+logical_id = "fa2e1cd7-9998-471c-b27f-436f8786bbe7"
+content_hash = "sha256:b641f14651b3e0cabfb77d2a5b5f64a3815e629089a1471e772153574ed24e1f"
+size = 118175
+mtime_ms = 1792335556407
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa2e1cd7-9998-471c-b27f-436f8786bbe7/ae022ed6-484e-44ef-a1e8-03b1fd7e1882"
+storage_version_token = "1792336290736338"
+content_type = "image/png"
+
+[[outputs]]
+id = "LJyl3VOWM2C1sOchIN8yq"
+uri = "file://artifacts/chrome-extension/store/screenshots/03-application-tracker.png"
+type = "image"
+title = "Chrome Web Store screenshot 3 — Application tracker"
+description = "1280×800 capture of the actual JOBSAGE Application Tracker page with synthetic sample records."
+logical_id = "9cfe8acf-2499-4690-a78e-00850b6eb0e6"
+content_hash = "sha256:d4aa3d0d8b9bb34fc2076dec9bdb25b3e56ee6892042eaa4ac485526ea80a454"
+size = 123376
+mtime_ms = 1792336101884
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9cfe8acf-2499-4690-a78e-00850b6eb0e6/621f1962-aa94-46e1-9758-9f2cb2349ad4"
+storage_version_token = "1792336291648714"
+content_type = "image/png"

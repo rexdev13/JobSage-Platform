@@ -8,13 +8,22 @@ import react from "@vitejs/plugin-react";
 // Rollup cannot mix output formats or disable code-splitting per entry in a
 // single multi-entry build, hence this second config (see vite.config.ts for
 // the background/popup ESM build).
-const devDomain = process.env.REPLIT_DEV_DOMAIN;
+const storeBuild = process.env.JOBSAGE_EXTENSION_STORE_BUILD === "1";
+const devDomain = storeBuild ? undefined : process.env.REPLIT_DEV_DOMAIN;
 const devOrigin = devDomain ? `https://${devDomain}` : "";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: storeBuild
+    ? {
+        alias: {
+          "./lib/trustedOrigin": resolve(__dirname, "src/lib/trustedOrigin.production.ts"),
+        },
+      }
+    : undefined,
   define: {
     __DEV_ORIGIN__: JSON.stringify(devOrigin),
+    __STORE_BUILD__: JSON.stringify(storeBuild),
     // React's production build reads process.env.NODE_ENV; in the IIFE bundle
     // there is no bundler-injected default, so pin it explicitly.
     "process.env.NODE_ENV": JSON.stringify("production"),

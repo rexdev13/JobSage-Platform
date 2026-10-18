@@ -31,16 +31,16 @@ WHAT IT DOES
 
 • Recognises job application forms on NHS Jobs, Trac and other employer sites as you browse
 • Helps you fill in applications using the profile you've already built on JOBSAGE — qualifications, registration details, work history
-• Automatically logs every application in your JOBSAGE tracker, so your pipeline is always up to date
+• Lets you save application details to your JOBSAGE tracker, so your pipeline stays organised
 • Shows a small sidebar assistant only on recognised application pages — it stays out of your way everywhere else
 
 HOW IT WORKS
 
-Sign in to your free JOBSAGE account at jobsage.co.uk, install the extension, and apply as normal. When Smart Apply detects a supported application form, the JOBSAGE assistant appears and offers to help. Everything you submit is recorded in your tracker on JOBSAGE.
+Sign in to your free JOBSAGE account at jobsage.co.uk, install the extension, and apply as normal. When Smart Apply detects a supported application form, the JOBSAGE assistant appears and offers to help. Review suggested answers, complete sensitive or personal declarations yourself, and save application details to your JOBSAGE tracker.
 
 PRIVACY
 
-Smart Apply only talks to JOBSAGE. It reads your JOBSAGE sign-in cookie (for jobsage.co.uk only) to act on your behalf, and reads form fields and the current page URL on job application pages to help fill them in and connect a submitted application to the role you opened from JOBSAGE. It contains no analytics, no ads, and sends nothing to third parties. Full privacy policy: https://jobsage.co.uk/extension-privacy
+Smart Apply reads your JOBSAGE sign-in cookie only on jobsage.co.uk. It checks pages locally for supported application forms, and reads relevant form labels, role details and page URLs only in application flows. When Smart Apply maps profile facts into a tracked application form, or you request an AI-drafted answer, JOBSAGE sends the relevant question, role context and profile/CV facts to OpenAI for processing. The extension does not send form data directly to employers; information reaches an employer when you submit its form. No analytics or advertising trackers are included. Full privacy policy: https://jobsage.co.uk/extension-privacy
 
 A free JOBSAGE account is required.
 ```
@@ -50,7 +50,7 @@ A free JOBSAGE account is required.
 **Single purpose description**
 
 ```
-Helps JOBSAGE users fill in job application forms on employer websites using their JOBSAGE profile, and logs those applications in their JOBSAGE application tracker.
+Helps JOBSAGE users fill in job application forms on employer websites using their JOBSAGE profile, and save application details in their JOBSAGE application tracker.
 ```
 
 **Privacy policy URL**
@@ -70,7 +70,7 @@ The extension reads the user's existing JOBSAGE session cookie (jobsage.co.uk on
 - `storage`:
 
 ```
-Stores small local UI preferences (such as sidebar open/closed state) in the browser. No browsing data or personal data is stored.
+Stores interface preferences, dismissed sites, and answers the candidate explicitly saves to the local answer library. Short-lived session storage carries only a JOBSAGE-selected application link through employer redirects. It is not a general browsing history and does not cache the full profile or CV.
 ```
 
 - `downloads`:
@@ -82,28 +82,43 @@ Lets the candidate save their own current JOBSAGE CV only when an employer form 
 - Host permission `https://*/*`:
 
 ```
-Candidates apply on hundreds of employer career sites whose domains cannot be enumerated in advance. This permission lets the extension run its local application-form assistant and retain a JOBSAGE-originated application link through an employer-site redirect or confirmation page. The extension only communicates with JOBSAGE: it reads the JOBSAGE session cookie only on jobsage.co.uk and sends no data to employer sites or third parties.
+Candidates apply on hundreds of employer career sites whose domains cannot be enumerated in advance. This permission lets the extension detect supported forms locally and retain a JOBSAGE-selected application link through an employer-site redirect. Extension API requests go to JOBSAGE; when structured mapping runs in a tracked application flow or a user requests AI drafting, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing. The extension reads the JOBSAGE session cookie only on jobsage.co.uk and does not directly send form data to employers.
 ```
 
 - All-HTTPS content-script use:
 
 ```
-Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check on each page to detect whether it is a supported job application form; it only activates the assistant and reads form fields on recognised application pages. No page data leaves the browser except application details the user chooses to save to their own JOBSAGE tracker.
+Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check on each page to detect a supported application form; it only activates the assistant and reads relevant form labels and role context on recognised application pages. Details leave the browser only for JOBSAGE features the candidate uses; when structured mapping runs in a tracked application flow or AI drafting is requested, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing.
+```
+
+- `webNavigation`:
+
+```
+Carries the exact application URL selected from a JOBSAGE opportunity through employer-site redirects, so the candidate can return to the correct role and save it in their tracker. It does not collect a general browsing history.
+```
+
+- `tabs`:
+
+```
+Queries the active tab only so the candidate can open or reopen the JOBSAGE helper on the current page. The extension does not read a list of browsing tabs or collect unrelated tab URLs.
 ```
 
 **Remote code:** No, I am not using remote code. (All JavaScript is bundled in the package; nothing is loaded from external servers.)
 
 **Data usage disclosures** — tick:
 
-- "Personally identifiable information" → collected (name/contact details from the user's own JOBSAGE profile, used to fill forms) — *used for app functionality only*
+- "Personally identifiable information" → collected (profile and CV facts, used to fill forms or to provide requested AI assistance) — *used for app functionality only*
 - "Authentication information" → collected (JOBSAGE session cookie) — *used for app functionality only*
 - "Website content" → collected (form fields on job application pages) — *used for app functionality only*
+- "Web history" → collected only for application flows (the JOBSAGE-selected role URL is carried through redirects and may be saved to the user's tracker) — *used for app functionality only*
+
+**Third-party processing:** disclose that JOBSAGE sends relevant application question/context and candidate profile/CV facts to OpenAI when structured mapping runs in a tracked application flow or the user requests AI drafting. Do not claim that no data is shared with third parties.
 
 Certify all three statements: data is not sold, not used for unrelated purposes, not used for creditworthiness/lending.
 
-## Graphic assets you must capture (not included here)
+## Graphic assets
 
-- **Screenshots (required, 1–5):** 1280×800 PNG. Suggested shots: (1) the assistant sidebar on an NHS Jobs/Trac application form, (2) an application auto-logged in the JOBSAGE tracker, (3) the JOBSAGE profile that powers form filling.
+- **Screenshots (required, 1–5):** three 1280×800 PNGs are included in `store/screenshots/`. They use clearly marked synthetic demo data: (1) the assistant on a supported application form, (2) reviewing an AI-drafted application answer, and (3) the JOBSAGE tracker.
 - **Small promo tile (optional):** 440×280.
 - **Marquee promo (optional):** 1400×560.
 - Store icon 128×128 is already in the package (`icons/icon128.png`) and is uploaded automatically with the zip.

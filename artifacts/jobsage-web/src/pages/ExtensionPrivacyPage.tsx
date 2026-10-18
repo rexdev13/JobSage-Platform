@@ -20,15 +20,16 @@ export default function ExtensionPrivacyPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">JOBSAGE Smart Apply — Privacy Policy</h1>
         </div>
-        <p className="text-sm text-muted-foreground mb-10">Last updated: 28 July 2026</p>
+        <p className="text-sm text-muted-foreground mb-10">Last updated: 18 October 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed text-foreground">
           <section>
             <h2 className="text-lg font-semibold mb-2">What the extension does</h2>
             <p className="text-muted-foreground">
               The JOBSAGE Smart Apply extension helps candidates fill in job applications on employer websites
-              (such as NHS Jobs and Trac) using their JOBSAGE profile, and automatically logs those applications
-              in their JOBSAGE application tracker.
+              (such as NHS Jobs and Trac) using their JOBSAGE profile, and lets them save application details
+              to their JOBSAGE application tracker. Optional AI assistance can draft answers or map supported
+              profile facts to form fields for the candidate to review.
             </p>
           </section>
 
@@ -43,14 +44,16 @@ export default function ExtensionPrivacyPage() {
               <li>
                 <span className="font-medium text-foreground">Page content on job application sites.</span> When you
                 visit a page, the extension checks whether it is a supported job application form. On recognised
-                application pages it reads the visible form fields and job details (job title, employer, reference) so
-                it can help fill them in and record the application. It does not read pages unrelated to job
-                applications beyond this detection check.
+                application pages it reads visible form labels and relevant job details (such as the role, employer,
+                and page URL) so it can help fill fields and connect a saved application to the role. It does not read
+                unrelated page content beyond the local form-detection check.
               </li>
               <li>
-                <span className="font-medium text-foreground">Local extension storage.</span> Small settings (such as
-                sidebar state) are stored locally in your browser using Chrome&apos;s extension storage. Nothing is
-                stored there that identifies other websites you visit.
+                <span className="font-medium text-foreground">Local extension storage.</span> The extension stores
+                interface preferences, sites where you have dismissed the helper, and answers you explicitly save
+                to its local answer library. It also uses short-lived session storage to carry a JOBSAGE-selected
+                application link across employer redirects. It does not cache your full profile or CV in extension
+                storage, and this is not a general browsing history.
               </li>
             </ul>
           </section>
@@ -58,17 +61,20 @@ export default function ExtensionPrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold mb-2">Where data goes</h2>
             <p className="text-muted-foreground">
-              Data leaves your browser in exactly one direction: to the JOBSAGE service (jobsage.co.uk), over HTTPS,
-              and only when you use an extension feature — for example, saving an application to your tracker or
-              loading your profile to fill a form. The extension sends nothing to any third party, contains no
-              analytics or advertising trackers, and does not sell or share data with anyone.
+              Extension API requests go to JOBSAGE (jobsage.co.uk) over HTTPS. When Smart Apply maps profile facts
+              into a tracked application form, or when you ask it to generate an answer, JOBSAGE sends the relevant
+              question, role context, and candidate profile or CV facts to OpenAI for that AI processing. The
+              extension does not send
+              form data directly to an employer. If you choose to submit a completed form, the employer receives the
+              information through the employer website&apos;s normal submission flow. JOBSAGE does not sell this data
+              or use it for advertising.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-2">Data we do not collect</h2>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>Browsing history or pages you visit outside of job application flows</li>
+              <li>A general browsing history or page content unrelated to job application flows</li>
               <li>Cookies, passwords, or credentials for any site other than JOBSAGE</li>
               <li>Keystrokes, clipboard contents, or personal files</li>
               <li>Financial or payment information</li>

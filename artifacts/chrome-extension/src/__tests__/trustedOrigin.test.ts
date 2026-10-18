@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isConfiguredFirstPartyOrigin, isJobSageFirstPartyPage } from "../lib/trustedOrigin";
+import { isJobSageFirstPartyPage as isStoreFirstPartyPage } from "../lib/trustedOrigin.production";
 
 describe("isConfiguredFirstPartyOrigin", () => {
   it("allows only the exact configured JOBSAGE origin", () => {
@@ -23,5 +24,15 @@ describe("isJobSageFirstPartyPage", () => {
   it("allows the helper UI on third-party application pages", () => {
     expect(isJobSageFirstPartyPage("https://careers.example.com/apply/123")).toBe(false);
     expect(isJobSageFirstPartyPage("https://evil-jobsage.co.uk/apply")).toBe(false);
+  });
+});
+
+describe("store first-party page check", () => {
+  it("recognizes JOBSAGE only and excludes development hosts", () => {
+    expect(isStoreFirstPartyPage("https://jobsage.co.uk/opportunities")).toBe(true);
+    expect(isStoreFirstPartyPage("https://app.jobsage.co.uk/apply")).toBe(true);
+    expect(isStoreFirstPartyPage("https://preview.example.replit.dev/opportunities")).toBe(false);
+    expect(isStoreFirstPartyPage("http://localhost:5173/opportunities")).toBe(false);
+    expect(isStoreFirstPartyPage("https://evil-jobsage.co.uk/apply")).toBe(false);
   });
 });
