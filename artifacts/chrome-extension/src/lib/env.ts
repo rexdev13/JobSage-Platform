@@ -9,6 +9,9 @@ export const PROD_ORIGIN = "https://jobsage.co.uk";
 
 // Prefilled at build time by Vite (see vite.config.ts define).
 declare const __DEV_ORIGIN__: string;
+declare const __STORE_BUILD__: boolean | undefined;
+export const IS_STORE_BUILD =
+  typeof __STORE_BUILD__ !== "undefined" && __STORE_BUILD__;
 export const DEFAULT_DEV_ORIGIN: string =
   typeof __DEV_ORIGIN__ !== "undefined" ? __DEV_ORIGIN__ : "";
 
@@ -24,6 +27,10 @@ export function normalizeOrigin(raw: string): string {
 }
 
 export async function getEnvSettings(): Promise<EnvSettings> {
+  if (IS_STORE_BUILD) {
+    return { env: "production", devOrigin: "" };
+  }
+
   const stored = await chrome.storage.sync.get({
     env: "production",
     devOrigin: DEFAULT_DEV_ORIGIN,
@@ -34,6 +41,8 @@ export async function getEnvSettings(): Promise<EnvSettings> {
 }
 
 export async function saveEnvSettings(settings: Partial<EnvSettings>): Promise<void> {
+  if (IS_STORE_BUILD) return;
+
   const patch: Record<string, string> = {};
   if (settings.env) patch["env"] = settings.env;
   if (settings.devOrigin !== undefined) patch["devOrigin"] = normalizeOrigin(settings.devOrigin);
@@ -42,6 +51,7 @@ export async function saveEnvSettings(settings: Partial<EnvSettings>): Promise<v
 
 /** Origin used for both the API base and the session-cookie lookup. */
 export function activeOrigin(settings: EnvSettings): string {
+  if (IS_STORE_BUILD) return PROD_ORIGIN;
   return settings.env === "development" && settings.devOrigin ? settings.devOrigin : PROD_ORIGIN;
 }
 

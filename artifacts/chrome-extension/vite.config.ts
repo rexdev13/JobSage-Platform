@@ -48,14 +48,17 @@ function stripCrossorigin() {
   };
 }
 
-// Dev-server origin baked in at build time; editable in the popup at runtime.
-const devDomain = process.env.REPLIT_DEV_DOMAIN;
+// Store packages always use the production origin. Development builds retain
+// the optional Replit origin selector for internal testing.
+const storeBuild = process.env.JOBSAGE_EXTENSION_STORE_BUILD === "1";
+const devDomain = storeBuild ? undefined : process.env.REPLIT_DEV_DOMAIN;
 const devOrigin = devDomain ? `https://${devDomain}` : "";
 
 export default defineConfig({
   plugins: [react(), copyManifest(), stripCrossorigin()],
   define: {
     __DEV_ORIGIN__: JSON.stringify(devOrigin),
+    __STORE_BUILD__: JSON.stringify(storeBuild),
   },
   build: {
     outDir: "dist",

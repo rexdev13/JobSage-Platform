@@ -8,8 +8,9 @@ const manifest = JSON.parse(
 
 describe("extension manifest", () => {
   it("grants HTTPS host access required to retain JOBSAGE clicks through employer redirects", () => {
-    expect(manifest.version).toBe("0.4.20");
+    expect(manifest.version).toBe("0.4.21");
     expect(manifest.permissions).toContain("webNavigation");
     expect(manifest.host_permissions).toContain("https://*/*");
+    expect(manifest.host_permissions).not.toContain("https://*.replit.dev/*");
   });
 });

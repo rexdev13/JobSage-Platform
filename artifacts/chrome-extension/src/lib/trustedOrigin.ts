@@ -1,3 +1,5 @@
+import { IS_STORE_BUILD } from "./env";
+
 /**
  * Automatic prefill may only start from the exact configured JOBSAGE origin.
  * Never use suffix checks here: public hosting platforms have many unrelated
@@ -14,11 +16,12 @@ export function isConfiguredFirstPartyOrigin(senderUrl: string | undefined, conf
 export function isJobSageFirstPartyPage(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    return hostname === "jobsage.co.uk"
-      || hostname.endsWith(".jobsage.co.uk")
-      || hostname === "localhost"
+    if (hostname === "jobsage.co.uk" || hostname.endsWith(".jobsage.co.uk")) return true;
+    return !IS_STORE_BUILD && (
+      hostname === "localhost"
       || hostname.endsWith(".replit.dev")
-      || hostname.endsWith(".repl.co");
+      || hostname.endsWith(".repl.co")
+    );
   } catch {
     return false;
   }

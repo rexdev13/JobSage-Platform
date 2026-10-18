@@ -7,7 +7,8 @@
  *  2. ../jobsage-web/public/jobsage-smart-apply-extension.zip — the direct
  *     download zip served by the web app ("Load unpacked" install flow).
  *
- * Run after `vite build` (see the `package` script in package.json).
+ * Run with `pnpm run package`; that command creates a production-only build
+ * before packaging, so the development-origin controls cannot ship by accident.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, copyFileSync, rmSync, readdirSync } from "node:fs";
@@ -18,7 +19,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = resolve(root, "dist");
 
 if (!existsSync(resolve(dist, "manifest.json"))) {
-  console.error("dist/manifest.json not found — run `pnpm run build` first.");
+  console.error("dist/manifest.json not found — run `pnpm run package` to build and package.");
   process.exit(1);
 }
 
@@ -43,10 +44,28 @@ if (/^\s*(import|export)[\s{"']/m.test(contentJs)) {
 
 const manifest = JSON.parse(readFileSync(resolve(dist, "manifest.json"), "utf8"));
 const { version, permissions = [], host_permissions: hostPermissions = [] } = manifest;
-if (!permissions.includes("webNavigation") || !permissions.includes("downloads") || !hostPermissions.includes("https://*/*")) {
+if (
+  !permissions.includes("webNavigation")
+  || !permissions.includes("downloads")
+  || !hostPermissions.includes("https://*/*")
+  || hostPermissions.some((host) => /replit\.dev/i.test(host))
+) {
   console.error(
-    "Refusing to package: manifest must include webNavigation, downloads, and https://*/* host access for Smart Apply tracking and CV fallback.",
+    "Refusing to package: manifest needs webNavigation, downloads, and https://*/* host access, and must not include Replit development hosts.",
   );
+  process.exit(1);
+}
+
+const bundleFiles = readdirSync(dist, { recursive: true })
+  .map(String)
+  .filter((file) => file.endsWith(".js"));
+const bundleText = bundleFiles
+  .map((file) => readFileSync(resolve(dist, file), "utf8"))
+  .join("\n");
+const developmentOnlyContent =
+  /\.replit\.dev|REPLIT_DEV_DOMAIN|your-app\.replit\.dev|Development server URL|\bDevelopment\b/i;
+if (developmentOnlyContent.test(bundleText)) {
+  console.error("Refusing to package: development origin or selector remains in the store JavaScript bundles.");
   process.exit(1);
 }
 

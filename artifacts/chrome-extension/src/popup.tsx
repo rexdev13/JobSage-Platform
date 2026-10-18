@@ -8,6 +8,7 @@ import {
   activeOrigin,
   PROD_ORIGIN,
   DEFAULT_DEV_ORIGIN,
+  IS_STORE_BUILD,
   type ExtensionEnv,
 } from "./lib/env";
 
@@ -171,7 +172,9 @@ function Popup() {
         JOB<span style={{ color: BRAND.primary }}>SAGE</span> Smart Apply
       </div>
       <div style={{ fontSize: 12, color: BRAND.textMuted, marginBottom: 14 }}>
-        Open the JOBSAGE sidebar on the current page, or configure settings below.
+        {IS_STORE_BUILD
+          ? "Open the JOBSAGE sidebar on the current page."
+          : "Open the JOBSAGE sidebar on the current page, or configure settings below."}
       </div>
 
       {/* Primary action — activate sidebar on current tab */}
@@ -234,58 +237,78 @@ function Popup() {
         Settings
       </div>
 
-      {/* Environment selector */}
-      <div
-        style={{
-          display: "flex",
-          gap: 4,
-          padding: 4,
-          background: BRAND.inputBg,
-          border: `1px solid ${BRAND.border}`,
-          borderRadius: BRAND.radiusSm,
-          marginBottom: 12,
-        }}
-      >
-        {segBtn("production", "Production")}
-        {segBtn("development", "Development")}
-      </div>
-
-      {env === "development" && (
-        <div style={{ marginBottom: 12 }}>
-          <label
+      {!IS_STORE_BUILD && (
+        <>
+          {/* Environment selector — omitted from the Chrome Web Store build. */}
+          <div
             style={{
-              display: "block",
-              fontSize: 11,
-              fontWeight: 600,
-              color: BRAND.text,
-              marginBottom: 4,
-            }}
-          >
-            Development server URL
-          </label>
-          <input
-            type="text"
-            value={devOrigin}
-            onChange={(e) => setDevOrigin(e.target.value)}
-            onBlur={commitDevOrigin}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void commitDevOrigin();
-            }}
-            placeholder="https://your-app.replit.dev"
-            spellCheck={false}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "7px 10px",
-              fontSize: 12,
-              fontFamily: BRAND.fontSans,
-              color: BRAND.text,
-              background: BRAND.surface,
+              display: "flex",
+              gap: 4,
+              padding: 4,
+              background: BRAND.inputBg,
               border: `1px solid ${BRAND.border}`,
               borderRadius: BRAND.radiusSm,
-              outline: "none",
+              marginBottom: 12,
             }}
-          />
+          >
+            {segBtn("production", "Production")}
+            {segBtn("development", "Development")}
+          </div>
+
+          {env === "development" && (
+            <div style={{ marginBottom: 12 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: BRAND.text,
+                  marginBottom: 4,
+                }}
+              >
+                Development server URL
+              </label>
+              <input
+                type="text"
+                value={devOrigin}
+                onChange={(e) => setDevOrigin(e.target.value)}
+                onBlur={commitDevOrigin}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void commitDevOrigin();
+                }}
+                placeholder="https://your-app.replit.dev"
+                spellCheck={false}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "7px 10px",
+                  fontSize: 12,
+                  fontFamily: BRAND.fontSans,
+                  color: BRAND.text,
+                  background: BRAND.surface,
+                  border: `1px solid ${BRAND.border}`,
+                  borderRadius: BRAND.radiusSm,
+                  outline: "none",
+                }}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {IS_STORE_BUILD && (
+        <div
+          style={{
+            padding: "8px 10px",
+            marginBottom: 12,
+            background: BRAND.primarySoft,
+            borderRadius: BRAND.radiusSm,
+            color: BRAND.primary,
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          Production connection
         </div>
       )}
 
@@ -386,8 +409,9 @@ function Popup() {
       )}
 
       <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 12, lineHeight: 1.5 }}>
-        Changes apply instantly — no reinstall needed. Make sure you're signed in to JOBSAGE on the
-        selected environment.
+        {IS_STORE_BUILD
+          ? "Make sure you're signed in to JOBSAGE to use Smart Apply."
+          : "Changes apply instantly — no reinstall needed. Make sure you're signed in to JOBSAGE on the selected environment."}
       </div>
     </div>
   );
