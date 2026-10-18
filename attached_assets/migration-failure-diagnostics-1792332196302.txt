@@ -1,0 +1,315 @@
+<migration_failure>
+   Failed to run database migration statement
+ALTER TABLE "employer_job_assignments" ADD CONSTRAINT "employer_job_assignments_job_org_fk" FOREIGN KEY ("job_listing_id","employer_profile_id") REFERENCES "public"."job_listings"("id","employer_profile_id") ON DELETE cascade ON UPDATE no action;
+there is no unique constraint matching given keys for referenced table "job_listings"
+   </migration_failure>
+
+   <generated_migration_diff>
+   CREATE TABLE "message_sender_blocks" (
+"id" serial PRIMARY KEY NOT NULL,
+"user_id" varchar NOT NULL,
+"sender_key" text NOT NULL,
+"sender_label" text NOT NULL,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "employer_memberships" (
+"id" serial PRIMARY KEY NOT NULL,
+"employer_profile_id" integer NOT NULL,
+"user_id" varchar NOT NULL,
+"role" varchar NOT NULL,
+"status" varchar DEFAULT 'active' NOT NULL,
+"invited_by_user_id" varchar,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+CONSTRAINT "employer_memberships_role_check" CHECK ((role)::text = ANY ((ARRAY['employer_owner'::character varying, 'employer_admin'::character varying, 'recruiter'::character varying, 'hiring_manager'::character varying, 'employer_viewer'::character varying])::text[]))
+);
+
+
+CREATE TABLE "privacy_preferences" (
+"user_id" varchar PRIMARY KEY NOT NULL,
+"marketing" boolean DEFAULT false NOT NULL,
+"optional_analytics" boolean DEFAULT false NOT NULL,
+"notifications" jsonb DEFAULT '{}'::jsonb NOT NULL,
+"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "employer_invitations" (
+"id" serial PRIMARY KEY NOT NULL,
+"employer_profile_id" integer NOT NULL,
+"email" varchar(254) NOT NULL,
+"role" varchar NOT NULL,
+"token_hash" varchar(64) NOT NULL,
+"invited_by_user_id" varchar NOT NULL,
+"expires_at" timestamp with time zone NOT NULL,
+"accepted_at" timestamp with time zone,
+"declined_at" timestamp with time zone,
+"revoked_at" timestamp with time zone,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "account_deletion_tasks" (
+"id" varchar(36) PRIMARY KEY NOT NULL,
+"request_id" varchar(36) NOT NULL,
+"kind" varchar NOT NULL,
+"state" varchar DEFAULT 'pending' NOT NULL,
+"resource_ciphertext" text,
+"attempts" integer DEFAULT 0 NOT NULL,
+"retry_at" timestamp with time zone NOT NULL,
+"lease_until" timestamp with time zone,
+"failure_code" varchar(80)
+);
+
+
+CREATE TABLE "account_deletion_requests" (
+"id" varchar(36) PRIMARY KEY NOT NULL,
+"account_hash" varchar(64) NOT NULL,
+"requested_at" timestamp with time zone NOT NULL,
+"completed_at" timestamp with time zone,
+"outcome" varchar DEFAULT 'pending' NOT NULL
+);
+
+
+CREATE TABLE "employer_job_assignments" (
+"id" serial PRIMARY KEY NOT NULL,
+"employer_profile_id" integer NOT NULL,
+"job_listing_id" integer NOT NULL,
+"user_id" varchar NOT NULL,
+"assigned_by_user_id" varchar,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "deletion_tombstone_outbox" (
+"request_id" varchar(36) PRIMARY KEY NOT NULL,
+"acknowledged_at" timestamp with time zone
+);
+
+
+CREATE TABLE "employer_interview_participants" (
+"id" serial PRIMARY KEY NOT NULL,
+"employer_profile_id" integer NOT NULL,
+"job_listing_id" integer NOT NULL,
+"application_id" integer NOT NULL,
+"user_id" varchar NOT NULL,
+"invited_by_user_id" varchar,
+"status" varchar DEFAULT 'invited' NOT NULL,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "push_devices" (
+"token_hash" varchar(64) PRIMARY KEY NOT NULL,
+"user_id" varchar NOT NULL,
+"token_ciphertext" varchar NOT NULL,
+"platform" varchar NOT NULL,
+"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "legal_retention_records" (
+"id" varchar(36) PRIMARY KEY NOT NULL,
+"request_id" varchar(36) NOT NULL,
+"category" varchar NOT NULL,
+"lawful_reason" text NOT NULL,
+"expires_at" timestamp with time zone,
+"hold_reference" text,
+"record_ciphertext" text NOT NULL,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "push_notification_outbox" (
+"id" varchar(36) PRIMARY KEY NOT NULL,
+"event_key" varchar(180) NOT NULL,
+"user_id" varchar NOT NULL,
+"category" varchar NOT NULL,
+"destination" varchar(128) NOT NULL,
+"state" varchar DEFAULT 'queued' NOT NULL,
+"attempts" integer DEFAULT 0 NOT NULL,
+"available_at" timestamp with time zone DEFAULT now() NOT NULL,
+"lease_until" timestamp with time zone,
+"sent_at" timestamp with time zone,
+"last_error_code" varchar(80),
+"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+CONSTRAINT "push_notification_outbox_event_key_unique" UNIQUE("event_key"),
+CONSTRAINT "push_outbox_category_check" CHECK ((category)::text = ANY ((ARRAY['messages'::character varying, 'interviews'::character varying, 'applications'::character varying, 'eligibility'::character varying, 'documents'::character varying, 'jobAlerts'::character varying])::text[])),
+CONSTRAINT "push_outbox_state_check" CHECK ((state)::text = ANY ((ARRAY['queued'::character varying, 'sending'::character varying, 'sent'::character varying, 'retry'::character varying, 'skipped'::character varying, 'failed'::character varying])::text[]))
+);
+
+
+CREATE TABLE "employer_candidate_feedback" (
+"id" serial PRIMARY KEY NOT NULL,
+"employer_profile_id" integer NOT NULL,
+"job_listing_id" integer NOT NULL,
+"application_id" integer NOT NULL,
+"author_user_id" varchar NOT NULL,
+"feedback" text NOT NULL,
+"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+CREATE TABLE "push_notification_deliveries" (
+"id" varchar(36) PRIMARY KEY NOT NULL,
+"notification_id" varchar(36) NOT NULL,
+"token_hash" varchar(64) NOT NULL,
+"receipt_id" varchar(128),
+"state" varchar DEFAULT 'retry' NOT NULL,
+"attempts" integer DEFAULT 0 NOT NULL,
+"available_at" timestamp with time zone DEFAULT now() NOT NULL,
+"checked_at" timestamp with time zone,
+"last_error_code" varchar(80),
+"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+CONSTRAINT "push_delivery_state_check" CHECK ((state)::text = ANY ((ARRAY['retry'::character varying, 'receipt_pending'::character varying, 'delivered'::character varying, 'invalid'::character varying, 'failed'::character varying])::text[]))
+);
+
+
+ALTER TABLE "profiles" ADD COLUMN "sector" text;
+
+ALTER TABLE "employer_profiles" ADD COLUMN "deletion_requested_at" timestamp with time zone;
+
+ALTER TABLE "employer_profiles" ADD COLUMN "deleted_at" timestamp with time zone;
+
+ALTER TABLE "support_tickets" ADD COLUMN "is_content_report" boolean DEFAULT false NOT NULL;
+
+ALTER TABLE "support_tickets" ADD COLUMN "severity" varchar DEFAULT 'normal' NOT NULL;
+
+ALTER TABLE "support_tickets" ADD COLUMN "assigned_moderator_id" varchar;
+
+ALTER TABLE "support_tickets" ADD COLUMN "escalated_at" timestamp with time zone;
+
+ALTER TABLE "support_tickets" ADD COLUMN "reported_message_id" integer;
+
+ALTER TABLE "support_tickets" ADD COLUMN "appeal_of_ticket_id" integer;
+
+ALTER TABLE "support_tickets" ADD COLUMN "moderation_decision" varchar DEFAULT 'pending' NOT NULL;
+
+ALTER TABLE "support_tickets" ADD COLUMN "reported_content_type" varchar;
+
+ALTER TABLE "support_tickets" ADD COLUMN "reported_content_id" text;
+
+ALTER TABLE "support_tickets" ADD COLUMN "reported_context_id" integer;
+
+ALTER TABLE "message_sender_blocks" ADD CONSTRAINT "message_sender_blocks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_memberships" ADD CONSTRAINT "employer_memberships_employer_profile_id_employer_profiles_id_f" FOREIGN KEY ("employer_profile_id") REFERENCES "public"."employer_profiles"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_memberships" ADD CONSTRAINT "employer_memberships_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+
+ALTER TABLE "employer_memberships" ADD CONSTRAINT "employer_memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "privacy_preferences" ADD CONSTRAINT "privacy_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_invitations" ADD CONSTRAINT "employer_invitations_employer_profile_id_employer_profiles_id_f" FOREIGN KEY ("employer_profile_id") REFERENCES "public"."employer_profiles"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_invitations" ADD CONSTRAINT "employer_invitations_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "account_deletion_tasks" ADD CONSTRAINT "account_deletion_tasks_request_id_account_deletion_requests_id_" FOREIGN KEY ("request_id") REFERENCES "public"."account_deletion_requests"("id") ON DELETE restrict ON UPDATE no action;
+
+ALTER TABLE "employer_job_assignments" ADD CONSTRAINT "employer_job_assignments_assigned_by_user_id_users_id_fk" FOREIGN KEY ("assigned_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+
+ALTER TABLE "employer_job_assignments" ADD CONSTRAINT "employer_job_assignments_employer_profile_id_employer_profiles_" FOREIGN KEY ("employer_profile_id") REFERENCES "public"."employer_profiles"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_job_assignments" ADD CONSTRAINT "employer_job_assignments_job_org_fk" FOREIGN KEY ("job_listing_id","employer_profile_id") REFERENCES "public"."job_listings"("id","employer_profile_id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_job_assignments" ADD CONSTRAINT "employer_job_assignments_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "deletion_tombstone_outbox" ADD CONSTRAINT "deletion_tombstone_outbox_request_id_account_deletion_requests_" FOREIGN KEY ("request_id") REFERENCES "public"."account_deletion_requests"("id") ON DELETE restrict ON UPDATE no action;
+
+ALTER TABLE "employer_interview_participants" ADD CONSTRAINT "employer_interview_participants_application_id_applications_id_" FOREIGN KEY ("application_id") REFERENCES "public"."applications"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_interview_participants" ADD CONSTRAINT "employer_interview_participants_employer_profile_id_employer_pr" FOREIGN KEY ("employer_profile_id") REFERENCES "public"."employer_profiles"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_interview_participants" ADD CONSTRAINT "employer_interview_participants_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+
+ALTER TABLE "employer_interview_participants" ADD CONSTRAINT "employer_interview_participants_job_org_fk" FOREIGN KEY ("job_listing_id","employer_profile_id") REFERENCES "public"."job_listings"("id","employer_profile_id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_interview_participants" ADD CONSTRAINT "employer_interview_participants_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "push_devices" ADD CONSTRAINT "push_devices_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "legal_retention_records" ADD CONSTRAINT "legal_retention_records_request_id_account_deletion_requests_id" FOREIGN KEY ("request_id") REFERENCES "public"."account_deletion_requests"("id") ON DELETE restrict ON UPDATE no action;
+
+ALTER TABLE "push_notification_outbox" ADD CONSTRAINT "push_notification_outbox_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_candidate_feedback" ADD CONSTRAINT "employer_candidate_feedback_application_id_applications_id_fk" FOREIGN KEY ("application_id") REFERENCES "public"."applications"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_candidate_feedback" ADD CONSTRAINT "employer_candidate_feedback_author_user_id_users_id_fk" FOREIGN KEY ("author_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_candidate_feedback" ADD CONSTRAINT "employer_candidate_feedback_employer_profile_id_employer_profil" FOREIGN KEY ("employer_profile_id") REFERENCES "public"."employer_profiles"("id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "employer_candidate_feedback" ADD CONSTRAINT "employer_candidate_feedback_job_org_fk" FOREIGN KEY ("job_listing_id","employer_profile_id") REFERENCES "public"."job_listings"("id","employer_profile_id") ON DELETE cascade ON UPDATE no action;
+
+ALTER TABLE "push_notification_deliveries" ADD CONSTRAINT "push_notification_deliveries_notification_id_push_notification_" FOREIGN KEY ("notification_id") REFERENCES "public"."push_notification_outbox"("id") ON DELETE cascade ON UPDATE no action;
+
+CREATE UNIQUE INDEX "message_sender_blocks_owner_sender_idx" ON "message_sender_blocks" USING btree ("user_id","sender_key");
+
+CREATE INDEX "employer_memberships_profile_status_idx" ON "employer_memberships" USING btree ("employer_profile_id","status");
+
+CREATE INDEX "employer_memberships_user_status_idx" ON "employer_memberships" USING btree ("user_id","status");
+
+CREATE INDEX "employer_invitations_email_idx" ON "employer_invitations" USING btree ("email");
+
+CREATE INDEX "employer_invitations_profile_created_idx" ON "employer_invitations" USING btree ("employer_profile_id","created_at");
+
+CREATE INDEX "account_deletion_tasks_claim_idx" ON "account_deletion_tasks" USING btree ("state","retry_at");
+
+CREATE UNIQUE INDEX "account_deletion_account_hash_unique" ON "account_deletion_requests" USING btree ("account_hash");
+
+CREATE INDEX "employer_job_assignments_org_user_idx" ON "employer_job_assignments" USING btree ("employer_profile_id","user_id");
+
+CREATE INDEX "employer_interview_participants_org_job_idx" ON "employer_interview_participants" USING btree ("employer_profile_id","job_listing_id");
+
+CREATE INDEX "push_devices_user_idx" ON "push_devices" USING btree ("user_id");
+
+CREATE INDEX "legal_retention_expiry_idx" ON "legal_retention_records" USING btree ("expires_at");
+
+CREATE INDEX "push_outbox_claim_idx" ON "push_notification_outbox" USING btree ("state","available_at");
+
+CREATE INDEX "push_outbox_user_idx" ON "push_notification_outbox" USING btree ("user_id","created_at");
+
+CREATE INDEX "employer_candidate_feedback_org_job_idx" ON "employer_candidate_feedback" USING btree ("employer_profile_id","job_listing_id");
+
+CREATE UNIQUE INDEX "push_delivery_event_token_unique" ON "push_notification_deliveries" USING btree ("notification_id","token_hash");
+
+CREATE INDEX "push_delivery_receipt_idx" ON "push_notification_deliveries" USING btree ("state","available_at");
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_assigned_moderator_id_users_id_fk" FOREIGN KEY ("assigned_moderator_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+
+CREATE INDEX "applications_user_id_idx" ON "applications" USING btree ("user_id");
+
+CREATE INDEX "candidate_match_scores_user_role_idx" ON "candidate_match_scores" USING btree ("user_id","role_id");
+
+CREATE INDEX "candidate_match_scores_user_scored_at_idx" ON "candidate_match_scores" USING btree ("user_id","scored_at");
+
+CREATE INDEX "sponsor_licences_normalized_name_idx" ON "sponsor_licences" USING btree (lower(btrim(organisation_name)));
+
+CREATE INDEX "sponsor_licence_vacancies_source_liveness_idx" ON "sponsor_licence_vacancies" USING btree ("source_type","liveness");
+
+CREATE INDEX "support_tickets_appeal_of_ticket_id_idx" ON "support_tickets" USING btree ("appeal_of_ticket_id");
+
+CREATE INDEX "support_tickets_moderation_queue_idx" ON "support_tickets" USING btree ("is_content_report","status","severity","created_at");
+
+CREATE INDEX "support_tickets_reported_content_idx" ON "support_tickets" USING btree ("is_content_report","reported_content_type","status","created_at");
+
+CREATE INDEX "support_tickets_reported_message_id_idx" ON "support_tickets" USING btree ("reported_message_id");
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_moderation_decision_check" CHECK ((moderation_decision)::text = ANY ((ARRAY['pending'::character varying, 'no_action'::character varying, 'escalated'::character varying])::text[]));
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_reported_content_id_check" CHECK ((reported_content_type IS NULL) OR ((reported_content_type)::text = ANY ((ARRAY['ai_content'::character varying, 'other'::character varying])::text[])) OR ((reported_content_id IS NOT NULL) AND ((char_length(reported_content_id) >= 1) AND (char_length(reported_content_id) <= 200))));
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_reported_content_type_check" CHECK ((reported_content_type IS NULL) OR ((reported_content_type)::text = ANY ((ARRAY['ai_content'::character varying, 'inbox_message'::character varying, 'candidate_profile'::character varying, 'job_listing'::character varying, 'attachment'::character varying, 'support_request'::character varying, 'employer_feedback'::character varying, 'other'::character varying])::text[])));
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_reported_context_id_check" CHECK ((reported_context_id IS NULL) OR (reported_context_id > 0));
+
+ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_severity_check" CHECK ((severity)::text = ANY ((ARRAY['low'::character varying, 'normal'::character varying, 'high'::character varying, 'urgent'::character varying])::text[]));
+   </generated_migration_diff>
+
+   <migration_warnings>
+   No additional migration warnings were generated.
+   </migration_warnings>
