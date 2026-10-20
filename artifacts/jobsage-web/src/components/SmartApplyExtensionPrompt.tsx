@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui-enhanced";
-import { X, Chrome, Download, Sparkles, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { X, Chrome, Download, Sparkles, ChevronDown, ChevronUp, CheckCircle2, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
 
@@ -83,7 +83,21 @@ function downloadUrl(): string {
   return `${import.meta.env.BASE_URL}jobsage-smart-apply-extension.zip`;
 }
 
-function InstallInstructions() {
+function chromeWebStoreListingUrl(): string | null {
+  const configuredUrl = import.meta.env.VITE_CHROME_WEB_STORE_URL?.trim();
+  if (!configuredUrl) return null;
+
+  try {
+    const url = new URL(configuredUrl);
+    const validHost = ["chromewebstore.google.com", "chrome.google.com"].includes(url.hostname);
+    if (url.protocol !== "https:" || !validHost || !url.pathname.includes("/detail/")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function ManualInstallInstructions() {
   return (
     <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
       <li>
@@ -99,8 +113,42 @@ function InstallInstructions() {
       <li>
         Click <span className="font-medium text-foreground">Load unpacked</span> and select the unzipped folder.
       </li>
-      <li>That&apos;s it — the JOBSAGE assistant will appear automatically on supported employer sites.</li>
+      <li>
+        The assistant opens automatically when you start a tracked application from JOBSAGE. On an untracked employer
+        page, click the JOBSAGE extension icon and choose <span className="font-medium text-foreground">Use JOBSAGE on this page</span>.
+      </li>
     </ol>
+  );
+}
+
+function InstallInstructions() {
+  const storeUrl = chromeWebStoreListingUrl();
+
+  if (!storeUrl) return <ManualInstallInstructions />;
+
+  return (
+    <div className="space-y-3">
+      <a
+        href={storeUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+      >
+        <Chrome className="h-4 w-4" />
+        Add to Chrome
+        <ExternalLink className="h-3 w-3 opacity-80" />
+      </a>
+      <p className="text-xs text-muted-foreground">
+        The assistant opens automatically when you start a tracked application from JOBSAGE. On an untracked employer
+        page, click the JOBSAGE extension icon and choose <span className="font-medium text-foreground">Use JOBSAGE on this page</span>.
+      </p>
+      <details className="rounded-lg border border-border px-3 py-2">
+        <summary className="cursor-pointer text-xs font-medium text-foreground">Install manually with the ZIP instead</summary>
+        <div className="pt-2">
+          <ManualInstallInstructions />
+        </div>
+      </details>
+    </div>
   );
 }
 

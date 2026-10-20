@@ -29,14 +29,14 @@ Applying for UK healthcare jobs means filling in the same details again and agai
 
 WHAT IT DOES
 
-• Recognises job application forms on NHS Jobs, Trac and other employer sites as you browse
+• Recognises supported job application forms locally when the helper is active
 • Helps you fill in applications using the profile you've already built on JOBSAGE — qualifications, registration details, work history
 • Lets you save application details to your JOBSAGE tracker, so your pipeline stays organised
-• Shows a small sidebar assistant only on recognised application pages — it stays out of your way everywhere else
+• Opens automatically for tracked applications started from JOBSAGE, or on other pages when you activate it from the extension icon
 
 HOW IT WORKS
 
-Sign in to your free JOBSAGE account at jobsage.co.uk, install the extension, and apply as normal. When Smart Apply detects a supported application form, the JOBSAGE assistant appears and offers to help. Review suggested answers, complete sensitive or personal declarations yourself, and save application details to your JOBSAGE tracker.
+Sign in to your free JOBSAGE account at jobsage.co.uk and install the extension. Start an application from a JOBSAGE role to open the assistant automatically on the employer site. On another employer page, click the JOBSAGE extension icon and choose “Use JOBSAGE on this page.” The helper checks for supported application forms locally. Review suggested answers, complete sensitive or personal declarations yourself, and save application details to your JOBSAGE tracker.
 
 PRIVACY
 
@@ -88,7 +88,7 @@ Candidates apply on hundreds of employer career sites whose domains cannot be en
 - All-HTTPS content-script use:
 
 ```
-Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check on each page to detect a supported application form; it only activates the assistant and reads relevant form labels and role context on recognised application pages. Details leave the browser only for JOBSAGE features the candidate uses; when structured mapping runs in a tracked application flow or AI drafting is requested, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing.
+Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check; the assistant opens automatically for tracked applications started from JOBSAGE or after the candidate activates it from the extension icon. It reads relevant form labels and role context only on active application pages. Details leave the browser only for JOBSAGE features the candidate uses; when structured mapping runs in a tracked application flow or AI drafting is requested, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing.
 ```
 
 - `webNavigation`:

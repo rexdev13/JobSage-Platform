@@ -45,6 +45,8 @@ The extension requests `cookies`, `storage`, `webNavigation`, `tabs`, and `downl
 
 Review times vary. Broad HTTPS access can receive additional scrutiny; explain that the extension checks for application forms locally and carries a user-selected JOBSAGE application URL only through that application flow. If asked about data sharing, explain that JOBSAGE sends relevant context and profile/CV facts to OpenAI when structured mapping runs in a tracked application flow or the candidate requests AI drafting.
 
+After the listing is approved and its URL is available, set the public `VITE_CHROME_WEB_STORE_URL` build variable for the JOBSAGE web app and republish it. The install prompt will then show the Chrome Web Store button while keeping the manual ZIP install as a fallback.
+
 ## If a reviewer asks for changes
 
 - **Broad host access:** use the host and content-script justifications in `store/LISTING.md`; do not claim that no data is shared with service providers.
@@ -64,6 +66,7 @@ Review times vary. Broad HTTPS access can receive additional scrutiny; explain t
 - The store build connects only to `https://jobsage.co.uk`; it does not include the development selector or a Replit development origin.
 - The extension reads the JOBSAGE session cookie only on `jobsage.co.uk`.
 - Form detection runs locally. The helper fills only supported fields; candidates review answers and complete sensitive or personal declarations themselves.
+- The helper opens automatically for a tracked application started from JOBSAGE. On an untracked employer page, the candidate clicks the extension icon and chooses **Use JOBSAGE on this page**.
 - Application URLs are carried through employer redirects only when the flow starts from a JOBSAGE-selected link.
 - AI answer drafting is candidate-requested. Structured mapping can run in a tracked application flow; relevant role/question context and candidate profile/CV facts are processed by OpenAI through JOBSAGE.
 - The CV is retrieved from the authenticated JOBSAGE API, attached only to a matching CV/resumé file input, and otherwise offered as a download.
