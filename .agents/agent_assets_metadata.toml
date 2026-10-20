@@ -1972,3 +1972,17 @@ mtime_ms = 1792336101884
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9cfe8acf-2499-4690-a78e-00850b6eb0e6/621f1962-aa94-46e1-9758-9f2cb2349ad4"
 storage_version_token = "1792336291648714"
 content_type = "image/png"
+
+[[outputs]]
+id = "emfSS7TPKcq9L3rvtZPjo"
+uri = "file://artifacts/chrome-extension/icons/icon128.png"
+type = "image"
+title = "JOBSAGE Chrome Web Store icon"
+description = "128 × 128 PNG icon for the JOBSAGE extension’s Chrome Web Store listing."
+logical_id = "32e20295-5156-4363-80ea-89e290ca87be"
+content_hash = "sha256:681ed80f5b59ac6234f4c152306b419c9fd2d8c74eb18a98113d4944d23bca85"
+size = 2744
+mtime_ms = 1792048639278
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/32e20295-5156-4363-80ea-89e290ca87be/fb7f4bfd-083f-44a8-b62f-6238d54ccbaa"
+storage_version_token = "1792494723706701"
+content_type = "image/png"
