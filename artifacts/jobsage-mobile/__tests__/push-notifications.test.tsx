@@ -2,6 +2,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { AppState } from "react-native";
+import Constants from "expo-constants";
 
 const {
   mockGetPrivacySettings,
@@ -121,6 +122,7 @@ async function pressAndFlush(screen: Awaited<ReturnType<typeof render>>, testId:
 describe("native push opt-in", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (Constants as unknown as { executionEnvironment?: string }).executionEnvironment = undefined;
     mockAuth.user = { id: "candidate-1", role: "candidate" };
     mockAuth.token = "fixture-session-token";
     mockGetPrivacySettings.mockResolvedValue({ notifications: { jobAlerts: true } });
@@ -144,6 +146,16 @@ describe("native push opt-in", () => {
   });
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("skips remote push initialization in Expo Go without blocking the screen", async () => {
+    (Constants as unknown as { executionEnvironment?: string }).executionEnvironment = "storeClient";
+    const screen = await renderPushNotifications();
+    expect(screen.toJSON()).toBeNull();
+    expect(mockGetPrivacySettings).not.toHaveBeenCalled();
+    expect(mockAddResponseListener).not.toHaveBeenCalled();
+    expect(mockGetPermissions).not.toHaveBeenCalled();
+    expect(mockGetExpoPushToken).not.toHaveBeenCalled();
   });
 
   it("does not request operating-system permission until the candidate presses Enable", async () => {

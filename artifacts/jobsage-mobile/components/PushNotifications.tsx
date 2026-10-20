@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
+import type { NotificationResponse } from "expo-notifications";
 import { getPrivacySettings, registerPushDevice, revokePushDevices } from "@workspace/api-client-react";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { resolvePushDestination } from "@/lib/deep-link";
 import { hasEnabledNotificationCategory, registerNativePushToken, revokeNativePushToken } from "@/lib/native-push";
+import { getNativeNotifications } from "@/lib/notification-runtime";
 import {
   clearStoredPushRegistration,
   loadStoredPushRegistration,
@@ -18,6 +19,18 @@ import {
 type RegistrationState = "loading" | "ready" | "working" | "disabling" | "enabled" | "unconfirmed" | "blocked" | "unavailable";
 
 export function PushNotifications({ showSettings = true }: { showSettings?: boolean }) {
+  const notifications = getNativeNotifications();
+  if (!notifications) return null;
+  return <NativePushNotifications showSettings={showSettings} notifications={notifications} />;
+}
+
+function NativePushNotifications({
+  showSettings,
+  notifications: Notifications,
+}: {
+  showSettings: boolean;
+  notifications: typeof import("expo-notifications");
+}) {
   const colors = useColors();
   const { user, token } = useAuth();
   const [state, setState] = useState<RegistrationState>("loading");
@@ -30,7 +43,7 @@ export function PushNotifications({ showSettings = true }: { showSettings?: bool
   tokenRef.current = token;
 
   const actor = user ? { id: user.id, role: user.role } : null;
-  const handleNotificationResponse = useCallback((response: Notifications.NotificationResponse) => {
+  const handleNotificationResponse = useCallback((response: NotificationResponse) => {
     const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
     if (handledResponses.current.has(responseKey)) return;
     handledResponses.current.add(responseKey);

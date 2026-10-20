@@ -18,14 +18,15 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
 import { cleanupInterruptedDocumentUploads } from "@/lib/document-upload";
+import { getNativeNotifications } from "@/lib/notification-runtime";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
 
-if (Platform.OS !== "web") {
-  void import("expo-notifications").then((Notifications) => {
-    Notifications.setNotificationHandler({
+const Notifications = getNativeNotifications();
+if (Notifications) {
+  Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
         shouldShowBanner: true,
@@ -33,9 +34,6 @@ if (Platform.OS !== "web") {
         shouldPlaySound: false,
         shouldSetBadge: false,
       }),
-    });
-  }).catch(() => {
-    // A native notification module can be absent in Expo Go or web previews.
   });
 }
 
