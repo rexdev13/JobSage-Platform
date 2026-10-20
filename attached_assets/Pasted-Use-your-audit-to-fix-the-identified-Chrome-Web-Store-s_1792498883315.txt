@@ -1,0 +1,32 @@
+Use your audit to fix the identified Chrome Web Store submission issues in the JobSage project, then give me final ready-to-paste answers based on the corrected release package.
+
+Proceed with the code and policy changes. Keep the work focused on the audited issues and preserve the existing application-assistance features.
+
+1. Correct the extension privacy policy.
+Make it accurately describe AI processing through Replit/OpenAI, Google Fonts requests, local answer memory, application URL metadata, and employer access to information when fields are filled or a CV is attached. Make the general and extension-specific policies consistent. Do not invent retention periods, provider guarantees, or staff-access restrictions.
+
+2. Address disclosure and consent.
+Before automatic AI processing, show a clear explanation of what information is sent, to whom, and why, and obtain affirmative consent. Make answer remembering a clearly explained user choice with working disable/delete controls. Ensure background actions cannot bypass the consent checks.
+
+3. Review sensitive-data handling.
+Verify exactly where health and financial information can be read, including form completion checks, CV text, and free-text inputs. Remove unnecessary sensitive-field reads and prevent unintended storage or AI transmission. Base the final data-category selections on the resulting behaviour and Google’s definitions. Do not select every category merely “to be safe,” or leave categories unchecked merely because processing happens locally.
+
+4. Remove the separate tabs permission if your dependency review confirms it is unnecessary.
+Retain the tab functionality and verify activation, messaging, redirects, new tabs, cleanup, and graceful handling of unsupported pages.
+
+5. Build and inspect a new release.
+Use an appropriate new version number. Verify the actual packaged manifest, bundled code, permissions, production API origin, and absence of remote executable code. Prepare the website download artifact to match that release.
+
+6. Verify the affected flows.
+Check authentication, manual activation, tracked application links, consent acceptance and refusal, AI assistance, answer-memory controls, CV attachment/download, and application tracking. Distinguish tests actually run from checks you could not perform.
+
+7. Return:
+- The final ZIP path and version.
+- A concise change and verification summary.
+- Final ready-to-paste Privacy answers.
+- Final data-category selections with reasons.
+- Any genuinely unresolved provider or operational facts requiring my confirmation.
+- Exact steps for publishing the corrected policy/download and uploading the ZIP.
+- A reminder of the publisher contact-email verification steps.
+
+Prepare and verify everything locally. Do not deploy to production or submit to the Chrome Web Store yet. Do not claim the public policy or download has changed until it has actually been published and checked.

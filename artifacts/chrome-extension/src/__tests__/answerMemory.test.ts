@@ -5,7 +5,7 @@ import {
   createAnswerMemoryController,
   normalizedFormPath,
 } from "../lib/answerMemory";
-import { ANSWER_LIBRARY_STORAGE_KEY, type RememberedAnswer } from "../lib/answerLibrary";
+import { ANSWER_LIBRARY_ENABLED_KEY, ANSWER_LIBRARY_STORAGE_KEY, type RememberedAnswer } from "../lib/answerLibrary";
 import { createQuestionWatcher, insertAnswer } from "../lib/questionDetector";
 import { prefillPersonalDetails } from "../lib/prefill";
 
@@ -37,11 +37,49 @@ function library(): RememberedAnswer[] {
 beforeEach(() => {
   document.body.innerHTML = "";
   for (const key of Object.keys(values)) delete values[key];
+  // Existing capture/reuse cases explicitly model a candidate who opted in.
+  values.jobsage_answer_library_opt_in_v2 = true;
+  values[ANSWER_LIBRARY_ENABLED_KEY] = true;
   history.replaceState({}, "", "/application?utm_source=email&step=1");
   vi.stubGlobal("chrome", { storage: { local: localStorageMock } });
 });
 
 describe("answer library capture and recall", () => {
+  it("defaults off on fresh and upgraded installs and requires an explicit choice", async () => {
+    delete values.jobsage_answer_library_opt_in_v2;
+    document.body.innerHTML = `<label for="mot">Why do you want this role?</label><textarea id="mot"></textarea>`;
+    const watcher = createQuestionWatcher();
+    const controller = createAnswerMemoryController(watcher, undefined, localStorageMock);
+    await vi.waitFor(() => expect(controller.getSnapshot().ready).toBe(true));
+    expect(controller.getSnapshot().enabled).toBe(false);
+    const field = document.getElementById("mot") as HTMLTextAreaElement;
+    field.value = "I bring experience of supporting residents.";
+    field.dispatchEvent(new Event("blur"));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(library()).toHaveLength(0);
+    await controller.setEnabled(true);
+    field.dispatchEvent(new Event("blur"));
+    await vi.waitFor(() => expect(library()).toHaveLength(1));
+    await controller.setEnabled(false);
+    field.value = "I have a diagnosis of diabetes.";
+    field.dispatchEvent(new Event("blur"));
+    await controller.clearAll();
+    expect(library()).toHaveLength(0);
+    controller.stop(); watcher.stop();
+  });
+
+  it("does not remember sensitive content under an otherwise eligible label", async () => {
+    document.body.innerHTML = `<label for="mot">Supporting statement</label><textarea id="mot"></textarea>`;
+    const watcher = createQuestionWatcher();
+    const controller = createAnswerMemoryController(watcher, undefined, localStorageMock);
+    await vi.waitFor(() => expect(controller.getSnapshot().ready).toBe(true));
+    const field = document.getElementById("mot") as HTMLTextAreaElement;
+    field.value = "My bank account number is 12345678.";
+    field.dispatchEvent(new Event("blur"));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(library()).toHaveLength(0);
+    controller.stop(); watcher.stop();
+  });
   it("normalizes tracking parameters out of legacy page-memory keys", () => {
     expect(normalizedFormPath("https://apply.example.test/form?utm_source=email&step=2&gclid=x")).toEqual({
       hostname: "apply.example.test",

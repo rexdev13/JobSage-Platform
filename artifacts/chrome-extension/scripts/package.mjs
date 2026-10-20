@@ -46,12 +46,13 @@ const manifest = JSON.parse(readFileSync(resolve(dist, "manifest.json"), "utf8")
 const { version, permissions = [], host_permissions: hostPermissions = [] } = manifest;
 if (
   !permissions.includes("webNavigation")
+  || permissions.includes("tabs")
   || !permissions.includes("downloads")
   || !hostPermissions.includes("https://*/*")
   || hostPermissions.some((host) => /replit\.dev/i.test(host))
 ) {
   console.error(
-    "Refusing to package: manifest needs webNavigation, downloads, and https://*/* host access, and must not include Replit development hosts.",
+    "Refusing to package: manifest needs webNavigation, downloads, and HTTPS host access, without tabs or Replit development hosts.",
   );
   process.exit(1);
 }

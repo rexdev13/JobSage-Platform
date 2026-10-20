@@ -402,6 +402,89 @@ export const GetNativeStructuredPrefillResponse = zod.object({
 });
 
 /**
+ * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ */
+export const GenerateExtensionSmartApplyAnswerHeader = zod.object({
+  "X-Jobsage-AI-Consent": zod.enum(["smart-apply-ai-2026-10-20"]),
+});
+
+export const generateExtensionSmartApplyAnswerBodyMessageMax = 12000;
+
+export const generateExtensionSmartApplyAnswerBodyQuestionTextMax = 3000;
+
+export const generateExtensionSmartApplyAnswerBodyQuestionIdMax = 200;
+
+export const generateExtensionSmartApplyAnswerBodyJobTitleMax = 500;
+
+export const generateExtensionSmartApplyAnswerBodyEmployerMax = 500;
+
+export const generateExtensionSmartApplyAnswerBodyJobDescriptionMax = 12000;
+
+export const GenerateExtensionSmartApplyAnswerBody = zod.object({
+  roleId: zod.number().min(1).optional(),
+  message: zod.string().max(generateExtensionSmartApplyAnswerBodyMessageMax),
+  questionText: zod
+    .string()
+    .max(generateExtensionSmartApplyAnswerBodyQuestionTextMax),
+  questionId: zod
+    .string()
+    .max(generateExtensionSmartApplyAnswerBodyQuestionIdMax)
+    .optional(),
+  jobTitle: zod
+    .string()
+    .max(generateExtensionSmartApplyAnswerBodyJobTitleMax)
+    .optional(),
+  employer: zod
+    .string()
+    .max(generateExtensionSmartApplyAnswerBodyEmployerMax)
+    .optional(),
+  jobDescription: zod
+    .string()
+    .max(generateExtensionSmartApplyAnswerBodyJobDescriptionMax)
+    .optional(),
+  wordLimit: zod.number().min(1).optional(),
+  maxLength: zod.number().min(1).optional(),
+});
+
+/**
+ * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ */
+export const GetExtensionStructuredPrefillHeader = zod.object({
+  "X-Jobsage-AI-Consent": zod.enum(["smart-apply-ai-2026-10-20"]),
+});
+
+export const getExtensionStructuredPrefillBodyFieldsMax = 40;
+
+export const GetExtensionStructuredPrefillBody = zod.object({
+  fields: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        label: zod.string(),
+        controlType: zod.enum([
+          "text",
+          "textarea",
+          "number",
+          "date",
+          "select",
+          "radio",
+        ]),
+        options: zod.array(zod.string()),
+      }),
+    )
+    .max(getExtensionStructuredPrefillBodyFieldsMax),
+});
+
+export const GetExtensionStructuredPrefillResponse = zod.object({
+  values: zod.array(
+    zod.object({
+      id: zod.string(),
+      value: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Register a new account with email and password
  */
 export const registerWithEmailBodyPasswordMin = 8;

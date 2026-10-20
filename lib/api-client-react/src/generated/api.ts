@@ -108,9 +108,12 @@ import type {
   ForgotPasswordRequest,
   ForwardEligibilityResponse,
   GenerateCoverLetterRequest,
+  GenerateExtensionSmartApplyAnswerBody,
   GenerateJobDescriptionPreviewRequest,
   GenerateJobDescriptionResponse,
   GenerateNativeSmartApplyAnswerBody,
+  GetExtensionStructuredPrefill200,
+  GetExtensionStructuredPrefillBody,
   GetInterviewPrepQuestionsParams,
   GetMyMatchesParams,
   GetNativeStructuredPrefill200,
@@ -1850,6 +1853,185 @@ export const useGetNativeStructuredPrefill = <
   TContext
 > => {
   return useMutation(getGetNativeStructuredPrefillMutationOptions(options));
+};
+
+/**
+ * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ */
+export const getGenerateExtensionSmartApplyAnswerUrl = () => {
+  return `/api/smart-apply/extension/assistant`;
+};
+
+export const generateExtensionSmartApplyAnswer = async (
+  generateExtensionSmartApplyAnswerBody: GenerateExtensionSmartApplyAnswerBody,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getGenerateExtensionSmartApplyAnswerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateExtensionSmartApplyAnswerBody),
+  });
+};
+
+export const getGenerateExtensionSmartApplyAnswerMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>,
+    TError,
+    { data: BodyType<GenerateExtensionSmartApplyAnswerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>,
+  TError,
+  { data: BodyType<GenerateExtensionSmartApplyAnswerBody> },
+  TContext
+> => {
+  const mutationKey = ["generateExtensionSmartApplyAnswer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>,
+    { data: BodyType<GenerateExtensionSmartApplyAnswerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateExtensionSmartApplyAnswer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateExtensionSmartApplyAnswerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>
+>;
+export type GenerateExtensionSmartApplyAnswerMutationBody =
+  BodyType<GenerateExtensionSmartApplyAnswerBody>;
+export type GenerateExtensionSmartApplyAnswerMutationError = ErrorType<void>;
+
+/**
+ * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ */
+export const useGenerateExtensionSmartApplyAnswer = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>,
+    TError,
+    { data: BodyType<GenerateExtensionSmartApplyAnswerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateExtensionSmartApplyAnswer>>,
+  TError,
+  { data: BodyType<GenerateExtensionSmartApplyAnswerBody> },
+  TContext
+> => {
+  return useMutation(
+    getGenerateExtensionSmartApplyAnswerMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ */
+export const getGetExtensionStructuredPrefillUrl = () => {
+  return `/api/smart-apply/extension/structured-prefill`;
+};
+
+export const getExtensionStructuredPrefill = async (
+  getExtensionStructuredPrefillBody: GetExtensionStructuredPrefillBody,
+  options?: RequestInit,
+): Promise<GetExtensionStructuredPrefill200> => {
+  return customFetch<GetExtensionStructuredPrefill200>(
+    getGetExtensionStructuredPrefillUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(getExtensionStructuredPrefillBody),
+    },
+  );
+};
+
+export const getGetExtensionStructuredPrefillMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getExtensionStructuredPrefill>>,
+    TError,
+    { data: BodyType<GetExtensionStructuredPrefillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getExtensionStructuredPrefill>>,
+  TError,
+  { data: BodyType<GetExtensionStructuredPrefillBody> },
+  TContext
+> => {
+  const mutationKey = ["getExtensionStructuredPrefill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getExtensionStructuredPrefill>>,
+    { data: BodyType<GetExtensionStructuredPrefillBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getExtensionStructuredPrefill(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetExtensionStructuredPrefillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getExtensionStructuredPrefill>>
+>;
+export type GetExtensionStructuredPrefillMutationBody =
+  BodyType<GetExtensionStructuredPrefillBody>;
+export type GetExtensionStructuredPrefillMutationError = ErrorType<void>;
+
+/**
+ * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ */
+export const useGetExtensionStructuredPrefill = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getExtensionStructuredPrefill>>,
+    TError,
+    { data: BodyType<GetExtensionStructuredPrefillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getExtensionStructuredPrefill>>,
+  TError,
+  { data: BodyType<GetExtensionStructuredPrefillBody> },
+  TContext
+> => {
+  return useMutation(getGetExtensionStructuredPrefillMutationOptions(options));
 };
 
 /**

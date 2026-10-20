@@ -105,11 +105,13 @@ function getDescription(): string {
   for (const sel of selectors) {
     const el = document.querySelector(sel);
     if (el) {
-      const text = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      const text = extractCleanText(el);
       if (text.length > 100) return text.slice(0, 3000);
     }
   }
-  return extractCleanText(document.body).slice(0, 3000);
+  // Do not send arbitrary page text (for example a candidate summary or CV
+  // preview) to AI when the page has no recognisable job-description region.
+  return "";
 }
 
 function scrapeNhs(): Partial<JobContext> {

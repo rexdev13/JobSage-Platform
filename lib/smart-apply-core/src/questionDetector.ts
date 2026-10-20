@@ -192,6 +192,7 @@ function isPersonalField(field: QuestionField, question = ""): boolean {
 }
 
 function requiresCandidateConfirmation(question: string): boolean {
+  if (/\b(bank|financial|payment|credit card|debit card|cvv|iban|sort code|salary|medical history|diagnosis|medication|disability)\b/i.test(question)) return true;
   return CANDIDATE_CONFIRMATION_PATTERN.test(question);
 }
 
@@ -783,6 +784,9 @@ export function getQuestionField(questionId: string): QuestionField | null {
 export function isQuestionAnswered(questionId: string): boolean {
   const field = getQuestionField(questionId);
   if (!field) return false;
+  // Do not read candidate-only health, financial or declaration values, even
+  // merely to display completion status.
+  if (requiresCandidateConfirmation(`${field.name} ${field.id} ${explicitFieldLabel(field)}`)) return false;
 
   if (isInput(field) && field.type === "radio") {
     if (!field.name) return field.checked;
@@ -910,6 +914,7 @@ function normalizedChoice(value: string): string {
 
 export function fillStructuredField(questionId: string, value: string): boolean {
   const field = getQuestionField(questionId);
+  if (field && requiresCandidateConfirmation(`${field.name} ${field.id} ${explicitFieldLabel(field)}`)) return false;
   const cleanValue = cleanText(value);
   if (!field || !cleanValue || cleanText(field.value)) return false;
   if (isSelect(field)) {

@@ -102,9 +102,27 @@ export default function PrivacyPolicyPage() {
               <li><span className="font-medium text-foreground">With Employers:</span> Relevant candidate profile, eligibility, application, and document information may be made available when you apply, ask us to send material, or participate in platform candidate-discovery and applicant workflows. We do not send uploaded documents to an employer or regulator unless you take an action that requests or permits that use.</li>
               <li><span className="font-medium text-foreground">Service Providers (Processors):</span> We use third parties to operate our platform, including Replit (hosting, database, object storage and connected-service infrastructure), OpenAI via Replit AI Integrations (AI processing), Resend (outbound and inbound email delivery), and Calendly (scheduling and lead appointment synchronisation where configured by JOBSAGE staff).</li>
               <li><span className="font-medium text-foreground">Authorised JOBSAGE Staff:</span> Staff with appropriate roles may access lead contact details, conversations, account data, verification material, audit records, and application information where needed for support, review, security, recruitment operations, or follow-up.</li>
-              <li><span className="font-medium text-foreground">Public Job Boards and Employer Sites:</span> We collect and verify publicly available vacancy and sponsor information. Smart Apply can read the application page you visit and use your JOBSAGE data to draft or pre-fill answers. Data reaches the target site when it is entered into that site or when you initiate a supported submission or delivery action.</li>
+              <li><span className="font-medium text-foreground">Public Job Boards and Employer Sites:</span> We collect and verify publicly available vacancy and sponsor information. Smart Apply can read an activated application page and use your JOBSAGE data to draft or pre-fill answers. Filled fields and attached CVs are available to the employer site immediately, and its scripts may autosave or upload them before final submission.</li>
               <li><span className="font-medium text-foreground">Legal Requirements:</span> If required by law or to protect rights and safety.</li>
             </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">Chrome extension processing and choices</h2>
+            <p className="text-muted-foreground">
+              The Chrome extension asks for affirmative consent before AI processing. Its AI routes send
+              application context and selected professional profile facts to OpenAI through Replit AI Integrations,
+              not raw CV text or private profile notes. Basic profile fill, CV attachment and tracking work without
+              AI consent. Answer remembering is a separate, default-off choice: when enabled it automatically
+              stores eligible candidate edits locally with application hostname/path metadata, with disable and
+              deletion controls. Google Fonts requests can disclose IP address, browser headers and a page-policy-dependent
+              referrer to Google. The{" "}
+              <Link href="/extension-privacy" className="text-primary underline">Smart Apply Extension Privacy Policy</Link>{" "}
+              explains these flows and its Chrome Web Store Limited Use requirements. The broader service purposes
+              and staff-access descriptions in this policy do not authorise unrelated use of extension-derived data.
+              Provider terms and operational access restrictions must be verified before certifying compliance;
+              we do not assert unverified provider retention, training or staff-access guarantees.
+            </p>
           </section>
 
           <section>

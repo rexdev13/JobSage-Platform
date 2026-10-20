@@ -1,6 +1,7 @@
 import { getEnvSettings, activeOrigin, apiBase } from "./lib/env";
 import { isConfiguredFirstPartyOrigin } from "./lib/trustedOrigin";
 import { createKeyedAsyncQueue } from "./lib/keyedAsyncQueue";
+import { EXTENSION_AI_CONSENT_VERSION, hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
 import { takeMatchingRecord } from "./lib/navigationRecords";
 import {
   isTrackingContextFresh,
@@ -9,6 +10,25 @@ import {
 } from "./lib/trackingContext";
 
 const SESSION_COOKIE_NAME = "sid";
+const aiControllers = new Map<number, Set<AbortController>>();
+function consentKey(sender: chrome.runtime.MessageSender): string | null {
+  if (sender.tab?.id === undefined || !sender.url) return null;
+  try {
+    const url = new URL(sender.url);
+    return url.protocol === "https:" ? `jobsage_ai_consent:${sender.tab.id}:${url.origin}` : null;
+  } catch { return null; }
+}
+async function hasAiConsent(sender: chrome.runtime.MessageSender): Promise<boolean> {
+  const key = consentKey(sender);
+  return !!key && (await chrome.storage.session.get(key))[key] === EXTENSION_AI_CONSENT_VERSION;
+}
+function trackAiRequest(tabId: number | undefined, controller: AbortController): () => void {
+  if (tabId === undefined) return () => {};
+  const set = aiControllers.get(tabId) ?? new Set();
+  set.add(controller);
+  aiControllers.set(tabId, set);
+  return () => { set.delete(controller); if (!set.size) aiControllers.delete(tabId); };
+}
 
 // ---------------------------------------------------------------------------
 // Storage keys
@@ -439,6 +459,12 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  for (const controller of aiControllers.get(tabId) ?? []) controller.abort();
+  aiControllers.delete(tabId);
+  const consent = await chrome.storage.session.get(null);
+  for (const key of Object.keys(consent)) {
+    if (key.startsWith(`jobsage_ai_consent:${tabId}:`)) await chrome.storage.session.remove(key);
+  }
   pendingTrustedNavigations.delete(tabId);
   createdNavigationTargets.delete(tabId);
   createdTargetSources.delete(tabId);
@@ -525,6 +551,8 @@ interface RegisterTrackedApplicationMessage {
 }
 
 type IncomingMessage =
+  | { type: "GET_AI_CONSENT" }
+  | { type: "SET_AI_CONSENT"; accepted: boolean }
   | ApiRequestMessage
   | GetTokenMessage
   | CheckActivationMessage
@@ -554,6 +582,7 @@ interface SuppressionListResponse { hostnames: string[] }
 interface OkResponse { ok: true }
 
 type AnyResponse =
+  | { accepted: boolean }
   | ApiResponseSuccess
   | ApiResponseError
   | TokenResponse
@@ -602,9 +631,11 @@ chrome.runtime.onConnect.addListener((port) => {
 
   let aborted = false;
   const controller = new AbortController();
+  const untrack = trackAiRequest(port.sender?.tab?.id, controller);
   port.onDisconnect.addListener(() => {
     aborted = true;
     controller.abort();
+    untrack();
   });
 
   const post = (event: AssistantStreamEvent) => {
@@ -619,6 +650,14 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onMessage.addListener((request: AssistantStreamRequest) => {
     (async () => {
+      if (!port.sender || !await hasAiConsent(port.sender)) {
+        post({ type: "error", kind: "server", message: "Allow AI assistance in the helper before sending an AI request." });
+        return;
+      }
+      if (hasSensitiveValue(JSON.stringify(request))) {
+        post({ type: "error", kind: "server", message: "Remove sensitive health, financial or identity details from this AI request." });
+        return;
+      }
       const settings = await getEnvSettings();
       const token = await getSessionToken(activeOrigin(settings));
       if (!token) {
@@ -627,12 +666,14 @@ chrome.runtime.onConnect.addListener((port) => {
       }
 
       let response: Response;
+      if (!await hasAiConsent(port.sender!) || controller.signal.aborted) return;
       try {
-        response = await fetch(`${apiBase(settings)}/smart-apply/assistant`, {
+        response = await fetch(`${apiBase(settings)}/smart-apply/extension/assistant`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "X-Jobsage-AI-Consent": EXTENSION_AI_CONSENT_VERSION,
           },
           body: JSON.stringify({
             message: request.message,
@@ -698,6 +739,8 @@ chrome.runtime.onConnect.addListener((port) => {
         if ((err as Error).name !== "AbortError") {
           post({ type: "error", kind: "network", message: (err as Error).message });
         }
+      } finally {
+        untrack();
       }
     })();
   });
@@ -713,6 +756,22 @@ chrome.runtime.onMessage.addListener(
     sender: chrome.runtime.MessageSender,
     sendResponse: (response: AnyResponse) => void,
   ) => {
+    if (message.type === "GET_AI_CONSENT" || message.type === "SET_AI_CONSENT") {
+      void (async () => {
+        const key = consentKey(sender);
+        if (!key) { sendResponse({ accepted: false }); return; }
+        if (message.type === "SET_AI_CONSENT") {
+          if (message.accepted === true) {
+            await chrome.storage.session.set({ [key]: EXTENSION_AI_CONSENT_VERSION });
+          } else {
+            await chrome.storage.session.remove(key);
+            for (const controller of aiControllers.get(sender.tab!.id!) ?? []) controller.abort();
+          }
+        }
+        sendResponse({ accepted: await hasAiConsent(sender) });
+      })().catch(() => sendResponse({ accepted: false }));
+      return true;
+    }
     // --- GET_TOKEN ---
     if (message.type === "GET_TOKEN") {
       getEnvSettings()
@@ -1033,15 +1092,31 @@ chrome.runtime.onMessage.addListener(
     }
 
     const { endpoint, method = "GET", body } = message;
+    const allowed = new Map([
+      ["/smart-apply/candidate-prefill", "GET"],
+      ["/smart-apply/structured-prefill", "POST"],
+      ["/applications", "POST"],
+      ["/applications/confirm-submission", "POST"],
+    ]);
+    if (allowed.get(endpoint) !== method) {
+      sendResponse({ error: "This API operation is not available to the extension." });
+      return false;
+    }
 
     (async () => {
       try {
+        const aiMapping = endpoint === "/smart-apply/structured-prefill";
+        if (aiMapping && (!await hasAiConsent(sender) || hasSensitiveValue(JSON.stringify(body)))) {
+          sendResponse({ error: "AI consent is required, and sensitive information must not be included." });
+          return;
+        }
         const settings = await getEnvSettings();
         const token = await getSessionToken(activeOrigin(settings));
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
         };
+        if (aiMapping) headers["X-Jobsage-AI-Consent"] = EXTENSION_AI_CONSENT_VERSION;
 
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
@@ -1053,8 +1128,16 @@ chrome.runtime.onMessage.addListener(
           fetchOptions.body = JSON.stringify(body);
         }
 
-        const url = `${apiBase(settings)}${endpoint}`;
-        const response = await fetch(url, fetchOptions);
+        const url = `${apiBase(settings)}${aiMapping ? "/smart-apply/extension/structured-prefill" : endpoint}`;
+        if (aiMapping && !await hasAiConsent(sender)) {
+          sendResponse({ error: "AI consent was withdrawn before the request started." });
+          return;
+        }
+        const controller = new AbortController();
+        const untrack = aiMapping ? trackAiRequest(sender.tab?.id, controller) : () => {};
+        fetchOptions.signal = controller.signal;
+        let response: Response;
+        try { response = await fetch(url, fetchOptions); } finally { untrack(); }
 
         if (!response.ok) {
           const text = await response.text();

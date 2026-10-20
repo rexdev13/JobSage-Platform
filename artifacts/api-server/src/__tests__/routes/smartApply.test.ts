@@ -115,6 +115,35 @@ const cv = {
 };
 
 describe("Smart Apply extension endpoints", () => {
+  it.each(["assistant", "structured-prefill"])("blocks extension %s without affirmative consent before reading profile/CV", async (endpoint) => {
+    const response = await request(buildApp()).post(`/smart-apply/extension/${endpoint}`)
+      .set("Authorization", AUTH_HEADER).send({ message: "Why this role?", fields: [] });
+    expect(response.status).toBe(403);
+    expect(createCompletion).not.toHaveBeenCalled();
+    expect(storage.getObjectEntityFile).not.toHaveBeenCalled();
+  });
+
+  it("never supplies raw CV text or private notes to extension mapping", async () => {
+    queryResults.push([{ profession: "nurse", experienceYears: 5, additionalNotes: "PRIVATE-NOTE", phone: "PRIVATE-PHONE" }]);
+    const response = await request(buildApp()).post("/smart-apply/extension/structured-prefill")
+      .set("Authorization", AUTH_HEADER)
+      .set("X-Jobsage-AI-Consent", "smart-apply-ai-2026-10-20")
+      .send({ fields: [{ id: "qualification", label: "Highest qualification", controlType: "text", options: [] }] });
+    expect(response.status).toBe(200);
+    expect(storage.getObjectEntityFile).not.toHaveBeenCalled();
+    const payload = JSON.stringify(createCompletion.mock.calls);
+    expect(payload).toContain("nurse");
+    expect(payload).not.toContain("PRIVATE-NOTE");
+    expect(payload).not.toContain("PRIVATE-PHONE");
+  });
+
+  it("rejects sensitive free text before calling AI even with consent", async () => {
+    const response = await request(buildApp()).post("/smart-apply/extension/assistant")
+      .set("Authorization", AUTH_HEADER).set("X-Jobsage-AI-Consent", "smart-apply-ai-2026-10-20")
+      .send({ message: "My bank account number is 12345678", questionText: "Why this role?" });
+    expect(response.status).toBe(422);
+    expect(createCompletion).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     queryResults.length = 0;
     vi.clearAllMocks();

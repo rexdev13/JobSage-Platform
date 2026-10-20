@@ -24,6 +24,10 @@ import {
   isExtensionFieldWrite,
   runExtensionFieldWrite,
 } from "./fieldWriteProvenance";
+import { hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
+
+// New key deliberately does not inherit the old default-enabled preference.
+const MEMORY_OPT_IN_KEY = "jobsage_answer_library_opt_in_v2";
 
 const ANSWER_MEMORY_PREFIX = "jobsage_answer_memory_v1";
 const TRACKING_QUERY_PARAM =
@@ -285,15 +289,20 @@ async function loadLibrary(storage: LocalStorageArea): Promise<RememberedAnswer[
   const stored = await storage.get(ANSWER_LIBRARY_STORAGE_KEY);
   const raw = stored[ANSWER_LIBRARY_STORAGE_KEY];
   if (!Array.isArray(raw)) return [];
-  return raw
+  const safe = raw
     .filter(isRememberedAnswer)
+    .filter((answer) => !hasSensitiveValue(answer.value))
     .filter((answer) => !answer.expiresAt || answer.expiresAt > Date.now())
-    .slice(0, ANSWER_LIBRARY_MAX_ENTRIES);
+    .slice(0, ANSWER_LIBRARY_MAX_ENTRIES)
+    .map((answer) => ({ ...answer, originPath: answer.originPath?.split("?")[0] ?? "/" }));
+  await storage.set({ [ANSWER_LIBRARY_STORAGE_KEY]: safe });
+  return safe;
 }
 
 async function loadEnabled(storage: LocalStorageArea): Promise<boolean> {
   const stored = await storage.get(ANSWER_LIBRARY_ENABLED_KEY);
-  return stored[ANSWER_LIBRARY_ENABLED_KEY] !== false;
+  const optIn = await storage.get(MEMORY_OPT_IN_KEY);
+  return optIn[MEMORY_OPT_IN_KEY] === true && stored[ANSWER_LIBRARY_ENABLED_KEY] === true;
 }
 
 async function restoreAnswer(
@@ -335,7 +344,7 @@ export function createAnswerMemoryController(
   let answers: RememberedAnswer[] = [];
   let snapshot: AnswerLibrarySnapshot = {
     ready: false,
-    enabled: true,
+    enabled: false,
     answers: [],
     restoredQuestionIds: [],
     lastEvent: null,
@@ -396,6 +405,7 @@ export function createAnswerMemoryController(
         const eligible = eligibility(question, field);
         if (!eligible) return;
         const value = fieldValue(field);
+        if (hasSensitiveValue(value)) return;
         if (!isMeaningful(value, eligible.category)) return;
         const url = new URL(getUrl());
         const context = currentContext(getUrl(), options.getEmployer?.());
@@ -415,7 +425,7 @@ export function createAnswerMemoryController(
           existing.labelVariants = Array.from(new Set([...existing.labelVariants, question.question])).slice(-8);
           existing.updatedAt = now;
           existing.originHost = url.hostname.toLowerCase();
-          existing.originPath = `${url.pathname}${url.search}`;
+          existing.originPath = url.pathname;
           existing.atsKey = context.atsKey;
         } else {
           answers.push({
@@ -430,7 +440,7 @@ export function createAnswerMemoryController(
             source: "candidate",
             scope,
             originHost: url.hostname.toLowerCase(),
-            originPath: `${url.pathname}${url.search}`,
+            originPath: url.pathname,
             employerKey: scope === "employer" ? context.employerKey : undefined,
             atsKey: context.atsKey,
             createdAt: now,
@@ -548,11 +558,12 @@ export function createAnswerMemoryController(
     async setEnabled(enabled) {
       await ready;
       snapshot = { ...snapshot, enabled };
-      await storage.set({ [ANSWER_LIBRARY_ENABLED_KEY]: enabled });
+      await storage.set({ [ANSWER_LIBRARY_ENABLED_KEY]: enabled, [MEMORY_OPT_IN_KEY]: enabled });
       publish();
       if (enabled) await recallQuestions(watcher.getSnapshot());
     },
     async updateAnswer(id, value) {
+      if (hasSensitiveValue(value)) return false;
       await ready;
       const answer = answers.find((candidate) => candidate.id === id);
       const trimmed = value.trim();

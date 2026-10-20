@@ -4088,6 +4088,60 @@ export type GetNativeStructuredPrefill200 = {
   values: GetNativeStructuredPrefill200ValuesItem[];
 };
 
+export type GenerateExtensionSmartApplyAnswerBody = {
+  /** @minimum 1 */
+  roleId?: number;
+  /** @maxLength 12000 */
+  message: string;
+  /** @maxLength 3000 */
+  questionText: string;
+  /** @maxLength 200 */
+  questionId?: string;
+  /** @maxLength 500 */
+  jobTitle?: string;
+  /** @maxLength 500 */
+  employer?: string;
+  /** @maxLength 12000 */
+  jobDescription?: string;
+  /** @minimum 1 */
+  wordLimit?: number;
+  /** @minimum 1 */
+  maxLength?: number;
+};
+
+export type GetExtensionStructuredPrefillBodyFieldsItemControlType =
+  (typeof GetExtensionStructuredPrefillBodyFieldsItemControlType)[keyof typeof GetExtensionStructuredPrefillBodyFieldsItemControlType];
+
+export const GetExtensionStructuredPrefillBodyFieldsItemControlType = {
+  text: "text",
+  textarea: "textarea",
+  number: "number",
+  date: "date",
+  select: "select",
+  radio: "radio",
+} as const;
+
+export type GetExtensionStructuredPrefillBodyFieldsItem = {
+  id: string;
+  label: string;
+  controlType: GetExtensionStructuredPrefillBodyFieldsItemControlType;
+  options: string[];
+};
+
+export type GetExtensionStructuredPrefillBody = {
+  /** @maxItems 40 */
+  fields: GetExtensionStructuredPrefillBodyFieldsItem[];
+};
+
+export type GetExtensionStructuredPrefill200ValuesItem = {
+  id: string;
+  value: string;
+};
+
+export type GetExtensionStructuredPrefill200 = {
+  values: GetExtensionStructuredPrefill200ValuesItem[];
+};
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.

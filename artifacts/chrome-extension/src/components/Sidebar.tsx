@@ -8,6 +8,8 @@ import type { PrefillResult } from "../lib/prefill";
 import type { CvAttachResult } from "../lib/cvAttachment";
 import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
 import { assistantErrorMessageFor, SENSITIVE_QUESTION_BLOCK_MESSAGE } from "../lib/assistantErrors";
+import { requestAiConsent } from "../lib/aiConsent";
+import { hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
 
 const COLORS = {
   bg: BRAND.bg,
@@ -70,7 +72,7 @@ interface SidebarProps {
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
 const EMPTY_LIBRARY_SNAPSHOT: AnswerLibrarySnapshot = {
   ready: false,
-  enabled: true,
+  enabled: false,
   answers: [],
   restoredQuestionIds: [],
   lastEvent: null,
@@ -613,11 +615,19 @@ export function Sidebar({
     return hint ? `${q.trim()}\n\n(Keep the answer within the ${hint}.)` : q.trim();
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setInserted(false);
     setInsertFailed(false);
     if (selectedQuestion?.bucket === "confirmation") {
       setError(SENSITIVE_QUESTION_BLOCK_MESSAGE);
+      return;
+    }
+    if (hasSensitiveValue(question)) {
+      setError("Remove health, financial or identity-document details from your AI request. Answer sensitive questions directly on the employer site.");
+      return;
+    }
+    if (!await requestAiConsent()) {
+      setError("AI assistance is off. No AI request was sent.");
       return;
     }
     generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
@@ -998,6 +1008,16 @@ export function Sidebar({
 
         {/* Body */}
         <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>
+            Filled details and attached CVs are available to this employer site, which may autosave before submission.
+            {" "}<a href="https://jobsage.co.uk/extension-privacy" target="_blank" rel="noreferrer">Privacy policy</a>
+          </p>
+          <button type="button" onClick={() => {
+            cancel("AI assistance turned off.");
+            void chrome.runtime.sendMessage({ type: "SET_AI_CONSENT", accepted: false }).then(() => {
+              setError("AI assistance is off. You will be asked again before another AI request.");
+            });
+          }} style={{ padding: 8, cursor: "pointer" }}>Turn off AI assistance</button>
            <section
              style={{
                padding: "10px 12px",
@@ -1121,7 +1141,7 @@ export function Sidebar({
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>Answer library</div>
                     <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
-                      Remember safe answers for future applications
+                      Off until you choose: automatically save eligible answers you edit on this form in this browser for future applications. Do not enter sensitive information in remembered answers. Turning off stops saving and reuse; use Delete all to erase existing answers.
                     </div>
                   </div>
                   <button
@@ -1397,7 +1417,8 @@ export function Sidebar({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {detected.map((dq) => {
                   const active = dq.id === selectedId;
-                  const answered = isQuestionAnswered(dq.id);
+                  const answered = dq.bucket !== "confirmation" && isQuestionAnswered(dq.id);
+                  const completionLabel = dq.bucket === "confirmation" ? "Review yourself" : answered ? "Answered" : "Unanswered";
                   const answerColor = answered ? COLORS.successText : COLORS.errorText;
                   const hint = limitHint(dq);
                   const restoredFromMemory = library.restoredQuestionIds.includes(dq.id);
@@ -1406,7 +1427,7 @@ export function Sidebar({
                       key={dq.id}
                       onClick={() => handleSelectDetected(dq)}
                       disabled={streaming}
-                      aria-label={`${dq.question} — ${answered ? "Answered" : "Unanswered"}`}
+                      aria-label={`${dq.question} — ${completionLabel}`}
                       style={{
                         textAlign: "left",
                         padding: "8px 10px",
@@ -1423,7 +1444,7 @@ export function Sidebar({
                     >
                       {dq.question}
                       <span style={{ display: "block", marginTop: 2, fontSize: 11, fontWeight: 600, color: answerColor }}>
-                        {answered ? "Answered" : "Unanswered"}
+                        {completionLabel}
                       </span>
                       {dq.requiredKnown && dq.required && (
                         <>

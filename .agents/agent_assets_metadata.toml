@@ -2042,3 +2042,31 @@ mtime_ms = 1792495634859
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7bfc7dd4-4c2d-438e-ba80-bc43eacec23c/1e154bd6-bf79-4031-ad93-985f38e223e6"
 storage_version_token = "1792495649655456"
 content_type = "image/png"
+
+[[outputs]]
+id = "pj9Mg5TwXqiNflnMX0hF8"
+uri = "file://artifacts/chrome-extension/store/PRIVACY-ANSWERS.md"
+type = "text"
+title = "Chrome Privacy answers — JOBSAGE 0.4.22"
+description = "Paste-ready fields, justified data categories, owner-confirmation gates and exact publication/upload instructions. Prepared locally; not submitted."
+logical_id = "8fb661ea-7303-4d66-b13b-a1a36ea2778d"
+content_hash = "sha256:b8a0e9eb3156bf34b163379de280aebee1df9f3367bbbe450b464fd3ef8a384e"
+size = 13055
+mtime_ms = 1792500025363
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8fb661ea-7303-4d66-b13b-a1a36ea2778d/d10c44b6-a0dc-440d-996e-33e3c26ff277"
+storage_version_token = "1792500430726117"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "_mUYRaQQWJImN4KGrkvfO"
+uri = "file://artifacts/chrome-extension/store/VERIFICATION.md"
+type = "text"
+title = "Local release verification — JOBSAGE 0.4.22"
+description = "Final ZIP hash and package inspection, 163 passing tests, synthetic browser coverage and explicitly unverified live flows."
+logical_id = "9c013b15-e2ae-4fe7-8828-dd44f114a08d"
+content_hash = "sha256:d2fb994c7aa72349cfd8a2cca79f0f957bc6e77e064e900bf168f756a89f7a40"
+size = 5041
+mtime_ms = 1792500407143
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9c013b15-e2ae-4fe7-8828-dd44f114a08d/1ad53d14-1bf7-4e5d-87ac-06dd03e16522"
+storage_version_token = "1792500431379651"
+content_type = "text/markdown"

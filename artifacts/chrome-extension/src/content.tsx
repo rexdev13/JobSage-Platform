@@ -28,6 +28,7 @@ import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvA
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
 import { isJobSageFirstPartyPage } from "./lib/trustedOrigin";
+import { requestAiConsent } from "./lib/aiConsent";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -233,6 +234,7 @@ function requiredQuestionGaps(questions: DetectedQuestion[]): string[] {
   return questions
     .filter((question) => question.requiredKnown && question.required)
     .filter((question) => {
+      if (question.bucket === "confirmation") return true;
       const field = getQuestionField(question.id);
       if (!field) return false;
       if (field instanceof HTMLInputElement && field.type === "radio") {
@@ -313,6 +315,10 @@ async function prefillApplicationDetails(
   if (fields.length === 0) {
     return reconcileRequiredGaps(result, questions);
   }
+  if (!await requestAiConsent()) {
+    result.warning = "AI mapping is off. Basic profile details are filled; complete the remaining fields yourself or allow AI when you retry.";
+    return reconcileRequiredGaps(result, questions);
+  }
   const mapped = await sendMessage<{
     data?: { values?: Array<{ id: string; value: string | null }> };
     error?: string;
@@ -329,18 +335,18 @@ async function prefillApplicationDetails(
   });
   const values = new Map((mapped.data?.values ?? []).map((entry) => [entry.id, entry.value]));
   if (mapped.error) {
-    result.warning = "JOBSAGE could not map your saved profile and CV details right now. Nothing was changed; please try again.";
+    result.warning = "JOBSAGE could not map your selected professional profile facts right now. AI mapping changed no fields; basic profile fill may already have completed.";
   }
   for (const field of fields) {
     const value = values.get(field.id);
     if (value && fillStructuredField(field.id, value)) {
       result.filled.push(field.label);
-      result.fieldResults[field.id] = { status: "filled", message: "Filled from your JOBSAGE profile or CV" };
+      result.fieldResults[field.id] = { status: "filled", message: "Filled from your professional JOBSAGE profile facts" };
     } else {
       result.missing.push(field.label);
       result.fieldResults[field.id] = {
         status: "missing",
-        message: mapped.error ? "Not filled because mapping is temporarily unavailable" : "Not found in your JOBSAGE profile or CV",
+        message: mapped.error ? "Not filled because mapping is temporarily unavailable" : "Not found in the professional profile facts available to this helper",
       };
     }
   }

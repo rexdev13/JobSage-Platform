@@ -409,7 +409,7 @@ paths:
       tags: [Applications]
       operationId: generateNativeSmartApplyAnswer
       summary: Generate a candidate-reviewed application answer using the existing assistant
-      requestBody:
+      requestBody: &smartApplyAssistantRequest
         required: true
         content:
           application/json:
@@ -439,7 +439,7 @@ paths:
       tags: [Applications]
       operationId: getNativeStructuredPrefill
       summary: Resolve exact reviewed profile and CV facts for detected structured fields
-      requestBody:
+      requestBody: &smartApplyStructuredRequest
         required: true
         content:
           application/json:
@@ -475,6 +475,59 @@ paths:
                       properties:
                         id: { type: string }
                         value: { type: string }
+  /smart-apply/extension/assistant:
+    post:
+      tags: [Applications]
+      operationId: generateExtensionSmartApplyAnswer
+      summary: Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+      parameters:
+        - in: header
+          name: X-Jobsage-AI-Consent
+          required: true
+          schema: { type: string, enum: [smart-apply-ai-2026-10-20] }
+      requestBody: *smartApplyAssistantRequest
+      responses:
+        '200':
+          description: Server-sent answer text
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '403':
+          description: Missing or outdated consent
+        '422':
+          description: Sensitive content is not eligible for AI
+  /smart-apply/extension/structured-prefill:
+    post:
+      tags: [Applications]
+      operationId: getExtensionStructuredPrefill
+      summary: Consent-gated mapping from selected professional facts, never raw CV or private notes
+      parameters:
+        - in: header
+          name: X-Jobsage-AI-Consent
+          required: true
+          schema: { type: string, enum: [smart-apply-ai-2026-10-20] }
+      requestBody: *smartApplyStructuredRequest
+      responses:
+        '200':
+          description: Exact safe professional facts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [values]
+                properties:
+                  values:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, value]
+                      properties:
+                        id: { type: string }
+                        value: { type: string }
+        '403':
+          description: Missing or outdated consent
+        '422':
+          description: Sensitive content is not eligible for AI
   /auth/register:
     post:
       tags: [Auth]

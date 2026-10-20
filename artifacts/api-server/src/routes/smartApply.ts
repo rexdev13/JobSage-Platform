@@ -18,6 +18,7 @@ import {
 import { statutoryRegulatorForCategory } from "../lib/professionCategory";
 import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
+import { extensionProfessionalEvidence, isExtensionAiRequest, rejectUnsafeExtensionAi } from "../lib/extensionAiPrivacy";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -83,7 +84,9 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
 const STRUCTURED_PREFILL_SENSITIVE_PATTERN =
   /\b(caution|criminal|conviction|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|national insurance|ni number|passport|date of birth|dob|declaration|consent|right to work|rtw|work permit|sponsorship|current employee|currently work|bank account|sort code|marital|dependant|next of kin)\b/i;
 
-router.post("/smart-apply/structured-prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+router.post(["/smart-apply/structured-prefill", "/smart-apply/extension/structured-prefill"], requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  if (rejectUnsafeExtensionAi(req, res)) return;
+  const extensionRequest = isExtensionAiRequest(req);
   const rawFields = Array.isArray(req.body?.fields) ? req.body.fields : [];
   const fields = rawFields
     .slice(0, 120)
@@ -109,13 +112,13 @@ router.post("/smart-apply/structured-prefill", requireAuthenticated, async (req:
     res.status(400).json({ error: "Profile not found. Please complete your profile first." });
     return;
   }
-  const cvText = await fetchSmartApplyCvText(req.user!.id);
+  const cvText = extensionRequest ? null : await fetchSmartApplyCvText(req.user!.id);
   const firstName = req.user!.firstName ?? "";
   const lastName = req.user!.lastName ?? "";
   const jobsageEmail = await ensureCanonicalJobsageAlias(req.user!.id, firstName, lastName);
   const roleTitle = typeof req.body?.jobTitle === "string" ? req.body.jobTitle.trim().slice(0, 300) : "";
   const employer = typeof req.body?.employer === "string" ? req.body.employer.trim().slice(0, 300) : "";
-  const evidence = `
+  const evidence = extensionRequest ? extensionProfessionalEvidence(profile as unknown as Record<string, unknown>) : `
 Candidate:
 - Name: ${[firstName, lastName].filter(Boolean).join(" ")}
 - Email: ${jobsageEmail}
@@ -490,7 +493,9 @@ router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
 });
 
 // Streaming AI assistant — answers candidate questions using their profile + role context
-router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+router.post(["/smart-apply/assistant", "/smart-apply/extension/assistant"], requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  if (rejectUnsafeExtensionAi(req, res)) return;
+  const extensionRequest = isExtensionAiRequest(req);
   const userId = req.user!.id;
   const { roleId, message, question, questionId, questionText, jobTitle, employer, jobDescription, wordLimit, maxLength } = req.body as {
     roleId?: number;
@@ -600,8 +605,8 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     }
   }
 
-  const cvText = await fetchSmartApplyCvText(userId);
-  const profileSummary = `Candidate profile:
+  const cvText = extensionRequest ? null : await fetchSmartApplyCvText(userId);
+  const profileSummary = extensionRequest ? extensionProfessionalEvidence(profile as unknown as Record<string, unknown>) : `Candidate profile:
 - Profession: ${profile.profession.replace(/_/g, " ")}
 - Specialty: ${profile.specialty ?? "General"}
 - Qualification: ${profile.qualificationType ?? "Unknown"} from ${profile.qualificationCountry ?? "International"} (${profile.qualificationYear ?? "?"})

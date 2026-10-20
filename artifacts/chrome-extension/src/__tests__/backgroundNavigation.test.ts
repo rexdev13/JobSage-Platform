@@ -5,6 +5,7 @@ type Listener = (...args: any[]) => any;
 function createChromeHarness() {
   const session = new Map<string, unknown>();
   const listeners = {
+    connect: [] as Listener[],
     before: [] as Listener[],
     created: [] as Listener[],
     committed: [] as Listener[],
@@ -16,7 +17,7 @@ function createChromeHarness() {
     async get(area: "session" | "local" | "sync", key?: string | Record<string, unknown>) {
       if (delayed.enabled) await new Promise((resolve) => setTimeout(resolve, 2));
       const result: Record<string, unknown> = {};
-      const keys = typeof key === "string" ? [key] : key ? Object.keys(key) : [];
+      const keys = typeof key === "string" ? [key] : key ? Object.keys(key) : Array.from(session.keys()).filter((k) => k.startsWith(`${area}:`)).map((k) => k.slice(area.length + 1));
       for (const name of keys) result[name] = session.get(`${area}:${name}`) ?? (typeof key === "object" ? key[name] : undefined);
       return result;
     },
@@ -33,7 +34,7 @@ function createChromeHarness() {
     cookies: { get: vi.fn(async () => null) },
     downloads: { download: vi.fn() },
     runtime: {
-      onConnect: event([]),
+      onConnect: event(listeners.connect),
       onMessage: event(listeners.messages),
       lastError: undefined,
     },
@@ -156,5 +157,58 @@ describe("background trusted navigation listeners", () => {
     });
     await settle();
     expect(activationKeys(h.session)?.["99"]).toBeUndefined();
+  });
+});
+
+describe("background AI consent enforcement", () => {
+  async function message(h: ReturnType<typeof createChromeHarness>, payload: unknown, url = "https://ats.example/apply") {
+    return new Promise<any>((resolve) => {
+      const result = h.listeners.messages.at(-1)!(payload, { tab: { id: 61 }, url }, resolve);
+      if (result === false) resolve(undefined);
+    });
+  }
+
+  it("blocks bypass requests, accepts an explicit decision, and stops after refusal", async () => {
+    const h = await loadBackground(createChromeHarness());
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = { type: "API_REQUEST", endpoint: "/smart-apply/structured-prefill", method: "POST", body: { fields: [] } };
+    expect((await message(h, request)).error).toContain("consent");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await message(h, { type: "SET_AI_CONSENT", accepted: true })).toEqual({ accepted: true });
+    expect((await message(h, request)).data).toEqual({ values: [] });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://jobsage.co.uk/api/smart-apply/extension/structured-prefill");
+    await message(h, { type: "SET_AI_CONSENT", accepted: false });
+    fetchMock.mockClear();
+    expect((await message(h, request)).error).toContain("consent");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await message(h, { ...request, endpoint: "/smart-apply/assistant" })).error).toContain("not available");
+  });
+
+  it("scopes consent to the application tab origin and rejects unsupported pages", async () => {
+    const h = await loadBackground(createChromeHarness());
+    await message(h, { type: "SET_AI_CONSENT", accepted: true });
+    expect(await message(h, { type: "GET_AI_CONSENT" }, "https://other.example/form")).toEqual({ accepted: false });
+    expect(await message(h, { type: "SET_AI_CONSENT", accepted: true }, "chrome://settings")).toEqual({ accepted: false });
+    await h.listeners.removed[0](61);
+    expect(await message(h, { type: "GET_AI_CONSENT" })).toEqual({ accepted: false });
+  });
+
+  it("blocks a streaming AI request without consent", async () => {
+    const h = await loadBackground(createChromeHarness());
+    const listeners: Listener[] = [];
+    const port = {
+      name: "assistant-stream", sender: { tab: { id: 61 }, url: "https://ats.example/apply" },
+      onDisconnect: { addListener: vi.fn() },
+      onMessage: { addListener: (f: Listener) => listeners.push(f) },
+      postMessage: vi.fn(),
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    h.listeners.connect[0](port);
+    listeners[0]({ message: "Why this role?", questionText: "Why this role?" });
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "error" }));
   });
 });

@@ -1,6 +1,8 @@
 # Chrome Web Store listing copy — JOBSAGE Smart Apply
 
-Copy-paste ready text for each field in the Developer Dashboard.
+Store listing copy. The final corrected Privacy answers, data categories and
+owner-confirmation gates for **0.4.22** are in
+[`PRIVACY-ANSWERS.md`](PRIVACY-ANSWERS.md).
 
 ## Store listing
 
@@ -30,7 +32,7 @@ Applying for UK healthcare jobs means filling in the same details again and agai
 WHAT IT DOES
 
 • Recognises supported job application forms locally when the helper is active
-• Helps you fill in applications using the profile you've already built on JOBSAGE — qualifications, registration details, work history
+• Helps fill supported fields using your JOBSAGE profile and optional AI mapping of selected professional facts; unavailable or sensitive details remain for you to complete
 • Lets you save application details to your JOBSAGE tracker, so your pipeline stays organised
 • Opens automatically for tracked applications started from JOBSAGE, or on other pages when you activate it from the extension icon
 
@@ -40,7 +42,7 @@ Sign in to your free JOBSAGE account at jobsage.co.uk and install the extension.
 
 PRIVACY
 
-Smart Apply reads your JOBSAGE sign-in cookie only on jobsage.co.uk. It checks pages locally for supported application forms, and reads relevant form labels, role details and page URLs only in application flows. When Smart Apply maps profile facts into a tracked application form, or you request an AI-drafted answer, JOBSAGE sends the relevant question, role context and profile/CV facts to OpenAI for processing. The extension does not send form data directly to employers; information reaches an employer when you submit its form. No analytics or advertising trackers are included. Full privacy policy: https://jobsage.co.uk/extension-privacy
+Smart Apply reads your JOBSAGE sign-in cookie only on jobsage.co.uk. The active helper handles application labels/options, relevant role details, supported values and application URL metadata. Before AI mapping/drafting you choose whether JOBSAGE may send application context and selected professional profile facts to OpenAI through Replit AI Integrations; this extension AI flow does not automatically include raw CV text or private profile notes. Answer remembering is off until you enable automatic local saving/reuse of eligible edits, with disable/delete controls. Google Fonts requests disclose ordinary network metadata. Filled fields and complete, unredacted attached CVs are available to employer-site scripts before submission, including possible autosave/upload. No advertising analytics or general keylogger is included. Full privacy policy: https://jobsage.co.uk/extension-privacy
 
 A free JOBSAGE account is required.
 ```
@@ -70,7 +72,7 @@ The extension reads the user's existing JOBSAGE session cookie (jobsage.co.uk on
 - `storage`:
 
 ```
-Stores interface preferences, dismissed sites, and answers the candidate explicitly saves to the local answer library. Short-lived session storage carries only a JOBSAGE-selected application link through employer redirects. It is not a general browsing history and does not cache the full profile or CV.
+Stores helper preferences and dismissed hostnames. Default-off answer remembering automatically saves eligible candidate edits locally only after opt-in, with disable/delete controls. Session storage retains tab activation, AI consent and application-link/redirect metadata. The full profile and CV are not persisted in extension storage.
 ```
 
 - `downloads`:
@@ -82,13 +84,13 @@ Lets the candidate save their own current JOBSAGE CV only when an employer form 
 - Host permission `https://*/*`:
 
 ```
-Candidates apply on hundreds of employer career sites whose domains cannot be enumerated in advance. This permission lets the extension detect supported forms locally and retain a JOBSAGE-selected application link through an employer-site redirect. Extension API requests go to JOBSAGE; when structured mapping runs in a tracked application flow or a user requests AI drafting, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing. The extension reads the JOBSAGE session cookie only on jobsage.co.uk and does not directly send form data to employers.
+Employer/ATS domains and redirect destinations cannot be listed in advance. HTTPS access supports form detection, current-tab messaging and application correlation through redirects/new tabs. AI mapping/drafting requires affirmative consent before application context and selected professional facts go through JOBSAGE/Replit/OpenAI. Filled fields and CV attachments are available to employer scripts before final submission.
 ```
 
 - All-HTTPS content-script use:
 
 ```
-Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check; the assistant opens automatically for tracked applications started from JOBSAGE or after the candidate activates it from the extension icon. It reads relevant form labels and role context only on active application pages. Details leave the browser only for JOBSAGE features the candidate uses; when structured mapping runs in a tracked application flow or AI drafting is requested, JOBSAGE sends the necessary question, role context and profile/CV facts to OpenAI for processing.
+The content script supports employer/ATS domains that cannot be listed in advance. The helper activates for a JOBSAGE-tracked application or an extension-icon action, handles relevant form/job context, and asks for affirmative consent before AI processing. The JOBSAGE-origin bridge correlates selected application links without mounting the employer helper on JOBSAGE pages.
 ```
 
 - `webNavigation`:
@@ -97,24 +99,20 @@ Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac,
 Carries the exact application URL selected from a JOBSAGE opportunity through employer-site redirects, so the candidate can return to the correct role and save it in their tracker. It does not collect a general browsing history.
 ```
 
-- `tabs`:
+No `tabs` justification is needed: it is not requested by 0.4.22.
 
-```
-Queries the active tab only so the candidate can open or reopen the JOBSAGE helper on the current page. The extension does not read a list of browsing tabs or collect unrelated tab URLs.
-```
+**Remote code:** No, I am not using remote code. All executable extension JavaScript is bundled. Google Fonts CSS/fonts and API data/text are remote resources, not remotely executed extension code.
 
-**Remote code:** No, I am not using remote code. (All JavaScript is bundled in the package; nothing is loaded from external servers.)
+**Data usage disclosures:** use the final category-by-category table in
+`PRIVACY-ANSWERS.md`, including local handling and complete CV transfers.
 
-**Data usage disclosures** — tick:
+**Third-party processing:** disclose consent-gated selected professional facts
+and application context through Replit/OpenAI, Google Fonts request metadata
+and pre-submission employer access. No automatic raw-CV/private-note inclusion
+in extension AI prompts. Do not claim "no sharing".
 
-- "Personally identifiable information" → collected (profile and CV facts, used to fill forms or to provide requested AI assistance) — *used for app functionality only*
-- "Authentication information" → collected (JOBSAGE session cookie) — *used for app functionality only*
-- "Website content" → collected (form fields on job application pages) — *used for app functionality only*
-- "Web history" → collected only for application flows (the JOBSAGE-selected role URL is carried through redirects and may be saved to the user's tracker) — *used for app functionality only*
-
-**Third-party processing:** disclose that JOBSAGE sends relevant application question/context and candidate profile/CV facts to OpenAI when structured mapping runs in a tracked application flow or the user requests AI drafting. Do not claim that no data is shared with third parties.
-
-Certify all three statements: data is not sold, not used for unrelated purposes, not used for creditworthiness/lending.
+Only certify the three Limited Use statements after the owner confirms the
+provider and operational facts listed in `PRIVACY-ANSWERS.md`.
 
 ## Graphic assets
 
