@@ -1,0 +1,73 @@
+I’m submitting **JOBSAGE Smart Apply** to the Chrome Web Store, but submission is blocked by incomplete Privacy declarations and publisher contact email verification.
+
+Inspect the actual extension code and give me accurate, ready-to-paste answers for every missing field.
+
+The dashboard lists these blockers:
+- Cookies permission justification.
+- Downloads permission justification.
+- Host permissions justification.
+- Remote code declaration/justification.
+- Storage permission justification.
+- Tabs permission justification.
+- webNavigation permission justification.
+- Single purpose description.
+- Data usage compliance certification.
+- Missing publisher contact email.
+- Unverified publisher contact email.
+
+**1. Inspect the implementation first**
+
+Locate the extension’s manifest.json, background/service worker, content scripts, popup, bundled dependencies, build output, and relevant backend endpoints.
+
+Trace how it handles authentication, cookies, profile information, application forms, downloads, browser tabs, navigation, storage, and network requests.
+
+Identify the extension version examined. Compare against the uploaded ZIP if available. If you only have the source code, proceed with the audit but clearly state that the submitted package has not been verified.
+
+**2. Provide each Privacy answer separately**
+
+Give me the exact field name followed by ready-to-paste text for:
+- Single purpose description.
+- cookies justification.
+- downloads justification.
+- Host permissions justification.
+- storage justification.
+- tabs justification.
+- webNavigation justification.
+
+Explain each permission’s actual purpose and scope. For host permissions, identify the domains or patterns requested and explain any broad access.
+
+Put supporting file paths and code references BELOW each answer, outside the text I need to paste. Respect the dashboard’s field limits.
+
+If a permission is unused or unnecessarily broad, flag it and explain the required manifest/code change. Do not invent a justification.
+
+**3. Determine the correct remote code answer**
+
+Tell me which option to select based on the packaged extension and dependencies. Distinguish API requests that retrieve data from downloading or executing remote JavaScript, WebAssembly, or other executable logic.
+
+If remote executable code is present, identify it and explain the required fix. Do not assume “No” merely because we wrote the extension ourselves.
+
+**4. Complete the data usage guidance**
+
+Assess every data category in the current Chrome Web Store Privacy form. Give me a table showing:
+- Category.
+- Select or leave unselected.
+- Reason based on the implementation.
+
+Consider data read or processed locally as well as data stored or transmitted. Explain relevant destinations and purposes.
+
+Review each compliance certification and tell me whether the implementation supports it. Flag anything that must change before I can truthfully certify compliance.
+
+Find the existing privacy policy and its public URL. Check that it covers the extension’s actual behaviour. Do not invent a URL or assume a general website policy covers everything.
+
+**5. Explain the remaining account steps**
+
+Give me clear steps to add and verify the publisher contact email. Keep this separate from the extension Privacy fields. Do not claim verification is complete without evidence from the dashboard.
+
+**6. Finish with an actionable checklist**
+
+Separate:
+- Answers I can paste now.
+- Dashboard actions I must complete.
+- Code or policy issues that must be resolved.
+
+Use current official Chrome Web Store documentation where needed. Be specific to this extension. This task is an inspection and preparation task: do not modify code, deploy, or submit the extension.
