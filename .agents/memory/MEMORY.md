@@ -28,6 +28,7 @@
 - [Smart Apply candidate review](smart-apply-candidate-review.md) — every generated or restored application draft needs explicit confirmation; CV extraction must be reviewed before saving.
 - [Automatic submission confirmation](automatic-submission-confirmation.md) — promote an existing click only; share its lock and retry a short-lived post-navigation 404.
 - [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
+- [Extension store screenshots](extension-store-screenshots.md) — show completed, successful demo outcomes, not unanswered questions; keep sample-data disclosure and no auto-submission claims.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
 - [Candidate sponsor matching](candidate-sponsor-matching.md) — candidate-wide board searches need stricter employer identity matching than employer-scoped background searches.
 - [Direct-feed duplicate identities](direct-feed-duplicate-identities.md) — allow duplicate names only when their website and verified source mapping fully agree.
