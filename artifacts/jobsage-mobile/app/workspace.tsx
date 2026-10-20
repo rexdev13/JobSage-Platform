@@ -11,7 +11,7 @@ import type { MobileApplicationContext } from "@workspace/api-client-react";
 import * as Network from "expo-network";
 import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,11 @@ import { classifyUrl, openExternal, safeLinkLogContext, showInAppContactLink } f
 import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
 import { workspaceEntryPath } from "@/lib/workspace-entry-path";
 import {
+  INITIAL_WORKSPACE_LOAD_STATE,
+  isWorkspaceLoadBlocking,
+  transitionWorkspaceLoadState,
+} from "@/lib/workspace-load-policy";
+import {
   NativeProof,
   WORKSPACE_ORIGIN,
   WORKSPACE_START_PATH,
@@ -47,6 +52,7 @@ import {
 } from "@/lib/workspace-config";
 
 const SESSION_CHECK_AFTER_MS = 5 * 60_000;
+const INITIAL_WORKSPACE_LOAD_TIMEOUT_MS = 30_000;
 
 function bridgeScript(origin: string, proof: NativeProof) {
   const config = JSON.stringify({ version: 1, channel: proof.channel, challenge: proof.challenge });
@@ -83,7 +89,10 @@ export default function WorkspaceScreen() {
   const [source, setSource] = useState<WebViewSource | null>(null);
   const [webKey, setWebKey] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [loadPhase, dispatchLoadPhase] = useReducer(
+    transitionWorkspaceLoadState,
+    INITIAL_WORKSPACE_LOAD_STATE,
+  );
   const [canGoBack, setCanGoBack] = useState(false);
   const [appContext, setAppContext] = useState<MobileApplicationContext | null>(null);
   const previousUserId = useRef<string | null>(null);
@@ -118,6 +127,19 @@ export default function WorkspaceScreen() {
 
   const startPath = (typeof params.path === "string" && safeInternalPath(params.path)) || WORKSPACE_START_PATH;
   const startUrl = workspaceUrl(startPath);
+
+  useEffect(() => {
+    if (source && !loadError) dispatchLoadPhase("source-ready");
+  }, [source, loadError]);
+
+  useEffect(() => {
+    if (!source || loadError || !isWorkspaceLoadBlocking(loadPhase)) return;
+    const timeout = setTimeout(() => {
+      dispatchLoadPhase("failure");
+      setLoadError("JOBSAGE took too long to load. Please check your connection and retry.");
+    }, INITIAL_WORKSPACE_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [source, loadError, loadPhase]);
 
   useEffect(() => {
     let alive = true;
@@ -222,10 +244,16 @@ export default function WorkspaceScreen() {
   const retry = useCallback(() => {
     const target = lastUrl.current && isFirstPartyUrl(lastUrl.current) ? lastUrl.current : startUrl;
     if (!target) return;
+    dispatchLoadPhase("retry");
     setLoadError(null);
     setSource({ uri: target });
     setWebKey((k) => k + 1);
   }, [startUrl]);
+
+  const failWorkspaceLoad = useCallback((message: string) => {
+    dispatchLoadPhase("failure");
+    setLoadError(message);
+  }, []);
 
   const handleSession = useCallback(async (code: string): Promise<void> => {
     if (!proof || !mounted.current || usedCodes.current.has(code)) return;
@@ -500,16 +528,19 @@ export default function WorkspaceScreen() {
               if (isFirstPartyUrl(n.url) && !n.url.includes("/api/auth/mobile/session-exchange")) lastUrl.current = n.url;
               setCanGoBack(n.canGoBack);
             }}
-            onLoadStart={() => setPageLoading(true)}
-            onLoadEnd={() => setPageLoading(false)}
-            onError={(e) => setLoadError(e.nativeEvent.description || "The page could not be loaded.")}
+            onLoadStart={() => dispatchLoadPhase("navigation-start")}
+            onLoadProgress={({ nativeEvent }) => {
+              if (nativeEvent.progress >= 0.8) dispatchLoadPhase("content-visible");
+            }}
+            onLoadEnd={() => dispatchLoadPhase("complete")}
+            onError={(e) => failWorkspaceLoad(e.nativeEvent.description || "The page could not be loaded.")}
             onHttpError={(e) => {
               if (e.nativeEvent.statusCode >= 500 && e.nativeEvent.url === lastUrl.current) {
-                setLoadError(`JOBSAGE is temporarily unavailable (${e.nativeEvent.statusCode}).`);
+                failWorkspaceLoad(`JOBSAGE is temporarily unavailable (${e.nativeEvent.statusCode}).`);
               }
             }}
-            onContentProcessDidTerminate={() => webRef.current?.reload()}
-            onRenderProcessGone={() => retry()}
+            onContentProcessDidTerminate={() => failWorkspaceLoad("The JOBSAGE workspace stopped responding. Please retry.")}
+            onRenderProcessGone={() => failWorkspaceLoad("The JOBSAGE workspace stopped responding. Please retry.")}
             allowsBackForwardNavigationGestures
             pullToRefreshEnabled={false}
             sharedCookiesEnabled
@@ -540,8 +571,8 @@ export default function WorkspaceScreen() {
           </View>
         ) : null}
 
-        {(!source || pageLoading) && !loadError ? (
-          <View style={[StyleSheet.absoluteFill, s.center, { backgroundColor: colors.background }]} pointerEvents="none">
+        {isWorkspaceLoadBlocking(loadPhase) && !loadError ? (
+          <View style={[StyleSheet.absoluteFill, s.center, { backgroundColor: colors.background }]} pointerEvents="none" testID="workspace-initial-loader">
             <Text style={s.wordmark}>JOBSAGE</Text>
             <ActivityIndicator color={colors.accent} style={{ marginTop: 16 }} />
           </View>

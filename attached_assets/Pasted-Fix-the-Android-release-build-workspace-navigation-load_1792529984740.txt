@@ -1,0 +1,156 @@
+Fix the Android release-build workspace navigation loader bug in the current JOBSAGE Replit codebase.
+
+IMPORTANT SCOPE AND SAFETY
+
+- Work in the current authoritative repository only.
+- Locate the active mobile Expo app, expected at `artifacts/jobsage-mobile`.
+- Do not edit an older duplicate, generated export, release checkout, or nested repository.
+- Inspect the current implementation before editing because this Replit codebase may contain newer work.
+- Preserve all newer functionality.
+- Do not modify Smart Apply, account deletion, authentication behaviour, API routes, database code, the web application, app identifiers, signing configuration, EAS configuration, versions, or store settings.
+- Do not deploy, publish, push, create a release, generate an APK/AAB, or change production data.
+- Do not perform a broad refactor.
+- Implement and test the actual fix; do not stop after an audit or merely describe what should be changed.
+- Do not ask me for permission for normal source edits and tests within this scope.
+
+BUG TO FIX
+
+In the installed Android APK:
+
+1. The user can open the app and sign in.
+2. The initial JOBSAGE workspace loads successfully.
+3. The user selects another page from the website sidebar.
+4. The full-screen JOBSAGE splash/loading overlay appears again.
+5. On Android, that overlay can remain indefinitely even though the underlying SPA route has changed.
+
+This does not reproduce reliably in Expo Go.
+
+LIKELY ROOT CAUSE
+
+Inspect `artifacts/jobsage-mobile/app/workspace.tsx`.
+
+The affected implementation uses a simple boolean such as:
+
+- `pageLoading`
+- `setPageLoading(true)` inside `onLoadStart`
+- `setPageLoading(false)` only inside `onLoadEnd`
+- A full-screen loader rendered whenever `pageLoading` is true
+
+Android WebView can emit `onLoadStart` during client-side SPA/sidebar navigation without producing the matching `onLoadEnd` expected by that boolean logic. The loader then covers an already usable workspace forever.
+
+REQUIRED BEHAVIOUR
+
+The blocking JOBSAGE loader may appear only:
+
+- While the first workspace document is becoming usable.
+- When the user explicitly presses Retry after a genuine failure.
+
+After the workspace has become usable once:
+
+- A normal SPA/sidebar navigation must not restore the blocking loader.
+- A later `onLoadStart` must not move a ready workspace back into a blocking state.
+- The underlying page must remain visible during internal route changes.
+- Genuine initial-load and render-process failures must still display the existing error/retry UI.
+- Retry must deliberately restore the blocking loader while the WebView reloads.
+- A late load callback must not hide an already recorded failure.
+
+IMPLEMENTATION APPROACH
+
+Create a small, pure loading policy module, preferably:
+
+`artifacts/jobsage-mobile/lib/workspace-load-policy.ts`
+
+Use these states:
+
+- `waiting`
+- `blocking`
+- `ready`
+- `failed`
+
+Use events equivalent to:
+
+- `source-ready`
+- `navigation-start`
+- `content-visible`
+- `complete`
+- `retry`
+- `failure`
+
+The required state transitions are:
+
+- `waiting + source-ready` → `blocking`
+- `waiting + navigation-start` → `blocking`
+- `blocking + content-visible` → `ready`
+- `blocking + complete` → `ready`
+- `ready + navigation-start` → remain `ready`
+- Any valid state + explicit `retry` → `blocking`
+- Any state + `failure` → `failed`
+- `failed + complete/content-visible` → remain `failed` until explicit retry
+
+Export a helper that returns true only when the state is `waiting` or `blocking`.
+
+Integrate this state machine into `app/workspace.tsx` using `useReducer` or an equivalent deterministic implementation.
+
+Integration requirements:
+
+1. Replace the fragile `pageLoading` boolean.
+2. Start the initial timeout only while there is a source, no load error, and the policy is blocking.
+3. Keep the existing 30-second initial load timeout or its current equivalent.
+4. Dispatch `navigation-start` from WebView `onLoadStart`.
+5. Dispatch `content-visible` when `onLoadProgress` reaches a reasonable usable threshold, approximately `0.8`.
+6. Dispatch `complete` from `onLoadEnd`.
+7. Dispatch `failure` before recording genuine WebView load/render failures.
+8. Dispatch `retry` inside the explicit retry handler before remounting/reloading the WebView.
+9. Render the full-screen JOBSAGE loader only when the policy reports a blocking phase and there is no load error.
+10. Give the loader `pointerEvents="none"` so it cannot trap input during transitions.
+11. Preserve the current JOBSAGE branding and loader appearance.
+12. Preserve session exchange, cookies, native bridge injection, deep links, external-link policy, Android back handling, downloads, push notifications and every other current behaviour.
+
+Do not solve this by adding arbitrary delays, hiding every loader, disabling navigation events, or forcing every sidebar route into an external browser.
+
+TESTS REQUIRED
+
+Add focused unit tests for the loading policy, preferably:
+
+`artifacts/jobsage-mobile/__tests__/workspace-load-policy.test.ts`
+
+At minimum prove:
+
+1. The initial document blocks and then becomes ready.
+2. `navigation-start` cannot make a ready workspace blocking again.
+3. Explicit retry makes a ready workspace blocking.
+4. A late `complete` or `content-visible` callback cannot overwrite a failed state.
+5. The blocking helper is true only for `waiting` and `blocking`.
+
+If the current test harness allows it without a broad rewrite, also add a focused render/integration regression test that:
+
+- Makes the workspace ready.
+- Simulates a later Android WebView `onLoadStart`.
+- Confirms `workspace-initial-loader` is not rendered again.
+
+VERIFICATION
+
+Run the relevant commands using the repository’s existing package manager and scripts:
+
+- Mobile TypeScript/typecheck.
+- Focused workspace-load-policy tests.
+- Existing mobile pure tests.
+- Existing mobile render tests, if configured.
+- `git diff --check`.
+
+Do not claim that source tests prove physical-device behaviour. Do not generate a store build during this task.
+
+FINAL RESPONSE FORMAT
+
+When finished, report:
+
+1. Whether the vulnerable boolean loader pattern was present.
+2. The confirmed root cause.
+3. Exactly which files were changed.
+4. The state-machine behaviour implemented.
+5. Exact test/typecheck results with counts.
+6. Any remaining limitation requiring an Android APK/device retest.
+7. Confirmation that Smart Apply, deletion, API/database code, deployment, signing, versions and store configuration were untouched.
+8. Confirmation that nothing was pushed or published.
+
+Show a concise final diff summary. Do not mark the bug fully device-verified until an installed Android build has been tested by navigating through multiple sidebar routes.
