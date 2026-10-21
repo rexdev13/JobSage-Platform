@@ -121,3 +121,5 @@
 - [Expo notification web loading](expo-notification-web.md) — keep native notifications out of web module loading; component-level dynamic imports can bypass Jest mocks.
 - [Expo Go dev mode](expo-go-dev-mode.md) — preserve `expo-dev-client` for existing EAS builds, but force `--go` when Replit previews must target stock Expo Go.
 - [Extension data declarations](extension-data-declarations.md) — assess local processing, unredacted CV transfers and free text; AI minimization alone cannot prove zero sensitive handling.
+- [Extension AI disclosure](extension-ai-disclosure.md) — no separate AI consent prompts; show only “AI is used” below the Chrome Web Store link.
+- [Extension reliability scope](extension-reliability-scope.md) — broad factual profile/CV autofill is required; disclosure-only changes must not narrow detection, filling or tracking.

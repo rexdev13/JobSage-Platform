@@ -69,6 +69,14 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   },
 }));
 
+vi.mock("pdf-parse", () => ({
+  PDFParse: class {
+    async getText() {
+      return { text: "Nurse at Example Hospital, 2020–2025\nLed clinical training for junior nurses\nMy passport number is SECRET-DOCUMENT\nContact: personal@example.test" };
+    }
+  },
+}));
+
 vi.mock("../../lib/jobsageEmailGen", () => ({
   ensureCanonicalJobsageAlias,
 }));
@@ -115,31 +123,48 @@ const cv = {
 };
 
 describe("Smart Apply extension endpoints", () => {
-  it.each(["assistant", "structured-prefill"])("blocks extension %s without affirmative consent before reading profile/CV", async (endpoint) => {
-    const response = await request(buildApp()).post(`/smart-apply/extension/${endpoint}`)
-      .set("Authorization", AUTH_HEADER).send({ message: "Why this role?", fields: [] });
-    expect(response.status).toBe(403);
+  it("accepts extension mapping without a consent header", async () => {
+    const response = await request(buildApp()).post("/smart-apply/extension/structured-prefill")
+      .set("Authorization", AUTH_HEADER).send({ fields: [] });
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ values: [] });
     expect(createCompletion).not.toHaveBeenCalled();
     expect(storage.getObjectEntityFile).not.toHaveBeenCalled();
   });
 
-  it("never supplies raw CV text or private notes to extension mapping", async () => {
-    queryResults.push([{ profession: "nurse", experienceYears: 5, additionalNotes: "PRIVATE-NOTE", phone: "PRIVATE-PHONE" }]);
+  it("fills email from the canonical JOBSAGE alias without asking AI", async () => {
+    queryResults.push([{ profession: "nurse" }]);
     const response = await request(buildApp()).post("/smart-apply/extension/structured-prefill")
       .set("Authorization", AUTH_HEADER)
-      .set("X-Jobsage-AI-Consent", "smart-apply-ai-2026-10-20")
+      .send({ fields: [{ id: "email", label: "Email address", controlType: "text", options: [] }] });
+    expect(response.status).toBe(200);
+    expect(response.body.values).toEqual([{ id: "email", value: "jane.doe.abc123@mail.jobsage.co.uk" }]);
+    expect(createCompletion).not.toHaveBeenCalled();
+  });
+
+  it("restores safe profile and CV evidence without private notes or sensitive disclosures", async () => {
+    queryResults.push([{ profession: "nurse", experienceYears: 5, additionalNotes: "PRIVATE-NOTE", phone: "PRIVATE-PHONE" }]);
+    queryResults.push([cv]);
+    storage.getObjectEntityFile.mockResolvedValue({ name: "cv" });
+    storage.downloadObject.mockResolvedValue(new Response("fixture PDF bytes"));
+    const response = await request(buildApp()).post("/smart-apply/extension/structured-prefill")
+      .set("Authorization", AUTH_HEADER)
       .send({ fields: [{ id: "qualification", label: "Highest qualification", controlType: "text", options: [] }] });
     expect(response.status).toBe(200);
-    expect(storage.getObjectEntityFile).not.toHaveBeenCalled();
+    expect(storage.getObjectEntityFile).toHaveBeenCalled();
     const payload = JSON.stringify(createCompletion.mock.calls);
     expect(payload).toContain("nurse");
     expect(payload).not.toContain("PRIVATE-NOTE");
-    expect(payload).not.toContain("PRIVATE-PHONE");
+    expect(payload).toContain("PRIVATE-PHONE");
+    expect(payload).toContain("Led clinical training");
+    expect(payload).not.toContain("SECRET-DOCUMENT");
+    expect(payload).not.toContain("personal@example.test");
+    expect(payload).not.toContain("jane@example.com");
   });
 
-  it("rejects sensitive free text before calling AI even with consent", async () => {
+  it("rejects sensitive free text before calling AI", async () => {
     const response = await request(buildApp()).post("/smart-apply/extension/assistant")
-      .set("Authorization", AUTH_HEADER).set("X-Jobsage-AI-Consent", "smart-apply-ai-2026-10-20")
+      .set("Authorization", AUTH_HEADER)
       .send({ message: "My bank account number is 12345678", questionText: "Why this role?" });
     expect(response.status).toBe(422);
     expect(createCompletion).not.toHaveBeenCalled();

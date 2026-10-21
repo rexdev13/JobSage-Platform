@@ -409,7 +409,8 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     `);
     const questions = detectQuestions();
     expect(questions).toHaveLength(4);
-    expect(questions.every((question) => question.bucket === "confirmation" && question.restricted)).toBe(true);
+    expect(questions[0].bucket).toBe("structured");
+    expect(questions.slice(1).every((question) => question.bucket === "confirmation" && question.restricted)).toBe(true);
   });
 });
 
@@ -483,6 +484,61 @@ describe("detectQuestions — AMS-style forms", () => {
 });
 
 describe("detectQuestions — same-origin iframes", () => {
+  it("includes rich-text prompts, supporting statements and unchecked radio groups in autofill", () => {
+    setBody(`
+      <label for="editor">Describe your mental health nursing experience (maximum 100 words)</label>
+      <div id="editor" role="textbox" contenteditable="true" aria-required="true"><p><br></p></div>
+      <label for="support">Supporting statement</label><textarea id="support" maxlength="800"></textarea>
+      <fieldset><legend>Available shift</legend>
+        <label><input type="radio" name="shift" value="day">Day</label>
+        <label><input type="radio" name="shift" value="night">Night</label>
+      </fieldset>
+    `);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(3);
+    expect(questions.every((question) => !question.restricted)).toBe(true);
+    const descriptors = getStructuredFieldDescriptors(questions);
+    expect(descriptors).toHaveLength(3);
+    expect(descriptors[0].label).toContain("100 words");
+    expect(descriptors[1].label).toContain("800 characters");
+    expect(descriptors[2].options).toEqual(["Day", "Night"]);
+    expect(fillStructuredField(questions[0].id, "I have five years of mental health nursing experience.")).toBe(true);
+    expect(document.getElementById("editor")?.textContent).toContain("five years");
+    expect(isQuestionAnswered(questions[0].id)).toBe(true);
+    expect(fillStructuredField(questions[2].id, "Night")).toBe(true);
+    expect(isQuestionAnswered(questions[2].id)).toBe(true);
+    expect(fillStructuredField(questions[2].id, "Day")).toBe(false);
+  });
+
+  it("does not block professional healthcare or financial-role experience", () => {
+    setBody(`
+      <label for="medical">Describe your medical training</label><textarea id="medical"></textarea>
+      <label for="finance">Describe your financial reporting experience</label><textarea id="finance"></textarea>
+      <label for="medication">Describe medication safety in your work</label><textarea id="medication"></textarea>
+    `);
+    expect(detectQuestions().every((question) => !question.restricted)).toBe(true);
+  });
+
+  it("does not insert drafts exceeding the employer's field limit", () => {
+    setBody(`<label for="short">Supporting statement</label><textarea id="short" maxlength="10"></textarea>`);
+    const [question] = detectQuestions();
+    expect(fillStructuredField(question.id, "This draft is much too long")).toBe(false);
+    expect(isQuestionAnswered(question.id)).toBe(false);
+  });
+
+  it("does not report invalid native dates or select placeholders as filled", () => {
+    setBody(`
+      <label for="start">Available start date</label><input type="date" id="start">
+      <label for="degree">Qualification</label><select id="degree">
+        <option value="placeholder">Please select a qualification</option><option>BSc Nursing</option>
+      </select>
+    `);
+    const questions = detectQuestions();
+    expect(isQuestionAnswered(questions[1].id)).toBe(false);
+    expect(fillStructuredField(questions[0].id, "next month")).toBe(false);
+    expect(fillStructuredField(questions[0].id, "2026-11-01")).toBe(true);
+  });
+
   it("picks up questions inside a same-origin iframe", () => {
     const iframe = document.createElement("iframe");
     document.body.appendChild(iframe);

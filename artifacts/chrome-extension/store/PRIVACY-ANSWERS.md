@@ -1,13 +1,13 @@
-# JOBSAGE Smart Apply — Privacy answers for 0.4.22
+# JOBSAGE Smart Apply — Privacy answers for 0.4.23
 
-Prepared locally on 20 October 2026. Nothing in this guide means the website has
+Prepared locally on 21 October 2026. Nothing in this guide means the website has
 been published, a dashboard ZIP uploaded, or the item submitted.
 
 ## Package and release boundary
 
-- Store ZIP: `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.22.zip`
+- Store ZIP: `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.23.zip`
 - Matching website source: `artifacts/jobsage-web/public/jobsage-smart-apply-extension.zip`
-- Manifest version: **0.4.22**
+- Manifest version: **0.4.23**
 - Permissions: `cookies`, `storage`, `webNavigation`, `downloads`
 - Host/content-script access: `https://*/*`
 - Production API: `https://jobsage.co.uk/api`
@@ -39,7 +39,7 @@ Read the candidate's existing JOBSAGE session cookie on jobsage.co.uk to authent
 ### storage justification
 
 ```text
-Store helper preferences and dismissed hostnames; retain tab activation, consent and application-link/redirect context in browser-session storage. Answer remembering is off until the candidate enables it. While enabled, eligible candidate edits are saved automatically in this browser with question, hostname/path, employer scope and usage metadata for reuse. Disable stops saving/reuse; individual and Delete all controls erase answers. The full profile and CV are not persisted in extension storage.
+Store helper preferences and dismissed hostnames; retain tab activation and application-link/redirect context in browser-session storage. Answer remembering is off until the candidate enables it. While enabled, eligible candidate edits are saved automatically in this browser with question, hostname/path, employer scope and usage metadata for reuse. Disable stops saving/reuse; individual and Delete all controls erase answers. The full profile and CV are not persisted in extension storage.
 ```
 
 ### webNavigation justification
@@ -57,7 +57,7 @@ Let the candidate save their own current JOBSAGE CV through Chrome's Save As flo
 ### HTTPS host access / content-script justification
 
 ```text
-Employer and applicant-tracking-system domains and redirect destinations cannot be listed in advance. HTTPS access lets the extension recognise supported forms, communicate with the active employer tab, and follow a JOBSAGE-selected application across redirects/new tabs. The helper is activated by a tracked JOBSAGE application or the candidate's extension-icon action. It reads relevant application labels, options, supported values and role context. JOBSAGE API requests use HTTPS. AI mapping/drafting requires affirmative consent before selected professional facts and application context are processed by OpenAI through Replit AI Integrations. Filled fields and attached CVs are available to employer-site scripts before final submission.
+Employer and applicant-tracking-system domains and redirect destinations cannot be listed in advance. HTTPS access lets the extension recognise supported forms, communicate with the active employer tab, and follow a JOBSAGE-selected application across redirects/new tabs. The helper is activated by a tracked JOBSAGE application or the candidate's extension-icon action. It reads relevant application labels, options, supported values and role context. JOBSAGE API requests use HTTPS. For AI mapping/drafting, selected professional facts and application context are processed by OpenAI through Replit AI Integrations. Filled fields and attached CVs are available to employer-site scripts before final submission.
 ```
 
 There is **no `tabs` justification** for this release because that permission
@@ -74,7 +74,7 @@ All executable extension JavaScript is included in the uploaded package. Remote 
 ### Third-party/data-use explanation, if a reviewer requests one
 
 ```text
-The extension authenticates to JOBSAGE over HTTPS. After an affirmative, tab-and-site-scoped browser-session choice, JOBSAGE sends application questions, field labels/options, job context and selected professional profile facts to OpenAI through Replit AI Integrations for mapping and answer drafting. This extension AI flow does not automatically include raw CV text, private profile notes, contact details or residency information. Refusal leaves basic profile fill, CV attachment/download and tracking available; consent can be withdrawn in the helper. Answer remembering is a separate, default-off choice and, while enabled, automatically stores eligible candidate edits locally with application source metadata. Google Fonts requests disclose normal request metadata such as IP address, browser headers and a referrer permitted by the employer page. Entering data or attaching a CV exposes it to the employer site and its scripts immediately; the site may autosave or upload it before final submission.
+The extension authenticates to JOBSAGE over HTTPS. JOBSAGE sends application questions, field labels/options, job context, saved application facts and filtered CV evidence to OpenAI through Replit AI Integrations for mapping and drafting. Private profile notes are excluded. Common sensitive disclosure lines and personal email addresses are filtered from CV text, but complete redaction is not guaranteed. Contact and eligibility facts may support exact saved answers; the login email is not used as the employer contact address. Sensitive disclosures and declarations remain candidate-controlled. Answer remembering is a separate, default-off choice and, while enabled, automatically stores eligible candidate edits locally with application source metadata. Google Fonts requests disclose normal request metadata such as IP address, browser headers and a referrer permitted by the employer page. Entering data or attaching a CV exposes it to the employer site and its scripts immediately; the site may autosave or upload it before final submission.
 ```
 
 ## Data-category selections
@@ -87,7 +87,7 @@ manifest has broad HTTPS access.
 | Category | Select | Actual handling in the corrected release |
 | --- | --- | --- |
 | Personally identifiable information | Yes | Retrieves and fills candidate names, JOBSAGE alias, telephone and address/profile facts; retrieves the candidate's full CV file. |
-| Health information | Yes | The complete, unredacted CV is retrieved and attached/downloaded. It can contain the candidate's medical history. Candidate-authored free text is also supported; heuristic content checks cannot establish a categorical exclusion. Dedicated health controls are no longer read for completion, remembered or AI-filled; raw CV text is excluded from extension AI prompts. |
+| Health information | Yes | The complete, unredacted CV is retrieved and attached/downloaded. It can contain the candidate's medical history. Candidate-authored free text is also supported; heuristic content checks cannot establish a categorical exclusion. Dedicated health controls are checked locally for completion but never remembered or AI-filled. CV evidence is filtered for common sensitive disclosures before AI processing; complete redaction is not guaranteed. |
 | Financial and payment information | Yes | The same complete-file CV flow and candidate-authored free text have no verified content-level exclusion of financial information. There is no payment-card, account-balance or banking feature. Dedicated financial controls are excluded and obvious financial text is blocked; that is not proof of zero handling in full files/free text. |
 | Authentication information | Yes | Reads the JOBSAGE session cookie and uses it as a bearer credential for JOBSAGE API requests. No employer passwords are collected. |
 | Personal communications | Yes | Candidate-authored requests and generated application-answer text are handled by the AI assistant. This does **not** mean the extension reads email, SMS or other sites' chat histories. |
@@ -147,15 +147,15 @@ These are release/attestation checks, not a request to disclose credentials.
    API, web policies and website ZIP together. Do not create a second production
    app or upload the extension to Chrome first.
 3. In a signed-out/private browser open `https://jobsage.co.uk/privacy` and
-   `https://jobsage.co.uk/extension-privacy`. Confirm the latter says **20 October
-   2026**, explains consent, Replit/OpenAI, Fonts, automatic opt-in memory,
+   `https://jobsage.co.uk/extension-privacy`. Confirm the latter says **21 October
+   2026**, explains Replit/OpenAI, filtered CV evidence, Fonts, automatic opt-in memory,
    unredacted CV handling and pre-submission employer access.
 4. Download `https://jobsage.co.uk/jobsage-smart-apply-extension.zip` afresh
-   (avoid a cached browser download). Inspect its `manifest.json`: **0.4.22**,
+   (avoid a cached browser download). Inspect its `manifest.json`: **0.4.23**,
    the four listed permissions, no `tabs`; compare SHA-256 with the local
    release ZIP. Do not claim the public artifact matches until this succeeds.
 5. Confirm the new authenticated API routes exist and the installed extension
-   can refuse/accept AI consent against the published backend with a synthetic
+   can fill supported fields without an AI-consent modal using a synthetic
    candidate. Do not send real applications or use customer information.
 6. Open `https://chrome.google.com/webstore/devconsole` under the correct
    publisher. Choose the existing **JOBSAGE Smart Apply** item, **Package →

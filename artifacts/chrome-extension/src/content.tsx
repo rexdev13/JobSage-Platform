@@ -10,6 +10,7 @@ import {
   fillStructuredField,
   getQuestionField,
   getStructuredFieldDescriptors,
+  isQuestionAnswered,
   type DetectedQuestion,
 } from "./lib/questionDetector";
 import {
@@ -28,7 +29,6 @@ import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvA
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
 import { isJobSageFirstPartyPage } from "./lib/trustedOrigin";
-import { requestAiConsent } from "./lib/aiConsent";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -233,20 +233,7 @@ async function confirmTrackedApplication(): Promise<void> {
 function requiredQuestionGaps(questions: DetectedQuestion[]): string[] {
   return questions
     .filter((question) => question.requiredKnown && question.required)
-    .filter((question) => {
-      if (question.bucket === "confirmation") return true;
-      const field = getQuestionField(question.id);
-      if (!field) return false;
-      if (field instanceof HTMLInputElement && field.type === "radio") {
-        if (!field.name) return !field.checked;
-        const escaped =
-          typeof CSS !== "undefined" && CSS.escape
-            ? CSS.escape(field.name)
-            : field.name.replace(/["\\]/g, "\\$&");
-        return !field.ownerDocument.querySelector(`input[type="radio"][name="${escaped}"]:checked`);
-      }
-      return !field.value.trim();
-    })
+    .filter((question) => !isQuestionAnswered(question.id))
     .map((question) => question.question);
 }
 
@@ -255,7 +242,7 @@ function reconcileRequiredGaps(
   questions: DetectedQuestion[],
 ): PrefillResult {
   const gaps = requiredQuestionGaps(questions);
-  result.requiredMissing = Array.from(new Set([...result.requiredMissing, ...gaps]));
+  result.requiredMissing = Array.from(new Set(questions.length ? gaps : result.requiredMissing));
   const gapLabels = new Set(gaps);
   result.missing = result.missing.filter((label) => !gapLabels.has(label));
   return result;
@@ -315,10 +302,6 @@ async function prefillApplicationDetails(
   if (fields.length === 0) {
     return reconcileRequiredGaps(result, questions);
   }
-  if (!await requestAiConsent()) {
-    result.warning = "AI mapping is off. Basic profile details are filled; complete the remaining fields yourself or allow AI when you retry.";
-    return reconcileRequiredGaps(result, questions);
-  }
   const mapped = await sendMessage<{
     data?: { values?: Array<{ id: string; value: string | null }> };
     error?: string;
@@ -341,17 +324,17 @@ async function prefillApplicationDetails(
     const value = values.get(field.id);
     if (value && fillStructuredField(field.id, value)) {
       result.filled.push(field.label);
-      result.fieldResults[field.id] = { status: "filled", message: "Filled from your professional JOBSAGE profile facts" };
+      result.fieldResults[field.id] = { status: "filled", message: "Filled from your JOBSAGE profile and CV — review before submitting" };
     } else {
       result.missing.push(field.label);
       result.fieldResults[field.id] = {
         status: "missing",
-        message: mapped.error ? "Not filled because mapping is temporarily unavailable" : "Not found in the professional profile facts available to this helper",
+        message: mapped.error ? "Not filled because mapping is temporarily unavailable" : "No supported answer found in your JOBSAGE profile or CV",
       };
     }
   }
   result.filled = Array.from(new Set(result.filled));
-  result.missing = Array.from(new Set(result.missing));
+  result.missing = Array.from(new Set(result.missing)).filter((label) => !result.filled.includes(label));
   result.requiredMissing = Array.from(new Set(result.requiredMissing));
   return reconcileRequiredGaps(result, questions);
 }

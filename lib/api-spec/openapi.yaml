@@ -479,12 +479,7 @@ paths:
     post:
       tags: [Applications]
       operationId: generateExtensionSmartApplyAnswer
-      summary: Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
-      parameters:
-        - in: header
-          name: X-Jobsage-AI-Consent
-          required: true
-          schema: { type: string, enum: [smart-apply-ai-2026-10-20] }
+      summary: Extension AI answer using saved application facts and filtered CV evidence, excluding private notes
       requestBody: *smartApplyAssistantRequest
       responses:
         '200':
@@ -492,20 +487,13 @@ paths:
           content:
             text/event-stream:
               schema: { type: string }
-        '403':
-          description: Missing or outdated consent
         '422':
           description: Sensitive content is not eligible for AI
   /smart-apply/extension/structured-prefill:
     post:
       tags: [Applications]
       operationId: getExtensionStructuredPrefill
-      summary: Consent-gated mapping from selected professional facts, never raw CV or private notes
-      parameters:
-        - in: header
-          name: X-Jobsage-AI-Consent
-          required: true
-          schema: { type: string, enum: [smart-apply-ai-2026-10-20] }
+      summary: Map saved application facts and filtered CV evidence to supported extension fields
       requestBody: *smartApplyStructuredRequest
       responses:
         '200':
@@ -524,8 +512,6 @@ paths:
                       properties:
                         id: { type: string }
                         value: { type: string }
-        '403':
-          description: Missing or outdated consent
         '422':
           description: Sensitive content is not eligible for AI
   /auth/register:

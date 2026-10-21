@@ -97,7 +97,7 @@ function clean(value: string | null | undefined): string {
 }
 
 function isJobsageAlias(value: string): boolean {
-  return /^[^\s@]+@mail\.jobsage\.app$/i.test(clean(value));
+  return /^[^\s@]+@mail\.jobsage\.(?:co\.uk|app)$/i.test(clean(value));
 }
 
 export function isConfidentAuthenticatedAccountPage(doc: Document, pageUrl: string): boolean {

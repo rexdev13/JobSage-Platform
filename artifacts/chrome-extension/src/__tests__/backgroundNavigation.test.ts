@@ -160,7 +160,7 @@ describe("background trusted navigation listeners", () => {
   });
 });
 
-describe("background AI consent enforcement", () => {
+describe("background AI request safeguards", () => {
   async function message(h: ReturnType<typeof createChromeHarness>, payload: unknown, url = "https://ats.example/apply") {
     return new Promise<any>((resolve) => {
       const result = h.listeners.messages.at(-1)!(payload, { tab: { id: 61 }, url }, resolve);
@@ -168,33 +168,29 @@ describe("background AI consent enforcement", () => {
     });
   }
 
-  it("blocks bypass requests, accepts an explicit decision, and stops after refusal", async () => {
+  it("allows mapping without a consent prompt and retains the endpoint allowlist", async () => {
     const h = await loadBackground(createChromeHarness());
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const request = { type: "API_REQUEST", endpoint: "/smart-apply/structured-prefill", method: "POST", body: { fields: [] } };
-    expect((await message(h, request)).error).toContain("consent");
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(await message(h, { type: "SET_AI_CONSENT", accepted: true })).toEqual({ accepted: true });
     expect((await message(h, request)).data).toEqual({ values: [] });
     expect(fetchMock.mock.calls[0][0]).toBe("https://jobsage.co.uk/api/smart-apply/extension/structured-prefill");
-    await message(h, { type: "SET_AI_CONSENT", accepted: false });
-    fetchMock.mockClear();
-    expect((await message(h, request)).error).toContain("consent");
-    expect(fetchMock).not.toHaveBeenCalled();
     expect((await message(h, { ...request, endpoint: "/smart-apply/assistant" })).error).toContain("not available");
   });
 
-  it("scopes consent to the application tab origin and rejects unsupported pages", async () => {
+  it("still blocks sensitive content before making an AI mapping request", async () => {
     const h = await loadBackground(createChromeHarness());
-    await message(h, { type: "SET_AI_CONSENT", accepted: true });
-    expect(await message(h, { type: "GET_AI_CONSENT" }, "https://other.example/form")).toEqual({ accepted: false });
-    expect(await message(h, { type: "SET_AI_CONSENT", accepted: true }, "chrome://settings")).toEqual({ accepted: false });
-    await h.listeners.removed[0](61);
-    expect(await message(h, { type: "GET_AI_CONSENT" })).toEqual({ accepted: false });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await message(h, {
+      type: "API_REQUEST", endpoint: "/smart-apply/structured-prefill", method: "POST",
+      body: { fields: [{ id: "bank", label: "My bank account number" }] },
+    });
+    expect(response.error).toContain("Sensitive information");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("blocks a streaming AI request without consent", async () => {
+  it("blocks a streaming AI request without authentication", async () => {
     const h = await loadBackground(createChromeHarness());
     const listeners: Listener[] = [];
     const port = {
@@ -209,6 +205,6 @@ describe("background AI consent enforcement", () => {
     listeners[0]({ message: "Why this role?", questionText: "Why this role?" });
     await settle();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "error" }));
+    expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "error", kind: "auth" }));
   });
 });

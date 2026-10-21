@@ -1856,7 +1856,7 @@ export const useGetNativeStructuredPrefill = <
 };
 
 /**
- * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ * @summary Extension AI answer using saved application facts and filtered CV evidence, excluding private notes
  */
 export const getGenerateExtensionSmartApplyAnswerUrl = () => {
   return `/api/smart-apply/extension/assistant`;
@@ -1920,7 +1920,7 @@ export type GenerateExtensionSmartApplyAnswerMutationBody =
 export type GenerateExtensionSmartApplyAnswerMutationError = ErrorType<void>;
 
 /**
- * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ * @summary Extension AI answer using saved application facts and filtered CV evidence, excluding private notes
  */
 export const useGenerateExtensionSmartApplyAnswer = <
   TError = ErrorType<void>,
@@ -1945,7 +1945,7 @@ export const useGenerateExtensionSmartApplyAnswer = <
 };
 
 /**
- * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ * @summary Map saved application facts and filtered CV evidence to supported extension fields
  */
 export const getGetExtensionStructuredPrefillUrl = () => {
   return `/api/smart-apply/extension/structured-prefill`;
@@ -2012,7 +2012,7 @@ export type GetExtensionStructuredPrefillMutationBody =
 export type GetExtensionStructuredPrefillMutationError = ErrorType<void>;
 
 /**
- * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ * @summary Map saved application facts and filtered CV evidence to supported extension fields
  */
 export const useGetExtensionStructuredPrefill = <
   TError = ErrorType<void>,

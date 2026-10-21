@@ -128,6 +128,10 @@ function questionMetadata(question: DetectedQuestion, field: HTMLElement): strin
   ].join(" ");
 }
 
+function isRememberableField(field: Element | null): field is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  return !!field && ["INPUT", "TEXTAREA", "SELECT"].includes(field.tagName);
+}
+
 function controlType(field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): RememberedControlType | null {
   if (field.tagName === "TEXTAREA") return "textarea";
   if (field.tagName === "SELECT") return "select";
@@ -311,13 +315,13 @@ async function restoreAnswer(
   context: AnswerMatchContext,
 ): Promise<{ answer: RememberedAnswer; question: DetectedQuestion } | null> {
   const field = getQuestionField(question.id);
-  if (!field || fieldValue(field)) return null;
+  if (!isRememberableField(field) || fieldValue(field)) return null;
   const eligible = eligibility(question, field);
   if (!eligible) return null;
   const match = findBestRememberedAnswer(question, eligible.controlType, answers, context);
   if (!match) return null;
   const currentField = getQuestionField(question.id);
-  if (!currentField || fieldValue(currentField)) return null;
+  if (!isRememberableField(currentField) || fieldValue(currentField)) return null;
   if (!applyRememberedValue(question.id, currentField, match.answer.value)) return null;
   return { answer: match.answer, question };
 }
@@ -495,7 +499,7 @@ export function createAnswerMemoryController(
 
     for (const question of questions) {
       const field = getQuestionField(question.id);
-      if (!field || !eligibility(question, field)) {
+      if (!isRememberableField(field) || !eligibility(question, field)) {
         unbind(question.id);
         continue;
       }

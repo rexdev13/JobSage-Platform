@@ -58,6 +58,10 @@ function extractCleanText(root: Element): string {
     "input",
     "select",
     "textarea",
+    "[contenteditable]",
+    "[data-testid*='candidate' i]",
+    "[class*='cv-preview' i]",
+    "[class*='resume-preview' i]",
     "label",
     "[role='navigation']",
     "[role='banner']",
@@ -94,6 +98,8 @@ function getDescription(): string {
     // Workday
     "[data-automation-id='jobPostingDescription']",
     "[data-automation-id='job-posting-description']",
+    "[itemprop='description']",
+    "[role='main'] .description",
     // Generic
     "article",
     "main .description",
@@ -109,8 +115,24 @@ function getDescription(): string {
       if (text.length > 100) return text.slice(0, 3000);
     }
   }
-  // Do not send arbitrary page text (for example a candidate summary or CV
-  // preview) to AI when the page has no recognisable job-description region.
+  // Structured job postings retain useful context on sites with unusual HTML.
+  for (const script of Array.from(document.querySelectorAll('script[type="application/ld+json"]'))) {
+    try {
+      const parsed = JSON.parse(script.textContent ?? "");
+      const nodes: unknown[] = Array.isArray(parsed) ? parsed : [parsed, ...(Array.isArray(parsed?.["@graph"]) ? parsed["@graph"] : [])];
+      for (const node of nodes) {
+        if (!node || typeof node !== "object") continue;
+        const posting = node as Record<string, unknown>;
+        const types = Array.isArray(posting["@type"]) ? posting["@type"] : [posting["@type"]];
+        if (!types.includes("JobPosting") || typeof posting.description !== "string") continue;
+        const container = document.createElement("div");
+        container.innerHTML = posting.description;
+        const text = extractCleanText(container);
+        if (text.length > 100) return text.slice(0, 3000);
+      }
+    } catch { /* malformed structured data must not stop normal detection */ }
+  }
+  // Never use arbitrary candidate/profile page text as a job description.
   return "";
 }
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   detectSubmissionSignal,
   retryTrackedApplicationConfirmation,
@@ -59,9 +59,47 @@ describe("detectSubmissionSignal", () => {
       detectSubmissionSignal(document, "https://apply.example.org/confirmation"),
     ).toBeNull();
   });
+
+  it.each([
+    "<h1>Your application was not submitted</h1>",
+    "<div role='status'>Your application will be submitted after review</div>",
+    "<div role='status' hidden>Your application has been submitted</div>",
+    "<div style='display:none'><h1>Application submitted</h1></div>",
+    "<p>Once your application has been submitted, we will contact you.</p>",
+  ])("rejects hidden, negative and instructional confirmation text", (html) => {
+    document.body.innerHTML = html;
+    expect(detectSubmissionSignal(document, "https://apply.example.org/form")).toBeNull();
+  });
+
+  it("does not trust a generic thank-you route or a confirmation URL inside a query parameter", () => {
+    expect(detectSubmissionSignal(document, "https://apply.example.org/thank-you")).toBeNull();
+    expect(detectSubmissionSignal(document, "https://apply.example.org/form?next=/application-submitted")).toBeNull();
+  });
 });
 
 describe("watchForSubmissionConfirmation", () => {
+  it("detects an existing hidden success message only when it becomes visible", async () => {
+    document.body.innerHTML = "<div role='status' hidden>We have received your application.</div>";
+    const callback = vi.fn();
+    const stop = watchForSubmissionConfirmation(callback);
+    expect(callback).not.toHaveBeenCalled();
+    document.querySelector("div")!.removeAttribute("hidden");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(callback).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it("detects URL-only SPA confirmation without requiring a DOM mutation", async () => {
+    vi.useFakeTimers();
+    const callback = vi.fn();
+    const stop = watchForSubmissionConfirmation(callback);
+    history.pushState({}, "", "/application-submitted");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(callback).toHaveBeenCalledTimes(1);
+    stop();
+    history.replaceState({}, "", "/");
+    vi.useRealTimers();
+  });
   it("fires once when a single-page form renders a trustworthy success message", async () => {
     let signals = 0;
     const stop = watchForSubmissionConfirmation(() => {

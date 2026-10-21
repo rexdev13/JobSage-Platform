@@ -138,6 +138,7 @@ function InstallInstructions() {
         Add to Chrome
         <ExternalLink className="h-3 w-3 opacity-80" />
       </a>
+      <p className="text-xs text-muted-foreground">AI is used</p>
       <p className="text-xs text-muted-foreground">
         The assistant opens automatically when you start a tracked application from JOBSAGE. On an untracked employer
         page, click the JOBSAGE extension icon and choose <span className="font-medium text-foreground">Use JOBSAGE on this page</span>.

@@ -402,11 +402,8 @@ export const GetNativeStructuredPrefillResponse = zod.object({
 });
 
 /**
- * @summary Consent-gated extension AI answer using selected professional facts, never raw CV or private notes
+ * @summary Extension AI answer using saved application facts and filtered CV evidence, excluding private notes
  */
-export const GenerateExtensionSmartApplyAnswerHeader = zod.object({
-  "X-Jobsage-AI-Consent": zod.enum(["smart-apply-ai-2026-10-20"]),
-});
 
 export const generateExtensionSmartApplyAnswerBodyMessageMax = 12000;
 
@@ -447,12 +444,8 @@ export const GenerateExtensionSmartApplyAnswerBody = zod.object({
 });
 
 /**
- * @summary Consent-gated mapping from selected professional facts, never raw CV or private notes
+ * @summary Map saved application facts and filtered CV evidence to supported extension fields
  */
-export const GetExtensionStructuredPrefillHeader = zod.object({
-  "X-Jobsage-AI-Consent": zod.enum(["smart-apply-ai-2026-10-20"]),
-});
-
 export const getExtensionStructuredPrefillBodyFieldsMax = 40;
 
 export const GetExtensionStructuredPrefillBody = zod.object({

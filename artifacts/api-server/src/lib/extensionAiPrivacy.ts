@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { EXTENSION_AI_CONSENT_VERSION, hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
+import { hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
 import { GenerateExtensionSmartApplyAnswerBody, GetExtensionStructuredPrefillBody } from "@workspace/api-zod";
 
 export function isExtensionAiRequest(req: Request): boolean {
@@ -8,10 +8,6 @@ export function isExtensionAiRequest(req: Request): boolean {
 
 export function rejectUnsafeExtensionAi(req: Request, res: Response): boolean {
   if (!isExtensionAiRequest(req)) return false;
-  if (req.get("X-Jobsage-AI-Consent") !== EXTENSION_AI_CONSENT_VERSION) {
-    res.status(403).json({ error: "Affirmative extension AI consent is required." });
-    return true;
-  }
   const schema = req.path.endsWith("/assistant") ? GenerateExtensionSmartApplyAnswerBody : GetExtensionStructuredPrefillBody;
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -26,15 +22,25 @@ export function rejectUnsafeExtensionAi(req: Request, res: Response): boolean {
   return false;
 }
 
-/** Only these professional facts may enter extension AI prompts. Never raw CV/notes. */
+/** Account facts used for exact answers; private notes and sensitive disclosures stay out. */
 export function extensionProfessionalEvidence(profile: Record<string, unknown>): string {
   const keys = ["profession", "specialty", "qualificationCountry", "qualificationType",
     "qualificationYear", "experienceYears", "registrationStatus", "languages",
-    "preferredStartDate"];
+    "preferredStartDate", "phone", "streetAddress", "city", "postcode", "country",
+    "requiresSponsorship", "residencyStatus"];
   return keys.flatMap((key) => {
     const value = profile[key];
     if (value == null) return [];
     const text = Array.isArray(value) ? value.join(", ") : String(value);
     return hasSensitiveValue(text) ? [] : [`${key}: ${text.slice(0, 300)}`];
   }).join("\n");
+}
+
+/** Keep professional CV evidence while excluding common sensitive disclosure lines. */
+export function extensionCvEvidence(text: string): string {
+  return text.split(/\r?\n/).filter((line) =>
+    !hasSensitiveValue(line)
+    && !/\b(?:date of birth|dob|passport|national insurance|marital status|religion|ethnicity|sexual orientation|bank details|medical history)\b/i.test(line),
+  ).join("\n").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email omitted; use JOBSAGE address]")
+    .slice(0, 6000);
 }

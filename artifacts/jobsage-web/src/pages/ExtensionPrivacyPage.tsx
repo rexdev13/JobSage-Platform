@@ -20,7 +20,7 @@ export default function ExtensionPrivacyPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">JOBSAGE Smart Apply — Privacy Policy</h1>
         </div>
-        <p className="text-sm text-muted-foreground mb-10">Last updated: 20 October 2026</p>
+        <p className="text-sm text-muted-foreground mb-10">Last updated: 21 October 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed text-foreground">
           <section>
@@ -47,7 +47,8 @@ export default function ExtensionPrivacyPage() {
                 is available on HTTPS pages. On an application started from JOBSAGE, or a page you activate from
                 the extension icon, the helper reads form labels/options, supported field values and job context.
                 It uses application URLs and redirect metadata to associate the correct role with your tracker.
-                Sensitive candidate-only controls are not read for completion status, remembered or filled by AI.
+                Sensitive candidate-only controls are checked locally only to show whether you completed them.
+                Their answers are not remembered, sent for AI processing or filled by AI.
               </li>
               <li>
                 <span className="font-medium text-foreground">Local extension storage.</span> The extension stores
@@ -56,7 +57,7 @@ export default function ExtensionPrivacyPage() {
                 question, source hostname/path, employer scope and usage timestamps. Application URL query strings
                 are not saved in new answer-library records. Turning remembering off stops saving and reuse;
                 individual and Delete all controls erase saved answers. Session storage contains tab activation,
-                AI consent and application-link/redirect context. The extension does not persist the full profile,
+                application-link/redirect context. The extension does not persist the full profile,
                 CV or session credential in extension storage. These records are not a general browsing history.
               </li>
             </ul>
@@ -65,16 +66,16 @@ export default function ExtensionPrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold mb-2">Where data goes</h2>
             <p className="text-muted-foreground">
-              Authenticated extension API requests go to JOBSAGE (jobsage.co.uk) over HTTPS. Before AI mapping
-              or drafting, the helper explains the transfer and asks you to allow it. If you agree, JOBSAGE sends
+              Authenticated extension API requests go to JOBSAGE (jobsage.co.uk) over HTTPS. For AI mapping
+              or drafting, JOBSAGE sends
               the question, field labels/options, job context and selected professional profile facts to OpenAI
-              through Replit AI Integrations. This extension AI flow does not automatically send raw CV text,
-              private profile notes, contact details or residency information. It may leave history fields blank
-              when the selected facts are insufficient. Do not put health, financial or identity-document details
+              through Replit AI Integrations. Relevant CV text and saved application facts can be used to fill
+              supported fields and draft answers. Common sensitive disclosure lines and personal email addresses
+              are filtered from CV text before AI processing; these checks are not a guarantee of complete redaction.
+              Private profile notes are excluded, and employer email fields use your JOBSAGE address.
+              Fields stay blank when the saved facts are insufficient. Do not put health, financial or identity-document details
               into AI requests or remembered answers; automated content checks are safeguards, not a guarantee
-              that every sensitive phrase can be recognised. Refusing AI does not disable basic profile fill,
-              CV attachment or tracking. Consent applies to this tab and site during the browser session and can
-              be withdrawn with “Turn off AI assistance”; already processed requests cannot be recalled.
+              that every sensitive phrase can be recognised.
             </p>
             <p className="text-muted-foreground mt-3">
               When the helper mounts, it requests Google Fonts CSS from fonts.googleapis.com and font files from

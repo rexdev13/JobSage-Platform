@@ -18,7 +18,8 @@ import {
 import { statutoryRegulatorForCategory } from "../lib/professionCategory";
 import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 import { getCandidateRoleLocationStatus } from "../lib/candidateVacancyLocation";
-import { extensionProfessionalEvidence, isExtensionAiRequest, rejectUnsafeExtensionAi } from "../lib/extensionAiPrivacy";
+import { extensionProfessionalEvidence, extensionCvEvidence, isExtensionAiRequest, rejectUnsafeExtensionAi } from "../lib/extensionAiPrivacy";
+import { requiresPersonalConfirmation } from "@workspace/smart-apply-core/privacy";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -81,14 +82,12 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
   });
 });
 
-const STRUCTURED_PREFILL_SENSITIVE_PATTERN =
-  /\b(caution|criminal|conviction|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|national insurance|ni number|passport|date of birth|dob|declaration|consent|right to work|rtw|work permit|sponsorship|current employee|currently work|bank account|sort code|marital|dependant|next of kin)\b/i;
 
 router.post(["/smart-apply/structured-prefill", "/smart-apply/extension/structured-prefill"], requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   if (rejectUnsafeExtensionAi(req, res)) return;
   const extensionRequest = isExtensionAiRequest(req);
   const rawFields = Array.isArray(req.body?.fields) ? req.body.fields : [];
-  const fields = rawFields
+  const fields: Array<{ id: string; label: string; controlType: string; options: string[] }> = rawFields
     .slice(0, 120)
     .flatMap((field: unknown) => {
       if (!field || typeof field !== "object") return [];
@@ -99,7 +98,7 @@ router.post(["/smart-apply/structured-prefill", "/smart-apply/extension/structur
       const options = Array.isArray(candidate.options)
         ? candidate.options.filter((option): option is string => typeof option === "string").slice(0, 80).map((option) => option.slice(0, 200))
         : [];
-      if (!id || !label || STRUCTURED_PREFILL_SENSITIVE_PATTERN.test(label)) return [];
+      if (!id || !label || requiresPersonalConfirmation(label)) return [];
       return [{ id, label, controlType, options }];
     });
   if (fields.length === 0) {
@@ -112,13 +111,31 @@ router.post(["/smart-apply/structured-prefill", "/smart-apply/extension/structur
     res.status(400).json({ error: "Profile not found. Please complete your profile first." });
     return;
   }
-  const cvText = extensionRequest ? null : await fetchSmartApplyCvText(req.user!.id);
+  const cvText = await fetchSmartApplyCvText(req.user!.id, extensionRequest);
   const firstName = req.user!.firstName ?? "";
   const lastName = req.user!.lastName ?? "";
   const jobsageEmail = await ensureCanonicalJobsageAlias(req.user!.id, firstName, lastName);
+  // Contact email is an exact account fact, not an AI inference. Keep it out
+  // of the model prompt and never substitute the candidate's login email.
+  const emailFields = new Set(fields.filter((field) =>
+    ["text", "email"].includes(field.controlType)
+    && /^(?:(?:your|contact|confirm|confirm your|re-enter|repeat)\s+)?e-?mail(?:\s+address)?(?:\s+confirmation)?\s*[:*]?$/i.test(field.label),
+  ).map((field) => field.id));
+  const directValues = fields.filter((field) => emailFields.has(field.id))
+    .map((field) => ({ id: field.id, value: jobsageEmail }));
+  const aiFields = fields.filter((field) => !emailFields.has(field.id));
+  if (aiFields.length === 0) {
+    res.json({ values: directValues });
+    return;
+  }
   const roleTitle = typeof req.body?.jobTitle === "string" ? req.body.jobTitle.trim().slice(0, 300) : "";
   const employer = typeof req.body?.employer === "string" ? req.body.employer.trim().slice(0, 300) : "";
-  const evidence = extensionRequest ? extensionProfessionalEvidence(profile as unknown as Record<string, unknown>) : `
+  const evidence = extensionRequest ? [
+    `Name: ${[firstName, lastName].filter(Boolean).join(" ")}`,
+    extensionProfessionalEvidence(profile as unknown as Record<string, unknown>),
+    `Vacancy: ${roleTitle}${employer ? ` at ${employer}` : ""}`,
+    `CV extract:\n${cvText ?? "Unavailable"}`,
+  ].join("\n") : `
 Candidate:
 - Name: ${[firstName, lastName].filter(Boolean).join(" ")}
 - Email: ${jobsageEmail}
@@ -143,12 +160,14 @@ Rules:
 - Return a value only when it is explicitly supported by the profile or CV.
 - Never invent an employer, role, duty, qualification, course, trainer, date, reason for leaving, reference, achievement, or sick-day count.
 - For repeated employment, education, qualification, or training groups, map records newest-first and respect the row number in the label.
-- Use concise factual values, not essay prose.
+- Use concise factual values for short controls. For supporting statements or experience/motivation questions in long-text controls, write a relevant first-person draft grounded only in the supplied facts.
+- Obey word/character limits stated in the field label.
+- Work eligibility, sponsorship and employment status may be filled only when explicitly supported; never infer legal status from nationality, location or qualifications.
 - For select/radio controls, use one option exactly as written or null.
 - Return null when evidence is missing or ambiguous.
 
 Fields:
-${JSON.stringify(fields)}
+${JSON.stringify(aiFields)}
 
 Evidence:
 ${evidence}
@@ -183,7 +202,7 @@ Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
     } catch {
       parsed = {};
     }
-    const allowedIds = new Set(fields.map((field: { id: string }) => field.id));
+    const allowedIds = new Set(aiFields.map((field: { id: string }) => field.id));
     const values = Array.isArray(parsed.values)
       ? parsed.values.flatMap((entry) => {
           if (!entry || typeof entry !== "object") return [];
@@ -193,14 +212,14 @@ Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
           return allowedIds.has(id) ? [{ id, value: value || null }] : [];
         })
       : [];
-    res.json({ values });
+    res.json({ values: [...directValues, ...values] });
   } catch (error) {
     console.error("[smart-apply-structured-prefill] mapping error:", error);
     res.status(503).json({ error: "Could not map your saved profile and CV details right now. Please retry." });
   }
 });
 
-async function fetchSmartApplyCvText(userId: string): Promise<string | null> {
+async function fetchSmartApplyCvText(userId: string, forExtension = false): Promise<string | null> {
   try {
     const [cv] = await db
       .select()
@@ -218,7 +237,8 @@ async function fetchSmartApplyCvText(userId: string): Promise<string | null> {
       };
     };
     const parsed = await new PDFParse({ data: buffer }).getText();
-    return parsed.text?.replace(/\s+/g, " ").trim().slice(0, 6000) || null;
+    const text = forExtension ? extensionCvEvidence(parsed.text ?? "") : parsed.text;
+    return text?.replace(/\s+/g, " ").trim().slice(0, 6000) || null;
   } catch {
     // CV context improves a draft when available but must never stop an application.
     return null;
@@ -524,7 +544,7 @@ router.post(["/smart-apply/assistant", "/smart-apply/extension/assistant"], requ
     return;
   }
   const exactQuestion = (questionText ?? question ?? userMessage).trim();
-  if (/\b(caution|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|declaration|consent|agree(?:ment)?|payroll|tax declaration|national insurance|ni number|passport|date of birth|dob)\b/i.test(exactQuestion)) {
+  if (requiresPersonalConfirmation(exactQuestion)) {
     res.status(422).json({
       error: "JOBSAGE can't generate an answer because this question asks you to confirm sensitive or personal information. Please review it and answer it yourself.",
     });
@@ -605,8 +625,11 @@ router.post(["/smart-apply/assistant", "/smart-apply/extension/assistant"], requ
     }
   }
 
-  const cvText = extensionRequest ? null : await fetchSmartApplyCvText(userId);
-  const profileSummary = extensionRequest ? extensionProfessionalEvidence(profile as unknown as Record<string, unknown>) : `Candidate profile:
+  const cvText = await fetchSmartApplyCvText(userId, extensionRequest);
+  const profileSummary = extensionRequest ? [
+    extensionProfessionalEvidence(profile as unknown as Record<string, unknown>),
+    `CV extract:\n${cvText ?? "Unavailable"}`,
+  ].join("\n") : `Candidate profile:
 - Profession: ${profile.profession.replace(/_/g, " ")}
 - Specialty: ${profile.specialty ?? "General"}
 - Qualification: ${profile.qualificationType ?? "Unknown"} from ${profile.qualificationCountry ?? "International"} (${profile.qualificationYear ?? "?"})
@@ -640,7 +663,7 @@ Guidelines:
 - Keep responses concise and actionable
 - Use only facts explicitly stated in the profile, CV extract, and role context. Never invent employers, duties, registrations, qualifications, achievements, dates, or personal circumstances.
 - If the information does not support a specific claim, say what the candidate needs to add instead of drafting a fictional claim.
-- Never produce an answer for cautions, criminal records, DBS, health/medical, disability, diversity/equal-opportunities, declarations, consent, payroll, National Insurance, passport, or date-of-birth fields; those require the candidate's own confirmation.`;
+- Never produce answers to personal health/disability disclosures, criminal records, diversity/equal-opportunities, declarations, consent, payroll, bank details, identity-document or date-of-birth fields; those require the candidate's own confirmation. Professional healthcare experience and training questions are not personal health disclosures.`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

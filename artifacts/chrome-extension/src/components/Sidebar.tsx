@@ -8,7 +8,6 @@ import type { PrefillResult } from "../lib/prefill";
 import type { CvAttachResult } from "../lib/cvAttachment";
 import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
 import { assistantErrorMessageFor, SENSITIVE_QUESTION_BLOCK_MESSAGE } from "../lib/assistantErrors";
-import { requestAiConsent } from "../lib/aiConsent";
 import { hasSensitiveValue } from "@workspace/smart-apply-core/privacy";
 
 const COLORS = {
@@ -626,10 +625,6 @@ export function Sidebar({
       setError("Remove health, financial or identity-document details from your AI request. Answer sensitive questions directly on the employer site.");
       return;
     }
-    if (!await requestAiConsent()) {
-      setError("AI assistance is off. No AI request was sent.");
-      return;
-    }
     generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
   };
 
@@ -1012,12 +1007,6 @@ export function Sidebar({
             Filled details and attached CVs are available to this employer site, which may autosave before submission.
             {" "}<a href="https://jobsage.co.uk/extension-privacy" target="_blank" rel="noreferrer">Privacy policy</a>
           </p>
-          <button type="button" onClick={() => {
-            cancel("AI assistance turned off.");
-            void chrome.runtime.sendMessage({ type: "SET_AI_CONSENT", accepted: false }).then(() => {
-              setError("AI assistance is off. You will be asked again before another AI request.");
-            });
-          }} style={{ padding: 8, cursor: "pointer" }}>Turn off AI assistance</button>
            <section
              style={{
                padding: "10px 12px",
@@ -1417,8 +1406,10 @@ export function Sidebar({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {detected.map((dq) => {
                   const active = dq.id === selectedId;
-                  const answered = dq.bucket !== "confirmation" && isQuestionAnswered(dq.id);
-                  const completionLabel = dq.bucket === "confirmation" ? "Review yourself" : answered ? "Answered" : "Unanswered";
+                  const answered = isQuestionAnswered(dq.id);
+                  const completionLabel = dq.bucket === "confirmation"
+                    ? answered ? "Answered — review yourself" : "Review yourself"
+                    : answered ? "Answered" : "Unanswered";
                   const answerColor = answered ? COLORS.successText : COLORS.errorText;
                   const hint = limitHint(dq);
                   const restoredFromMemory = library.restoredQuestionIds.includes(dq.id);

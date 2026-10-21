@@ -30,7 +30,7 @@ export async function retryTrackedApplicationConfirmation(
 }
 
 const CONFIRMATION_URL_PATTERNS = [
-  /\/(?:application[-_]?submitted|application[-_]?complete|apply[-_]?success|apply\/success|thank[-_]?you|thankyou)(?:[/?#]|$)/i,
+  /\/(?:application[-_]?submitted|application[-_]?complete|application\/submitted|apply[-_]?success|apply\/success)(?:\/|$)/i,
 ];
 
 const CONFIRMATION_TEXT_PATTERNS = [
@@ -39,10 +39,25 @@ const CONFIRMATION_TEXT_PATTERNS = [
   /\bsuccessfully applied\b/i,
   /\bthank you for (?:your )?application\b/i,
   /\bthank you for applying\b/i,
+  /\bwe (?:have |have successfully )?received your application\b/i,
+  /\byour application has (?:now )?been successfully submitted\b/i,
+  /\byou have successfully submitted your application\b/i,
 ];
 
 function hasConfirmationText(text: string | null | undefined): boolean {
-  return CONFIRMATION_TEXT_PATTERNS.some((pattern) => pattern.test(text ?? ""));
+  return (text ?? "").split(/[.!?\n]+/).some((sentence) =>
+    !/\b(?:not|never|failed|unsuccessful|once|when|before|until|will be|would be|can be)\b/i.test(sentence)
+    && CONFIRMATION_TEXT_PATTERNS.some((pattern) => pattern.test(sentence)),
+  );
+}
+
+function isVisibleConfirmation(element: Element): boolean {
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    if (node.matches("[hidden], [aria-hidden='true'], template, script")) return false;
+    const style = node.ownerDocument.defaultView?.getComputedStyle(node);
+    if (style?.display === "none" || style?.visibility === "hidden") return false;
+  }
+  return true;
 }
 
 /**
@@ -54,23 +69,25 @@ export function detectSubmissionSignal(
   doc: Document = document,
   href: string = location.href,
 ): SubmissionSignal | null {
-  if (CONFIRMATION_URL_PATTERNS.some((pattern) => pattern.test(href))) {
+  let pathname = "";
+  try { pathname = new URL(href).pathname; } catch { /* rely on page evidence */ }
+  if (CONFIRMATION_URL_PATTERNS.some((pattern) => pattern.test(pathname))) {
     return { source: "confirmation_url" };
   }
 
   const headings = Array.from(
     doc.querySelectorAll("h1, h2, h3, [role='heading']"),
   );
-  if (headings.some((heading) => hasConfirmationText(heading.textContent))) {
+  if (headings.some((heading) => isVisibleConfirmation(heading) && hasConfirmationText(heading.textContent))) {
     return { source: "confirmation_heading" };
   }
 
   const successMessages = Array.from(
     doc.querySelectorAll(
-      "[role='alert'], [role='status'], .alert-success, .success, [class*='success' i], [data-automation-id*='success' i]",
+      "[role='alert'], [role='status'], [aria-live='polite'], [aria-live='assertive'], .alert-success, .success, [class*='success' i], [data-automation-id*='success' i]",
     ),
   );
-  if (successMessages.some((message) => hasConfirmationText(message.textContent))) {
+  if (successMessages.some((message) => isVisibleConfirmation(message) && hasConfirmationText(message.textContent))) {
     return { source: "success_message" };
   }
 
@@ -88,22 +105,37 @@ export function watchForSubmissionConfirmation(
 ): () => void {
   let completed = false;
   let observer: MutationObserver | null = null;
+  let interval: ReturnType<typeof setInterval> | null = null;
+  const stop = () => {
+    observer?.disconnect();
+    if (interval !== null) clearInterval(interval);
+    doc.defaultView?.removeEventListener("pagehide", stop);
+    doc.defaultView?.removeEventListener("popstate", evaluate);
+  };
 
   const evaluate = () => {
     if (completed) return;
-    const signal = detectSubmissionSignal(doc);
+    const signal = detectSubmissionSignal(doc, doc.location?.href ?? location.href);
     if (!signal) return;
     completed = true;
-    observer?.disconnect();
+    stop();
     onConfirmed(signal);
   };
 
   evaluate();
   if (completed || !doc.documentElement) return () => undefined;
 
-  observer = new MutationObserver(evaluate);
-  observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
-  return () => observer?.disconnect();
+  const Observer = doc.defaultView?.MutationObserver ?? MutationObserver;
+  observer = new Observer(evaluate);
+  observer.observe(doc.documentElement, {
+    childList: true, subtree: true, characterData: true, attributes: true,
+    attributeFilter: ["hidden", "aria-hidden", "class", "style", "role"],
+  });
+  // pushState/replaceState do not emit popstate and may change no DOM.
+  interval = setInterval(evaluate, 1000);
+  doc.defaultView?.addEventListener("popstate", evaluate);
+  doc.defaultView?.addEventListener("pagehide", stop);
+  return stop;
 }
 
 export interface AutomaticConfirmationToastCallbacks {

@@ -1,4 +1,4 @@
-type WritableField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+type WritableField = HTMLElement;
 
 const extensionWrites = new WeakSet<WritableField>();
 const extensionValues = new WeakMap<WritableField, string>();
@@ -8,7 +8,7 @@ function valueFingerprint(field: WritableField): string {
     const input = field as HTMLInputElement;
     return `${input.checked ? "checked" : "unchecked"}:${input.value}`;
   }
-  return field.value;
+  return "value" in field ? String(field.value) : field.textContent ?? "";
 }
 
 /**

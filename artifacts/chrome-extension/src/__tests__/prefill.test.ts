@@ -3,6 +3,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { isConfidentAuthenticatedAccountPage, prefillPersonalDetails } from "../lib/prefill";
 import { findCvFileInput } from "../lib/cvAttachment";
 
+describe("production JOBSAGE email compatibility", () => {
+  it.each(["jane.synthetic@mail.jobsage.co.uk", "jane.synthetic@mail.jobsage.app"])("fills the verified alias %s", (email) => {
+    document.body.innerHTML = '<label for="prod-email">Email address</label><input id="prod-email" type="email" required>';
+    prefillPersonalDetails({ email }, document);
+    expect((document.getElementById("prod-email") as HTMLInputElement).value).toBe(email);
+  });
+
+  it("does not replace a JOBSAGE alias with a personal email", () => {
+    document.body.innerHTML = '<label for="prod-email">Email address</label><input id="prod-email" type="email">';
+    prefillPersonalDetails({ email: "candidate@example.test" }, document);
+    expect((document.getElementById("prod-email") as HTMLInputElement).value).toBe("");
+  });
+});
+
 beforeEach(() => {
   document.body.innerHTML = "";
 });
