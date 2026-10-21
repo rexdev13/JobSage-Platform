@@ -37,7 +37,7 @@ import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal, safeLinkLogContext, showInAppContactLink } from "@/lib/external-links";
 import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
 import { workspaceEntryPath } from "@/lib/workspace-entry-path";
-import { workspaceBridgeScript } from "@/lib/workspace-bridge";
+import { workspaceBridgeRejectionReason, workspaceBridgeScript } from "@/lib/workspace-bridge";
 import {
   INITIAL_WORKSPACE_LOAD_STATE,
   isWorkspaceLoadBlocking,
@@ -181,7 +181,9 @@ export default function WorkspaceScreen() {
           uri: `${WORKSPACE_ORIGIN}/api/auth/mobile/session-exchange`,
           method: "POST",
           body,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          // Android postUrl uses form encoding and ignores custom headers.
+          // Supplying them only emits a warning on every WebView render.
+          headers: Platform.OS === "android" ? undefined : { "Content-Type": "application/x-www-form-urlencoded" },
         });
       } catch (e) {
         if (!alive) return;
@@ -284,6 +286,7 @@ export default function WorkspaceScreen() {
 
   const handleApplication = useCallback(async (applicationId: number) => {
     const initiatingToken = tokenRef.current;
+    if (__DEV__) console.info("[JOBSAGE] Apply handoff", { stage: "received", nativeSessionPresent: !!initiatingToken });
     if (!initiatingToken) {
       Alert.alert("Sign in required", "Please sign in to open this application.");
       return;
@@ -291,6 +294,7 @@ export default function WorkspaceScreen() {
     try {
       const ctx = await getMobileApplicationContext(applicationId);
       if (tokenRef.current !== initiatingToken) return;
+      if (__DEV__) console.info("[JOBSAGE] Apply handoff", { stage: "context-loaded" });
       const where = [ctx.jobTitle, ctx.companyName].filter(Boolean).join(" at ");
       Alert.alert(
         "Open employer application?",
@@ -298,11 +302,13 @@ export default function WorkspaceScreen() {
         [
           { text: "Cancel", style: "cancel" },
           { text: "Continue", onPress: () => {
+            if (__DEV__) console.info("[JOBSAGE] Apply handoff", { stage: "continue", sessionUnchanged: tokenRef.current === initiatingToken });
             if (tokenRef.current === initiatingToken) setAppContext(ctx);
           } },
         ],
       );
-    } catch {
+    } catch (error) {
+      console.warn("[JOBSAGE] Apply handoff failed", { stage: "context-request", status: errorStatus(error) ?? null });
       Alert.alert("Application unavailable", "We could not open this application. Please try again.");
     }
   }, []);
@@ -313,18 +319,34 @@ export default function WorkspaceScreen() {
   }, []);
 
   const onMessage = useCallback((event: WebViewMessageEvent) => {
-    if (!proof || !WORKSPACE_ORIGIN) return;
-    // Only the OS-reported WebView URL is trusted; the page's claimed URL must match it.
+    if (!proof || !WORKSPACE_ORIGIN) {
+      if (__DEV__) console.warn("[JOBSAGE] Workspace message rejected", { reason: "native-not-ready" });
+      return;
+    }
+    // Trust only an OS-reported first-party origin. Android's reported path can
+    // lag behind pushState; the channel-bound page must still share that origin.
     const actualUrl = event.nativeEvent.url;
-    if (typeof actualUrl !== "string" || !isFirstPartyUrl(actualUrl)) return;
+    if (typeof actualUrl !== "string" || !isFirstPartyUrl(actualUrl)) {
+      if (__DEV__) console.warn("[JOBSAGE] Workspace message rejected", { reason: "non-first-party-native-url" });
+      return;
+    }
     const message = validateWorkspaceMessage(event.nativeEvent.data, {
       origin: WORKSPACE_ORIGIN,
       navigationUrl: actualUrl,
       channel: proof.channel,
+      allowSameOriginNavigation: Platform.OS === "android",
     });
-    if (!message) return;
+    if (!message) {
+      if (__DEV__) console.warn("[JOBSAGE] Workspace message rejected", {
+        reason: workspaceBridgeRejectionReason(event.nativeEvent.data, {
+          origin: WORKSPACE_ORIGIN, navigationUrl: actualUrl, channel: proof.channel,
+          allowSameOriginNavigation: Platform.OS === "android",
+        }),
+      });
+      return;
+    }
     // Recover from SPA pushState where onNavigationStateChange may lag.
-    if (!actualUrl.includes("/api/auth/mobile/session-exchange")) lastUrl.current = actualUrl;
+    if (!message.url.includes("/api/auth/mobile/session-exchange")) lastUrl.current = message.url;
     switch (message.type) {
       case "ready":
         return;

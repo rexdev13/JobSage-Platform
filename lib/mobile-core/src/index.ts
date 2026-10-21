@@ -53,6 +53,9 @@ export type { AIReportReason } from "./ai-report";
 
 export function validateWorkspaceMessage(raw: string, options: {
   origin: string; navigationUrl: string; channel: string; now?: number;
+  /** Android WebView can retain the document-load URL after SPA navigation.
+   * Opt in only for the first-party workspace; both origins remain mandatory. */
+  allowSameOriginNavigation?: boolean;
 }): WorkspaceMessage | null {
   if (raw.length > 12_000) return null;
   try {
@@ -66,7 +69,8 @@ export function validateWorkspaceMessage(raw: string, options: {
     if (message.channel !== options.channel || Math.abs(now - message.timestamp) > 60_000
       || new URL(message.url).origin !== options.origin
       || new URL(options.navigationUrl).origin !== options.origin
-      || new URL(message.url).href !== new URL(options.navigationUrl).href) return null;
+      || (!options.allowSameOriginNavigation
+        && new URL(message.url).href !== new URL(options.navigationUrl).href)) return null;
     return message;
   } catch { return null; }
 }

@@ -58,6 +58,7 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
   const [canGoForward, setCanGoForward] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [httpErrorStatus, setHttpErrorStatus] = useState<number | null>(null);
   const [busy, setBusy] = useState<"cv" | "confirm" | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const channel = useMemo(() => createSmartApplyChannel(), [context.id]);
@@ -282,7 +283,8 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open Smart Apply assistant"
-            accessibilityState={{ expanded: assistantOpen }}
+            accessibilityState={{ expanded: assistantOpen, disabled: !!loadError }}
+            disabled={!!loadError}
             onPress={() => {
               setAssistantOpen((o) => !o);
               if (!scan) send({ type: "scan" });
@@ -320,12 +322,33 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
                 setLoading(true);
               }}
               onLoadEnd={() => setLoading(false)}
+              onHttpError={(e) => {
+                const { url, statusCode } = e.nativeEvent;
+                // Failed images/scripts must not replace a working main page.
+                if (statusCode < 400 || url.split("#")[0] !== currentUrlRef.current.split("#")[0]) return;
+                console.warn("[SmartApply] employer HTTP response blocked loading", {
+                  host: safeLinkLogContext(url).host, status: statusCode,
+                });
+                setHttpErrorStatus(statusCode);
+                setLoadError(statusCode === 403 || statusCode === 401
+                  ? `The employer's website refused this request (HTTP ${statusCode}). Smart Apply cannot read the application form until the website allows it to load. You can retry, but JOBSAGE cannot override the website's access restrictions.`
+                  : `The employer's website could not load this page (HTTP ${statusCode}). Please retry later.`);
+                setLoading(false);
+                setScan(null);
+                setLastEvent(null);
+                setAssistantOpen(false);
+              }}
               onError={(e) => {
                 console.warn("[SmartApply] employer page load failed", {
                   host: safeLinkLogContext(e.nativeEvent.url).host,
                   code: e.nativeEvent.code,
                 });
+                setHttpErrorStatus(null);
                 setLoadError(e.nativeEvent.description || "The employer page could not be loaded.");
+                setLoading(false);
+                setScan(null);
+                setLastEvent(null);
+                setAssistantOpen(false);
               }}
               // Keep async ATS pop-ups working on Android; onOpenWindow routes
               // safe destinations into this browser and rejects unsafe links.
@@ -344,12 +367,17 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
           ) : (
             <View style={s.center}>
               <Feather name="alert-triangle" size={28} color={colors.destructive} />
-              <Text style={s.errTitle}>{startUrl ? "Page unavailable" : "Link not allowed"}</Text>
+              <Text style={s.errTitle}>{!startUrl ? "Link not allowed"
+                : httpErrorStatus === 403 || httpErrorStatus === 401 ? "Website refused access" : "Page unavailable"}</Text>
               <Text style={s.errBody}>
                 {startUrl ? loadError : "This application link is not a supported public web address, so it cannot be opened safely in JOBSAGE."}
               </Text>
               {startUrl ? (
-                <Pressable style={s.primary} onPress={() => setLoadError(null)} accessibilityRole="button">
+                <Pressable style={s.primary} onPress={() => {
+                  setHttpErrorStatus(null);
+                  setLoadError(null);
+                  setLoading(true);
+                }} accessibilityRole="button">
                   <Text style={s.primaryText}>Retry</Text>
                 </Pressable>
               ) : null}

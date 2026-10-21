@@ -18,3 +18,15 @@ Android bridge initialization must recover when document-start injection arrives
 **Why:** An early-only bootstrap can leave the website usable while native application handoff and its session setup never activate. Android also blocks some asynchronous browser pop-ups unless they are explicitly routed.
 
 **How to apply:** Keep bootstrap idempotent and origin/main-frame restricted, support after-load initialization, and let the website react to late native readiness. Keep the private verifier native-only. Route new-window intent through the existing destination policy and hand off tracked applications only after their save commits.
+
+Android's first-party workspace message policy must tolerate same-origin SPA route changes; an exact match against the OS-reported path is not reliable there. Keep exact-URL matching as the default for other callers and platforms.
+
+**Why:** Device logs confirmed `navigation-url-mismatch` after successful application saves: Android retained an older document URL while the website had navigated within the same origin. Rejecting that message prevented the native employer browser from opening.
+
+**How to apply:** Opt into same-origin navigation only for the Android first-party workspace. Still require the native-reported and claimed origins to equal the configured origin, plus the native channel, fresh timestamp, strict message schema, and account/reauthentication checks. Never extend this exception to employer-page Smart Apply messages. Retain reason-only rejection diagnostics without URLs, proofs, tokens, or profile content.
+
+Android WebView POST sources ignore custom headers; omit the source header map on Android while preserving the iOS form content type.
+
+**Why:** The Android implementation uses `postUrl` with form-encoded data and warns on every render when a source header map is supplied. The warning can obscure unrelated employer-page errors, despite successful session exchange.
+
+**How to apply:** Keep the exchange body form-encoded and credentials native-controlled. Do not hide all WebView warnings or change the session protocol just to remove this warning.

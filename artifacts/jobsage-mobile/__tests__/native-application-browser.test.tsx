@@ -65,6 +65,40 @@ afterEach(() => {
 });
 
 describe("Android Smart Apply browser", () => {
+  it("shows a readable access-denied state for a main-page 403 and lets the candidate retry", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const context = {
+      id: 73, applicationUrl: "https://employer.example.org/apply",
+      jobTitle: "Staff nurse", companyName: "Example Trust",
+    } as MobileApplicationContext;
+    const screen = await render(<NativeApplicationBrowser context={context} visible onClose={jest.fn()} />);
+    await fireEvent.press(screen.getByTestId("app-browser-assistant"));
+    await fireEvent(screen.getByTestId("employer-webview"), "httpError", {
+      nativeEvent: { url: context.applicationUrl, statusCode: 403 },
+    });
+    expect(screen.getByText("Website refused access")).toBeTruthy();
+    expect(screen.getByText(/HTTP 403/)).toBeTruthy();
+    expect(screen.queryByTestId("employer-webview")).toBeNull();
+    expect(screen.queryByTestId("smart-apply-panel")).toBeNull();
+    expect(screen.getByTestId("app-browser-assistant").props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByText("Retry"));
+    expect(screen.getByTestId("employer-webview").props.source.uri).toBe(context.applicationUrl);
+    expect(screen.queryByText("Website refused access")).toBeNull();
+  });
+
+  it("does not replace the application page when a subresource returns 403", async () => {
+    const context = {
+      id: 73, applicationUrl: "https://employer.example.org/apply",
+      jobTitle: "Staff nurse", companyName: "Example Trust",
+    } as MobileApplicationContext;
+    const screen = await render(<NativeApplicationBrowser context={context} visible onClose={jest.fn()} />);
+    await fireEvent(screen.getByTestId("employer-webview"), "httpError", {
+      nativeEvent: { url: "https://employer.example.org/logo.png", statusCode: 403 },
+    });
+    expect(screen.getByTestId("employer-webview")).toBeTruthy();
+    expect(screen.queryByText("Website refused access")).toBeNull();
+  });
+
   it("injects the assistant, permits safely handled async pop-ups, and opens its labeled control", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     const context = {
