@@ -2,7 +2,42 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ASSISTED_APPLICATION_EVENT, beginAssistedApplication, isRecentInProgress, shouldUseAssistedWorkspace } from "./assistedApplication";
 
 describe("assisted application tracking", () => {
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.innerHTML = ""; });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    delete window.__JOBSAGE_NATIVE__;
+    delete window.ReactNativeWebView;
+    document.body.innerHTML = "";
+  });
+
+  it("opens native Smart Apply exactly once after tracking commits, without a React relay or pop-up", async () => {
+    const postMessage = vi.fn();
+    window.__JOBSAGE_NATIVE__ = { version: 1, channel: "a".repeat(48), challenge: "b".repeat(64) };
+    window.ReactNativeWebView = { postMessage };
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    let finish!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+    const pending = beginAssistedApplication("https://board.example.org/jobs/41", {
+      title: "Nurse", employer: "Trust", roleId: 41,
+    });
+    expect(postMessage).not.toHaveBeenCalled();
+    finish(new Response(JSON.stringify({ id: 73, status: "in_progress" }), { status: 201 }));
+    await pending;
+    expect(open).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(JSON.parse(postMessage.mock.calls[0][0])).toMatchObject({ type: "application", applicationId: 73 });
+  });
+
+  it("does not hand an unsuccessful native application to the employer browser", async () => {
+    const postMessage = vi.fn();
+    window.__JOBSAGE_NATIVE__ = { version: 1, channel: "a".repeat(48), challenge: "b".repeat(64) };
+    window.ReactNativeWebView = { postMessage };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "Please retry" }), { status: 503 }),
+    ));
+    await beginAssistedApplication("https://board.example.org/jobs/41", { roleId: 41 });
+    expect(postMessage).not.toHaveBeenCalled();
+  });
 
   it("uses assisted flow on phones even with an extension marker, and on extensionless desktop", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false }));

@@ -58,6 +58,7 @@ async function main(): Promise<void> {
       { classifyVacancyCategory, classifyVacancyCategoryWithEvidence },
       { isManualLabourTitle },
       { isValidVacancyUrlForSource },
+      { OPPORTUNITY_CATEGORIES, PROFESSION_CATALOG },
       { ALL_FREE_BOARD_SOURCES },
       { REFERENCE_ATS_TARGETS },
     ] = await Promise.all([
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
       import("../lib/sponsorVacancyRoles"),
       import("../lib/vacancyTitlePolicy"),
       import("../lib/vacancyUrlPolicy"),
+      import("@workspace/api-zod/profession-catalog"),
       import("../lib/freeBoardSourceRegistry"),
       import("../lib/referenceAtsTargets"),
     ]);
@@ -97,6 +99,10 @@ async function main(): Promise<void> {
       const byStatus: Record<string, number> = {};
       const bySource: Record<string, number> = {};
       const bySector: Record<string, number> = {};
+      const byOpportunityCategory: Record<string, number> =
+        Object.fromEntries(OPPORTUNITY_CATEGORIES.map((category) => [category, 0]));
+      const categorySector = new Map(PROFESSION_CATALOG.map((entry) => [entry.category, entry.sector]));
+      const byVerificationAgeAndSector: Record<string, Record<string, number>> = {};
       const byIndustry: Record<string, number> = {};
       const byAge: Record<string, number> = {};
       const byEmployer: Record<string, number> = {};
@@ -126,11 +132,16 @@ async function main(): Promise<void> {
         if (!url?.trim()) { inc("noApplyUrl"); continue; }
         inc("candidateEligibleInventory");
         increment(bySector, category);
+        increment(byOpportunityCategory, category);
         increment(bySource, row.boardName ?? row.sourceType ?? "legacy-null");
         increment(byIndustry, row.industry ?? "Unknown");
         increment(byEmployer, row.organisationName);
         const age = (now.getTime() - new Date(row.lastVerifiedAt).getTime()) / 3600_000;
-        increment(byAge, age < 6 ? "0-6h" : age < 24 ? "6-24h" : "24-48h");
+        const ageBand = age < 6 ? "0-6h" : age < 24 ? "6-24h" : "24-48h";
+        increment(byAge, ageBand);
+        const canonicalSector = categorySector.get(category as typeof OPPORTUNITY_CATEGORIES[number]) ?? "uncatalogued";
+        byVerificationAgeAndSector[canonicalSector] ??= {};
+        increment(byVerificationAgeAndSector[canonicalSector]!, ageBand);
         increment(classificationBasis, classifyVacancyCategoryWithEvidence(row.title, row.description).reason);
         industriesBySector[category] ??= {};
         increment(industriesBySector[category]!, row.industry ?? "Unknown");
@@ -152,7 +163,8 @@ async function main(): Promise<void> {
           count(*) FILTER(WHERE c.ats_mapping_status='verified' AND c.probe_status='ok_for_crawl') AS verified_and_probe_ok,
           count(*) FILTER(WHERE c.last_outcome='complete') AS last_complete,
           sum(c.last_adverts_found) AS latest_attempt_adverts_not_unique
-          FROM s LEFT JOIN sponsor_licence_company_site_checks c ON lower(btrim(c.organisation_name))=lower(btrim(s.organisation_name)) GROUP BY s.industry ORDER BY employers DESC`,
+          FROM s LEFT JOIN sponsor_licence_company_site_checks c ON lower(btrim(c.organisation_name))=lower(btrim(s.organisation_name))
+          GROUP BY s.industry ORDER BY employers DESC`,
         companyErrors: `SELECT last_outcome,left(last_error,180) AS error,count(*) AS employers
           FROM sponsor_licence_company_site_checks WHERE last_error IS NOT NULL GROUP BY 1,2 ORDER BY employers DESC LIMIT 20`,
         sourceObservations: `SELECT source_id,provider,source_type,count(*) AS observations,
@@ -196,7 +208,8 @@ async function main(): Promise<void> {
         capturedAt: now.toISOString(), transactionReadOnly: true,
         databaseFingerprint: context.expectedFingerprint,
         scope: "Union of sponsor-vacancy inventory eligible for supported profession feeds before per-candidate preferences, registration, scoring, pagination and curated-role deduplication. Not an individual candidate's result count.",
-        totals, byStatus, bySector, bySource, byIndustry, byAge, byEmployer, classificationBasis, industriesBySector,
+        totals, byStatus, byOpportunityCategory, bySector, byVerificationAgeAndSector,
+        bySource, byIndustry, byAge, byEmployer, classificationBasis, industriesBySector,
         exactApplyUrlGroups: duplicateUrls.size,
         repeatedExactApplyUrlRows: [...duplicateUrls.values()].reduce((sum, n) => sum + n - 1, 0),
         registeredFreeBoards: ALL_FREE_BOARD_SOURCES.map(({ id, provider }) => ({ id, provider })),

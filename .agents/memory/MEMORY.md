@@ -16,6 +16,7 @@
 - [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
 - [Production discovery runtime](production-discovery-runtime.md) — Replit's production read-only SQL interface cannot supply a production DB connection to workspace discovery scripts.
+- [Production audit target identity](production-audit-target-identity.md) — when production readers reach separate replicas, verify read-only permissions and matching immutable data anchors before auditing.
 - [Vacancy regulator classifier](vacancy-regulator-classifier.md) — use boundaries on complete words, not stems; verify profession precedence and false positives against real data.
 - [Job-board profession precedence](job-board-profession-precedence.md) — classify common IT/network/cloud titles as IT before broad engineering matches; retain explicit clinical exclusions.
 - [Reed HTML employer markup](reed-html-employer-markup.md) — current Reed cards expose the employer in the posted-by recruiter link, not company-name-link.
@@ -111,6 +112,7 @@
 - [AI model policy](ai-model-policy.md) — use mini for routine work; preserve stronger models on candidate-facing, nuanced, and accuracy-sensitive workflows.
 - [Local Playwright route base](playwright-local-route-base.md) — direct Vite is root-mounted but lacks API routing; signed-in browser tests use the development preview proxy.
 - [Expo test renderer compatibility](expo-test-renderer-compatibility.md) — align reconciler with React and Jest with Expo; keep pure utility mocks out of component tests.
+- [Replaceable DOM function tests](vitest-replaceable-dom-functions.md) — directly assign writable mocks when testing window.open replacement; Vitest/JSDOM spy accessors can hide it.
 - [Mobile product release facts](mobile-product-scope.md) — audience is 18+; Play account is organization; production mobile API uses jobsage.co.uk.
 - [Sponsor vacancy audit inputs](sponsor-vacancy-audit-inputs.md) — merge only explicitly selected current inputs; preserve partial-source status and never treat historical outputs as fresh.
 - [Native reauthentication](native-reauthentication.md) — a newly exchanged capability is not proof of recent user reauthentication for account erasure.

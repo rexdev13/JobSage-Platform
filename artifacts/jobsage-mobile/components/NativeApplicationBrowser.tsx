@@ -279,6 +279,20 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
               <Text style={s.host} numberOfLines={1}>{host || "Employer site"}</Text>
             </View>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Smart Apply assistant"
+            accessibilityState={{ expanded: assistantOpen }}
+            onPress={() => {
+              setAssistantOpen((o) => !o);
+              if (!scan) send({ type: "scan" });
+            }}
+            style={s.assistantToggle}
+            testID="app-browser-assistant"
+          >
+            <Feather name="layers" size={17} color={colors.accent} />
+            <Text style={s.assistantText}>Smart Apply</Text>
+          </Pressable>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -313,7 +327,9 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
                 });
                 setLoadError(e.nativeEvent.description || "The employer page could not be loaded.");
               }}
-              javaScriptCanOpenWindowsAutomatically={false}
+              // Keep async ATS pop-ups working on Android; onOpenWindow routes
+              // safe destinations into this browser and rejects unsafe links.
+              javaScriptCanOpenWindowsAutomatically
               setSupportMultipleWindows
               allowFileAccess={false}
               allowFileAccessFromFileURLs={false}
@@ -364,18 +380,6 @@ export function NativeApplicationBrowser({ context, visible, onClose, onSubmissi
           <Pressable accessibilityLabel="Forward" disabled={!canGoForward} onPress={() => webRef.current?.goForward()} style={s.iconBtn}>
             <Feather name="chevron-right" size={24} color={canGoForward ? colors.foreground : colors.border} />
           </Pressable>
-          <Pressable
-            accessibilityLabel="Open Smart Apply assistant"
-            accessibilityState={{ expanded: assistantOpen }}
-            onPress={() => {
-              setAssistantOpen((o) => !o);
-              if (!scan) send({ type: "scan" });
-            }}
-            style={s.iconBtn}
-            testID="app-browser-assistant"
-          >
-            <Feather name="layers" size={21} color={assistantOpen ? colors.accent : colors.foreground} />
-          </Pressable>
           <Pressable accessibilityLabel="Download or share my current CV" onPress={shareCv} disabled={busy !== null} style={s.secondary}>
             {busy === "cv" ? <ActivityIndicator size="small" color={colors.foreground} /> : <Feather name="file-text" size={16} color={colors.foreground} />}
             <Text style={s.secondaryText}>My CV</Text>
@@ -405,10 +409,12 @@ const styles = (c: ReturnType<typeof useColors>) =>
     root: { flex: 1, backgroundColor: c.background },
     header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, gap: 4 },
     iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    titleWrap: { flex: 1, alignItems: "center" },
+    titleWrap: { flex: 1, minWidth: 0, alignItems: "center" },
+    assistantToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 44, paddingHorizontal: 9, borderRadius: c.radius, borderWidth: 1, borderColor: c.border },
+    assistantText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: c.foreground },
     title: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: c.foreground },
     hostRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-    host: { fontFamily: "Inter_400Regular", fontSize: 12, color: c.mutedForeground, maxWidth: 220 },
+    host: { fontFamily: "Inter_400Regular", fontSize: 12, color: c.mutedForeground, maxWidth: 220, flexShrink: 1 },
     loadingBar: { position: "absolute", top: 12, alignSelf: "center" },
     toolbar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, gap: 6, backgroundColor: c.card },
     secondary: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 40, borderRadius: c.radius, borderWidth: 1, borderColor: c.border, marginLeft: "auto" },

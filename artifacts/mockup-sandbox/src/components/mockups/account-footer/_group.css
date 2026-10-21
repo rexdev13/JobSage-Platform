@@ -1,0 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap");
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-ring: hsl(var(--ring));
+  --font-sans: var(--app-font-sans);
+  --font-display: var(--app-font-display);
+}
+
+:root {
+  --background: 30 20% 99%;
+  --foreground: 20 10% 10%;
+  --border: 12 18% 89%;
+  --primary: 0 62% 36%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 30 15% 95%;
+  --muted-foreground: 20 8% 48%;
+  --sidebar: 30 20% 97%;
+  --sidebar-foreground: 20 10% 14%;
+  --sidebar-border: 12 18% 89%;
+  --sidebar-accent: 12 30% 93%;
+  --ring: 0 62% 36%;
+  --app-font-sans: "Inter", sans-serif;
+  --app-font-display: "Outfit", sans-serif;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 20 10% 7%;
+  --foreground: 30 20% 95%;
+  --border: 20 10% 16%;
+  --sidebar: 20 10% 9%;
+  --sidebar-foreground: 30 20% 90%;
+  --sidebar-border: 20 10% 16%;
+  --sidebar-accent: 12 20% 16%;
+  --muted-foreground: 20 8% 58%;
+}

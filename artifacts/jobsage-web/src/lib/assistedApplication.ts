@@ -1,5 +1,5 @@
 import type { TrackedVacancyContext } from "./trackedOutbound";
-import { nativeWorkspaceAvailable } from "./nativeWorkspace";
+import { nativeWorkspaceAvailable, notifyNative } from "./nativeWorkspace";
 
 export const ASSISTED_APPLICATION_EVENT = "jobsage:assisted-application";
 export interface AssistedApplicationEvent {
@@ -62,9 +62,15 @@ export async function beginAssistedApplication(applicationUrl: string, vacancy: 
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Could not save your application. Please retry.");
+    if (nativeWorkspaceAvailable() && (!Number.isSafeInteger(result.id) || result.id <= 0)) {
+      throw new Error("The saved application has no valid reference. Please retry.");
+    }
     publish({ ...detail, phase: "ready", application: result });
     onTracked?.();
-    if (tab) tab.location.replace(applicationUrl);
+    // Handoff directly after the save, not through a React event listener that
+    // may have mounted before Android installed its native bridge.
+    if (nativeWorkspaceAvailable()) notifyNative("application", { applicationId: result.id });
+    else if (tab) tab.location.replace(applicationUrl);
   } catch (error) {
     tab?.close();
     publish({ ...detail, phase: "error", error: error instanceof Error ? error.message : "Could not save your application." });

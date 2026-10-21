@@ -20,3 +20,36 @@ export function notifyNative(type: "ready" | "session" | "application" | "logout
     type, url: window.location.href, timestamp: Date.now(),
   }));
 }
+
+/** Android may block window.open, especially after an asynchronous request.
+ * Send new-window intent to the controlled native host instead of a pop-up. */
+export function installNativeLinkHandlers(): () => void {
+  if (!nativeWorkspaceAvailable()) return () => {};
+  const originalOpen = window.open;
+  const sameWindowTargets = ["_self", "_parent", "_top"];
+  const openNative = (value: string | URL) => {
+    const destination = new URL(String(value), window.location.href).href;
+    if (destination !== "about:blank") notifyNative("open-url", { destination });
+  };
+  const nativeOpen: typeof window.open = (url, target, features) => {
+    if (target && sameWindowTargets.includes(target.toLowerCase())) {
+      return originalOpen.call(window, url, target, features);
+    }
+    if (url) openNative(url);
+    return null;
+  };
+  const onClick = (event: MouseEvent) => {
+    if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof Element)) return;
+    const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
+    if (!anchor || anchor.hasAttribute("download") || !anchor.target ||
+        sameWindowTargets.includes(anchor.target.toLowerCase())) return;
+    event.preventDefault();
+    openNative(anchor.href);
+  };
+  window.open = nativeOpen;
+  document.addEventListener("click", onClick);
+  return () => {
+    if (window.open === nativeOpen) window.open = originalOpen;
+    document.removeEventListener("click", onClick);
+  };
+}

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { IdentityVerification } from "@workspace/api-client-react";
+import { uploadIdentityFile } from "@/lib/identityUpload";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -33,20 +34,6 @@ function useIdentityStatus() {
       return status === "pending" ? 5000 : false;
     },
   });
-}
-
-async function uploadFile(file: File): Promise<string> {
-  const urlRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contentType: file.type }),
-  });
-  if (!urlRes.ok) throw new Error("Failed to get upload URL");
-  const { uploadURL, storageKey } = await urlRes.json() as { uploadURL: string; storageKey: string };
-  const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-  if (!putRes.ok) throw new Error("Failed to upload file");
-  return storageKey;
 }
 
 function FileDropZone({
@@ -159,7 +146,10 @@ export default function IdentityVerificationPage() {
     if (!passport || !selfie) return;
     setSubmitting(true);
     try {
-      const [passportKey, selfieKey] = await Promise.all([uploadFile(passport), uploadFile(selfie)]);
+      const [passportKey, selfieKey] = await Promise.all([
+        uploadIdentityFile(passport, BASE),
+        uploadIdentityFile(selfie, BASE),
+      ]);
       const res = await fetch(`${BASE}/api/identity/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

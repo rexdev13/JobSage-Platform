@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { AppSidebar } from "./AppSidebar";
 
-const fixture = vi.hoisted(() => ({ role: "candidate", location: "/applications/24" }));
+const fixture = vi.hoisted(() => ({ role: "candidate", location: "/applications/24", logout: vi.fn() }));
 vi.mock("@workspace/auth-web", () => ({
-  useAuth: () => ({ user: { role: fixture.role, firstName: "Test" }, logout: vi.fn() }),
+  useAuth: () => ({ user: { role: fixture.role, firstName: "Test" }, logout: fixture.logout }),
 }));
 vi.mock("../../hooks/useEmployerOrganizations", () => ({
   useEmployerOrganizations: () => {
@@ -37,7 +37,7 @@ vi.mock("@workspace/api-client-react", () => {
   };
 });
 
-afterEach(() => { cleanup(); fixture.role = "candidate"; });
+afterEach(() => { cleanup(); fixture.role = "candidate"; fixture.logout.mockClear(); });
 
 describe("rendered candidate navigation", () => {
   it("renders the ordered sections, unread badge, nested active link and evidence summary", () => {
@@ -66,12 +66,19 @@ describe("rendered candidate navigation", () => {
 
     const privacyLink = screen.getByRole("link", { name: "Privacy & account" });
     expect(privacyLink).toHaveAttribute("href", "/privacy-settings");
+    expect(privacyLink).toHaveClass("min-h-12");
+    expect(screen.getByRole("region", { name: "Account" })).toContainElement(screen.getByText("Signed in as"));
+    expect(screen.getByText("Test")).toBeInTheDocument();
     fireEvent.click(privacyLink);
     expect(onNavigate).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: /account deletion/i })).not.toBeInTheDocument();
 
     const logoutButton = screen.getByRole("button", { name: /log out/i });
     expect(logoutButton.parentElement).toHaveClass("border-t");
+    expect(logoutButton).toHaveClass("min-h-12");
+    expect(logoutButton).not.toHaveClass("text-destructive");
+    fireEvent.click(logoutButton);
+    expect(fixture.logout).toHaveBeenCalledOnce();
   });
 });
 

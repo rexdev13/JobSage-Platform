@@ -37,6 +37,7 @@ import { useColors } from "@/hooks/useColors";
 import { classifyUrl, openExternal, safeLinkLogContext, showInAppContactLink } from "@/lib/external-links";
 import { DownloadError, cleanupTempDownloads, cleanupPrivateExportFiles, downloadAndShare } from "@/lib/native-download";
 import { workspaceEntryPath } from "@/lib/workspace-entry-path";
+import { workspaceBridgeScript } from "@/lib/workspace-bridge";
 import {
   INITIAL_WORKSPACE_LOAD_STATE,
   isWorkspaceLoadBlocking,
@@ -53,13 +54,6 @@ import {
 
 const SESSION_CHECK_AFTER_MS = 5 * 60_000;
 const INITIAL_WORKSPACE_LOAD_TIMEOUT_MS = 30_000;
-
-function bridgeScript(origin: string, proof: NativeProof) {
-  const config = JSON.stringify({ version: 1, channel: proof.channel, challenge: proof.challenge });
-  return `(function(){try{if(location.origin!==${JSON.stringify(origin)})return;
-Object.defineProperty(window,"__JOBSAGE_NATIVE__",{value:Object.freeze(${config}),writable:false,configurable:false});
-}catch(e){}})();true;`;
-}
 
 function errorStatus(e: unknown): number | undefined {
   const s = (e as { status?: unknown })?.status;
@@ -515,8 +509,12 @@ export default function WorkspaceScreen() {
             key={webKey}
             ref={webRef}
             source={source}
-            injectedJavaScriptBeforeContentLoaded={proof ? bridgeScript(WORKSPACE_ORIGIN, proof) : undefined}
+            injectedJavaScriptBeforeContentLoaded={proof ? workspaceBridgeScript(WORKSPACE_ORIGIN, proof) : undefined}
             injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+            // Android document-start injection can be missed. Recover after
+            // content loads and notify an already-mounted website adapter.
+            injectedJavaScript={proof ? workspaceBridgeScript(WORKSPACE_ORIGIN, proof) : undefined}
+            injectedJavaScriptForMainFrameOnly
             onMessage={onMessage}
             onShouldStartLoadWithRequest={onShouldStart}
             // Route every destination through the explicit policy below so
@@ -545,7 +543,9 @@ export default function WorkspaceScreen() {
             pullToRefreshEnabled={false}
             sharedCookiesEnabled
             thirdPartyCookiesEnabled={false}
-            javaScriptCanOpenWindowsAutomatically={false}
+            // Async website actions may open a window after the tap gesture.
+            // onOpenWindow still applies the native destination safety policy.
+            javaScriptCanOpenWindowsAutomatically
             allowFileAccess={false}
             allowFileAccessFromFileURLs={false}
             allowUniversalAccessFromFileURLs={false}

@@ -317,29 +317,58 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
           </div>
         )}
       </nav>
-      <div className="shrink-0 border-t border-sidebar-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div className="mb-4 flex min-w-0 items-center px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 font-bold text-primary">
-            {profilePhotoUrl ? <img src={profilePhotoUrl} alt="Profile" className="h-full w-full object-cover" /> :
-              user?.profileImageUrl ? <img src={user.profileImageUrl} alt="Profile" className="h-full w-full object-cover" /> :
-                (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase()}
-          </div>
-          <div className="ml-3 min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{user?.firstName ? `${user.firstName} ${user.lastName || ""}` : user?.email}</p>
-            <p className="text-xs capitalize text-muted-foreground">{role ?? ""}</p>
+      <section
+        aria-label="Account"
+        data-testid="sidebar-account-footer"
+        className="shrink-0 border-t border-sidebar-border px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+      >
+        <div className="rounded-2xl border border-sidebar-border bg-background/70 p-3">
+          <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+            Signed in as
+          </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              aria-hidden="true"
+              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 font-bold text-primary ring-1 ring-sidebar-border"
+            >
+              {profilePhotoUrl ? <img src={profilePhotoUrl} alt="" className="h-full w-full object-cover" /> :
+                user?.profileImageUrl ? <img src={user.profileImageUrl} alt="" className="h-full w-full object-cover" /> :
+                  (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : user?.email}
+              </p>
+              <p className="mt-0.5 text-xs capitalize text-muted-foreground">{role?.replace(/_/g, " ") ?? "Account"}</p>
+            </div>
           </div>
         </div>
-        <Link href="/privacy-settings" data-testid="link-privacy-settings" onClick={onNavigate}
-          className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-sidebar-accent">
-          Privacy &amp; account
-        </Link>
-        <div className="mt-2 border-t border-sidebar-border pt-2">
-          <button onClick={logout} data-testid="button-logout"
-            className="flex min-h-11 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
-            <LogOut className="mr-3 h-5 w-5 opacity-80" />Log out
-          </button>
-        </div>
-      </div>
+
+        <nav aria-label="Account actions" className="mt-2 space-y-1">
+          <Link
+            href="/privacy-settings"
+            data-testid="link-privacy-settings"
+            onClick={onNavigate}
+            className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <UserCog aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">Privacy &amp; account</span>
+            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+          </Link>
+
+          <div className="border-t border-sidebar-border pt-1">
+            <button
+              type="button"
+              onClick={logout}
+              data-testid="button-logout"
+              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <LogOut aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              Log out
+            </button>
+          </div>
+        </nav>
+      </section>
     </aside>
   );
 }
