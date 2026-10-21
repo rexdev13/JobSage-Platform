@@ -6,3 +6,6 @@
 
 # Generated audit reports and other local build outputs.
 /generated-artifacts/
+
+# Deploy optimized brand derivatives, not the full-resolution upload.
+attached_assets/image_1792588865787.png

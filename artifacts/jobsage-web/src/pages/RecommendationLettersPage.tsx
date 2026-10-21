@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -235,16 +234,14 @@ export default function RecommendationLettersPage() {
   const selfSubmitted = letters.filter((l) => !l.isEmployerVerified);
 
   return (
-    <AppLayout>
       <PageTransition>
         {showAdd && <AddLetterModal onClose={() => setShowAdd(false)} />}
 
         <header className="mb-8 flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:justify-between">
           <div className="min-w-0">
-            <h1 className="flex items-center gap-3 text-3xl font-display font-bold text-foreground">
-              <Star className="w-8 h-8 text-primary" />
+            <h2 className="text-xl font-display font-bold text-foreground">
               References
-            </h1>
+            </h2>
             <p className="text-muted-foreground mt-2 text-sm">
               Professional references and verified employer endorsements that strengthen your profile.
             </p>
@@ -294,6 +291,5 @@ export default function RecommendationLettersPage() {
           </div>
         )}
       </PageTransition>
-    </AppLayout>
   );
 }

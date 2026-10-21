@@ -58,7 +58,7 @@ const ConsentPage               = lazy(() => import("@/pages/ConsentPage"));
 const OnboardingPage            = lazy(() => import("@/pages/OnboardingPage"));
 const DashboardPage             = lazy(() => import("@/pages/DashboardPage"));
 const ProfilePage               = lazy(() => import("@/pages/ProfilePage"));
-const DocumentsPage             = lazy(() => import("@/pages/DocumentsPage"));
+const DocumentsPage             = lazy(() => import("@/pages/DocumentsWorkspacePage"));
 const EligibilityPage           = lazy(() => import("@/pages/EligibilityPage"));
 const AdminRulesetsPage         = lazy(() => import("@/pages/AdminRulesetsPage"));
 const OpportunitiesPage         = lazy(() => import("@/pages/OpportunitiesPage"));
@@ -74,7 +74,6 @@ const SponsorLicencesPage       = lazy(() => import("@/pages/SponsorLicencesPage
 const MyProgressReportPage      = lazy(() => import("@/pages/MyProgressReportPage"));
 const RegulatoryGuidancePage    = lazy(() => import("@/pages/RegulatoryGuidancePage"));
 const InterviewCalendarPage     = lazy(() => import("@/pages/InterviewCalendarPage"));
-const RecommendationLettersPage = lazy(() => import("@/pages/RecommendationLettersPage"));
 const IdentityVerificationPage  = lazy(() => import("@/pages/IdentityVerificationPage"));
 const NotFound                  = lazy(() => import("@/pages/not-found"));
 const ExtensionPrivacyPage      = lazy(() => import("@/pages/ExtensionPrivacyPage"));
@@ -382,6 +381,7 @@ function Router() {
                 <Route path="/onboarding" component={OnboardingPage} />
                 <Route path="/profile" component={ProfilePage} />
                 <Route path="/documents" component={DocumentsPage} />
+                <Route path="/documents/references" component={DocumentsPage} />
 
                 <Route path="/eligibility" component={EligibilityPage} />
                 <Route path="/opportunities" component={OpportunitiesPage} />
@@ -393,7 +393,7 @@ function Router() {
                 <Route path="/my-report" component={MyProgressReportPage} />
                 <Route path="/regulatory-guidance" component={RegulatoryGuidancePage} />
                 <Route path="/calendar" component={InterviewCalendarPage} />
-                <Route path="/recommendations" component={RecommendationLettersPage} />
+                <Route path="/recommendations"><Redirect to="/documents/references" /></Route>
                 <Route path="/identity" component={IdentityVerificationPage} />
                 <Route path="/feedback" component={FeedbackPage} />
                 <Route path="/learning"><Redirect to="/path" /></Route>

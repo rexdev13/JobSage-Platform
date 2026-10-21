@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Shield, Eye, EyeOff, AlertCircle, Lock } from "lucide-react";
@@ -64,10 +65,12 @@ export default function AdminLoginPage() {
 
       <header className="relative z-10 p-6 md:p-10 flex items-center justify-between max-w-7xl mx-auto w-full">
         <button
+          type="button"
           onClick={() => setLocation("/")}
-          className="hover:opacity-80 transition-opacity"
+          aria-label="JOBSAGE home"
+          className="hover:opacity-80 transition-opacity rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <img src="/logo.png" alt="JOBSAGE" className="h-11 md:h-12 w-auto object-contain brightness-150" />
+          <BrandLogo size="md" tone="dark" />
         </button>
         <div className="flex items-center gap-1.5 text-slate-400 text-xs">
           <Lock className="w-3 h-3" />

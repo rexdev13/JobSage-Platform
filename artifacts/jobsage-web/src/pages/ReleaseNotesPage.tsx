@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 const PROD = "https://jobsage.co.uk";
 
 const sections = [
@@ -122,7 +123,7 @@ export default function ReleaseNotesPage() {
       {/* ── Top nav (hidden on print) ── */}
       <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between sm:px-6">
-          <img src="/logo.png" alt="JOBSAGE" className="h-8" />
+          <BrandLogo size="sm" />
           <button
             onClick={() => window.print()}
             className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"

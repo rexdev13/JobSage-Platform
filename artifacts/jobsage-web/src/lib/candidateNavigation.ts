@@ -15,7 +15,6 @@ export const CANDIDATE_NAVIGATION: CandidateNavSection[] = [
       { label: "Personal & Professional Details", href: "/profile", kind: "route" },
       { label: "ID Verification", href: "/identity", kind: "route" },
       { label: "CV Enhancement", kind: "action", action: "enhance-cv" },
-      { label: "References", href: "/recommendations", kind: "route" },
     ],
   },
   {

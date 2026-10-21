@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui-enhanced";
@@ -58,16 +59,15 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           : "bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 h-[72px] flex items-center justify-between gap-3">
         <button
+          type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="flex items-center"
+          aria-label="JOBSAGE home, back to top"
+          data-testid="button-logo-home"
+          className="flex min-w-0 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <img
-            src={`${import.meta.env.BASE_URL}logo.png`}
-            alt="JOBSAGE"
-            className="h-11 md:h-12 w-auto object-contain"
-          />
+          <BrandLogo size="md" />
         </button>
 
          <nav className="hidden lg:flex items-center gap-8">
@@ -539,7 +539,7 @@ export default function LandingPage() {
             style={{ background: "radial-gradient(ellipse at center, hsl(12 95% 52% / 0.12) 0%, hsl(0 70% 38% / 0.06) 45%, transparent 75%)" }} />
         </div>
 
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 pt-16">
+        <div className="relative z-10 flex-1 flex items-center justify-center px-4 pt-[72px]">
           <motion.div
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
@@ -554,11 +554,7 @@ export default function LandingPage() {
                 transition={{ duration: 0.5 }}
                 className="flex justify-center mb-8"
               >
-                <img
-                  src={`${import.meta.env.BASE_URL}logo.png`}
-                  alt="JOBSAGE"
-                  className="h-14 md:h-20 w-auto object-contain drop-shadow-sm"
-                />
+<BrandLogo size="hero" align="center" />
               </motion.div>
 
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary/10 text-primary font-semibold text-sm mb-6 border border-primary/20 backdrop-blur-sm">
@@ -1313,10 +1309,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between gap-8 mb-10">
             <div className="max-w-xs">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-background/15 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-background" />
-                </div>
-                <span className="text-lg font-display font-extrabold text-background">JOBSAGE</span>
+                <BrandLogo size="sm" tone="dark" />
               </div>
               <p className="text-sm leading-relaxed">
                 Connecting exceptional global talent with UK opportunity through representation, compliance, and intelligence.

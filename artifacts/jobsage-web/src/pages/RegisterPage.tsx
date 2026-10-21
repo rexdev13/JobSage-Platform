@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, RefreshCw, MailOpen } from "lucide-react";
@@ -89,7 +90,7 @@ export default function RegisterPage() {
         </div>
         <header className="relative z-10 p-6 md:p-10 flex items-center max-w-7xl mx-auto w-full">
           <button onClick={() => setLocation("/")} className="hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto" />
+            <BrandLogo size="md" />
           </button>
         </header>
         <main className="relative z-10 flex-1 flex items-center justify-center px-4">
@@ -164,10 +165,12 @@ export default function RegisterPage() {
 
       <header className="relative z-10 p-6 md:p-10 flex items-center max-w-7xl mx-auto w-full">
         <button
+          type="button"
           onClick={() => setLocation("/")}
-          className="hover:opacity-80 transition-opacity"
+          aria-label="JOBSAGE home"
+          className="hover:opacity-80 transition-opacity rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto" />
+          <BrandLogo size="md" />
         </button>
       </header>
 

@@ -60,3 +60,6 @@ Thumbs.db
 
 # Generated verification captures and build outputs
 /generated-artifacts/
+
+# Full-resolution brand master is retained privately in App Storage.
+/attached_assets/image_1792588865787.png

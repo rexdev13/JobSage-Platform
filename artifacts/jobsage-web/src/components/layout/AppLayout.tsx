@@ -1,3 +1,5 @@
+import { Link } from "wouter";
+import { BrandLogo } from "@/components/BrandLogo";
 import * as React from "react";
 import { AppSidebar } from "./AppSidebar";
 import { Menu, X } from "lucide-react";
@@ -128,8 +130,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-col flex-1 w-full overflow-hidden">
-        <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md md:hidden">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JOBSAGE" className="h-9 w-auto object-contain" />
+        <header className="z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md md:hidden">
+          <Link href="/" aria-label="JOBSAGE home" data-testid="link-mobile-logo" className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <BrandLogo size="xs" />
+          </Link>
           <Button ref={menuButtonRef} variant="ghost" size="icon"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Open navigation menu"

@@ -27,7 +27,6 @@ describe("candidate navigation configuration", () => {
       ["Next Steps", "/"],
       ["Help Center", "/help"],
       ["Feedback", "/feedback"],
-      ["References", "/recommendations"],
       ["Visa & Legal Guidance", "/regulatory-guidance"],
     ]) {
       expect(all.find((item) => item.label === label)).toMatchObject({ href, kind: "route" });
@@ -43,6 +42,13 @@ describe("candidate navigation configuration", () => {
     expect(isNavigationItemActive("/applications/24", "/applications")).toBe(true);
     expect(isNavigationItemActive("/profile/edit", "/profile")).toBe(true);
     expect(isNavigationItemActive("/applications", "/")).toBe(false);
+    expect(isNavigationItemActive("/documents/references", "/documents")).toBe(true);
+  });
+
+  it("groups references under documents instead of a separate sidebar destination", () => {
+    const all = CANDIDATE_NAVIGATION.flatMap((section) => section.items);
+    expect(all.some((item) => item.label === "References")).toBe(false);
+    expect(all.some((item) => item.kind === "route" && item.href === "/recommendations")).toBe(false);
   });
 
   it("preserves a readable live unread message badge", () => {

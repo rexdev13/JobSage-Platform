@@ -123,3 +123,5 @@
 - [Extension data declarations](extension-data-declarations.md) — assess local processing, unredacted CV transfers and free text; AI minimization alone cannot prove zero sensitive handling.
 - [Extension AI disclosure](extension-ai-disclosure.md) — no separate AI consent prompts; show only “AI is used” below the Chrome Web Store link.
 - [Extension reliability scope](extension-reliability-scope.md) — broad factual profile/CV autofill is required; disclosure-only changes must not narrow detection, filling or tracking.
+- [Approved JOBSAGE brand](jobsage-approved-brand.md) — use the supplied gradient wordmark and exact tagline; keep the subtitle readable independently in compact UI.
+- [References grouping](references-product-grouping.md) — references belong inside CV and Supporting Documents, not in separate sidebar navigation.

@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -672,9 +673,9 @@ export default function GetStartedPage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* ── Nav ── */}
       <header className="sticky top-0 z-20 border-b border-border/50 bg-background/90 backdrop-blur">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/">
-            <img src="/logo.png" alt="JOBSAGE" className="h-10 md:h-12 w-auto object-contain cursor-pointer" />
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <Link href="/" aria-label="JOBSAGE home" data-testid="link-logo-home" className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <BrandLogo size="sm" />
           </Link>
           <Link href="/login">
             <Button variant="outline" size="sm">Sign in</Button>

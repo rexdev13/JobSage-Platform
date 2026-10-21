@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useEffect, useMemo, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/auth-web";
@@ -201,8 +202,8 @@ export default function HelpSupportPage() {
     <div id="help-top" className="min-h-[100dvh] bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="link-help-logo">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JOBSAGE" className="h-10 w-auto" />
+          <Link href="/" aria-label="JOBSAGE home" className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" data-testid="link-help-logo">
+            <BrandLogo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <a href="#contact" onClick={(event) => navigateToSection(event, "contact")} className="hidden text-sm font-semibold text-muted-foreground hover:text-primary sm:inline" data-testid="link-header-contact">Contact support</a>

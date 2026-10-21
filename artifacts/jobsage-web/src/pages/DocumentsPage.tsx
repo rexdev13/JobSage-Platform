@@ -11,7 +11,6 @@ import {
   type CvExtractedFields,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import { useDocumentUpload } from "@/hooks/use-document-upload";
 import {
@@ -606,7 +605,7 @@ export default function DocumentsPage() {
   const cvDocs = documents.filter((d) => (d as { documentType?: string | null }).documentType === "cv");
 
   return (
-    <AppLayout>
+    <>
       <PageTransition>
         <AnimatePresence>
           {parsedExtracted && (
@@ -621,10 +620,9 @@ export default function DocumentsPage() {
 
         <header className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-display font-bold text-foreground flex items-center">
-              <FileText className="w-8 h-8 mr-3 text-primary" />
-              CV & Supporting Documents
-            </h1>
+            <h2 className="text-xl font-display font-bold text-foreground">
+              Documents
+            </h2>
             <p className="text-muted-foreground mt-2">
               Upload and categorise your CV, qualifications, certificates, and identity documents.
             </p>
@@ -960,6 +958,6 @@ export default function DocumentsPage() {
         open={enhanceSheetOpen}
         onOpenChange={setEnhanceSheetOpen}
       />
-    </AppLayout>
+    </>
   );
 }

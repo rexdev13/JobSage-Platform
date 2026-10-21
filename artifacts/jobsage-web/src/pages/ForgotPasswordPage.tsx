@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Shield, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
@@ -49,8 +50,8 @@ export default function ForgotPasswordPage() {
       </div>
 
       <header className="relative z-10 p-6 md:p-10 flex items-center max-w-7xl mx-auto w-full">
-        <button onClick={() => setLocation("/")} className="hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="JOBSAGE" className="h-11 md:h-12 w-auto object-contain" />
+        <button type="button" onClick={() => setLocation("/")} aria-label="JOBSAGE home" className="hover:opacity-80 transition-opacity rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <BrandLogo size="md" />
         </button>
       </header>
 

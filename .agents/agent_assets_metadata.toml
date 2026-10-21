@@ -2084,3 +2084,17 @@ mtime_ms = 1792500192028
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/da8bbcbd-b527-4e41-8a3f-daf63648bf49/90edaf5d-fa6d-4607-99fe-b9291a5393f0"
 storage_version_token = "1792570421735659"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "WGlK2EzwRwplgurYH6wpn"
+uri = "file://generated-artifacts/vacancy-population-status.png"
+type = "image"
+title = "Workspace vacancy population — live log report"
+description = "Terminal-style report from the actual workspace background log, checked 21 October at 2:16 pm Lagos time. Includes per-source writes, errors and between-sweep status."
+logical_id = "d633336b-e322-457b-ad37-675970f6dc0f"
+content_hash = "sha256:ab25f5dd1e9e35ffb8b4f41f47c2d7ce397efd668433f5cd48c4f9a83e23ff27"
+size = 208713
+mtime_ms = 1792588617230
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d633336b-e322-457b-ad37-675970f6dc0f/7a6e1f5a-ddd4-46b8-b62e-cb90672212b0"
+storage_version_token = "1792588634368178"
+content_type = "image/png"

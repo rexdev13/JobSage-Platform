@@ -1,10 +1,11 @@
+import { BrandLogo } from "@/components/BrandLogo";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/auth-web";
 import {
   ArrowRight, BarChart2, BookOpen, Briefcase, Building2, CalendarDays,
   CheckCircle2, ChevronRight, ClipboardList, FileText, GraduationCap, HelpCircle,
   Home, Inbox, LayoutDashboard, List, LogOut, Map, MessageSquareText, Plus,
-  Search, Shield, ShieldAlert, ShieldCheck, Sparkles, Star, User, UserCog, UserPlus,
+  Search, Shield, ShieldAlert, ShieldCheck, Sparkles, User, UserCog, UserPlus,
   Users, RefreshCw, Bookmark,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -92,7 +93,6 @@ const legacyCandidateGroups = [
     label: "Opportunity Enablers",
     items: [
       { name: "Visa Sponsoring Employers", href: "/sponsor-licences", icon: List, roles: ["reviewer", "admin"] },
-      { name: "References", href: "/recommendations", icon: Star, roles: [] },
     ],
   },
   {
@@ -125,7 +125,6 @@ const iconForCandidateItem: Record<string, LucideIcon> = {
   "Personal & Professional Details": User,
   "ID Verification": ShieldCheck,
   "CV Enhancement": Sparkles,
-  References: Star,
   "Visa Sponsoring Employers": List,
   "Matched Jobs": Briefcase,
   "Application Tracker": ClipboardList,
@@ -229,8 +228,10 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar text-sidebar-foreground md:w-64">
-      <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-5">
-        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JOBSAGE" className="h-12 w-auto object-contain" />
+      <div className="flex h-[72px] shrink-0 items-center border-b border-sidebar-border px-5">
+        <Link href="/" onClick={onNavigate} aria-label="JOBSAGE home" data-testid="link-sidebar-logo" className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <BrandLogo size="md" />
+        </Link>
       </div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {employerOrganizations.organizations.length > 1 && (

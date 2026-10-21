@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -100,10 +101,14 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="pulse" size={32} color="#0ea5e9" />
+              <Image
+                source={require("../assets/images/jobsage-wordmark.png")}
+                accessibilityLabel="JOBSAGE"
+                resizeMode="contain"
+                style={styles.logoImage}
+              />
             </View>
-            <Text style={styles.brandName}>JOBSAGE</Text>
-            <Text style={styles.tagline}>Your UK Healthcare Career Journey</Text>
+            <Text style={styles.tagline}>Find work that moves you.</Text>
           </View>
 
           <View style={styles.card}>
@@ -233,27 +238,25 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: "rgba(14, 165, 233, 0.15)",
+    width: "100%",
+    maxWidth: 320,
+    borderRadius: 16,
+    backgroundColor: "#fdfcfc",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "rgba(14, 165, 233, 0.3)",
+    paddingHorizontal: 24,
+    paddingVertical: 22,
+    marginBottom: 14,
   },
-  brandName: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    color: "#f8fafc",
-    letterSpacing: 3,
-    marginBottom: 8,
+  logoImage: {
+    width: "100%",
+    aspectRatio: 1440 / 207,
   },
   tagline: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-    color: "#94a3b8",
+    color: "#e2e8f0",
+    letterSpacing: 0.7,
     textAlign: "center",
   },
   card: {
