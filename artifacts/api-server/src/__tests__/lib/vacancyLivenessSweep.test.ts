@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 // ── Hoisted shared state ──────────────────────────────────────────────────────
 const { executeMock, updateMock, dbUpdateState } = vi.hoisted(() => {
@@ -187,8 +189,30 @@ describe("runVacancyLivenessSweep", () => {
     expect(sqlText).toContain("WHEN source_type = 'company_site' THEN 'company_site'");
     expect(sqlText).toContain("v.source_type IN ('job_board', 'company_site')");
     expect(sqlText).toContain("source_observation.vacancy_id = v.id");
+    expect(sqlText).toContain("(v.closes_at IS NULL OR v.closes_at >= NOW())");
+    expect(sqlText).toContain("(v.expires_at IS NULL OR v.expires_at >= NOW())");
+    expect(sqlText).toContain("COALESCE(v.closed_reason, '') !~* '(closed|filled|no longer accepting|closing date has passed)'");
     expect(sqlText).toContain("source_rank ASC");
     expect(sqlText.match(/liveness <> 'dead'/g)).toHaveLength(3);
+  });
+
+  it("uses the same expired/closed and effective-URL gates in selection and remaining counts", async () => {
+    setExecuteRows([makeSweepRow("role", 123, "https://employer.co.uk/jobs/123")]);
+    executeMock.mockResolvedValueOnce({ rows: [{ cnt: "0" }] });
+    checkDestinationDeadMock.mockResolvedValue({ verdict: "live", reason: null });
+    const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
+    await runVacancyLivenessSweep({ domainConcurrency: 1 });
+    const dialect = new PgDialect();
+    const queries = (executeMock.mock.calls as unknown[][]).map((call) => dialect.sqlToQuery(call[0] as SQL).sql);
+    expect(queries).toHaveLength(2);
+    for (const query of queries) {
+      expect(query).toContain("COALESCE(NULLIF(btrim(v.application_url), ''), v.url) IS NOT NULL");
+      expect(query).toContain("(v.closes_at IS NULL OR v.closes_at >= NOW())");
+      expect(query).toContain("(v.expires_at IS NULL OR v.expires_at >= NOW())");
+      expect(query).toContain("COALESCE(v.closed_reason, '') !~* '(closed|filled|no longer accepting|closing date has passed)'");
+      expect(query).toContain("source_observation.vacancy_id = v.id");
+      expect(query).toContain("v.source_type IN ('job_board', 'company_site')");
+    }
   });
 
   describe("URL dedupe — same (source, url) in batch is only fetched once", () => {

@@ -130,6 +130,7 @@ async function writeLivenessSyncLog(input: {
 /**
  * Select stored links due for a liveness check across all sources:
  * - has a URL, not already dead
+ * - sponsor vacancy has no elapsed closing/expiry date or explicit closure
  * - never verified, or verified longer than the threshold ago
  * - never-verified first, then oldest-verified first
  */
@@ -153,6 +154,9 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
           WHERE source_observation.vacancy_id = v.id
         )
         AND v.liveness <> 'dead'
+        AND (v.closes_at IS NULL OR v.closes_at >= NOW())
+        AND (v.expires_at IS NULL OR v.expires_at >= NOW())
+        AND COALESCE(v.closed_reason, '') !~* '(closed|filled|no longer accepting|closing date has passed)'
         AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
       SELECT 'role' AS source, NULL::text AS source_type, r.id, r.apply_url AS url, r.last_verified_at
@@ -480,13 +484,16 @@ export async function runVacancyLivenessSweep(
       const countResult = await withinDeadline(db.execute<{ cnt: string }>(sql`
         SELECT COUNT(*) AS cnt FROM (
           SELECT 1 FROM sponsor_licence_vacancies v
-          WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+          WHERE COALESCE(NULLIF(btrim(v.application_url), ''), v.url) IS NOT NULL AND v.liveness <> 'dead'
             AND v.source_type IN ('job_board', 'company_site')
             AND EXISTS (
               SELECT 1
               FROM vacancy_source_observations source_observation
               WHERE source_observation.vacancy_id = v.id
             )
+            AND (v.closes_at IS NULL OR v.closes_at >= NOW())
+            AND (v.expires_at IS NULL OR v.expires_at >= NOW())
+            AND COALESCE(v.closed_reason, '') !~* '(closed|filled|no longer accepting|closing date has passed)'
             AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
           UNION ALL
           SELECT 1 FROM roles r

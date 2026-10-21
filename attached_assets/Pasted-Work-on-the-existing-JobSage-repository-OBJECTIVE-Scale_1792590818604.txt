@@ -1,0 +1,29 @@
+Work on the existing JobSage repository:
+
+OBJECTIVE:
+Scale the existing production vacancy system from approximately 3,000 live vacancies to substantially greater, repeatable coverage across ALL supported UK employment sectors, using job boards, company websites and independently verified Send CV routes.
+
+Do not rebuild the platform. Use the current repository and production architecture as the source of truth.
+
+FIRST TASK: AUDIT AND BASELINE
+1. Inspect the existing collectors, ATS adapters, public feed integrations, company-site discovery, source mappings, importer, liveness, deduplication, classification and cron/worker scheduling.
+2. With properly authorized read-only access, establish exact production counts of candidate-visible live UK vacancies, by sector, source, employer, and verification age. Do not treat stored rows as necessarily candidate-visible.
+3. Inspect actual production scheduled jobs and recent logs rather than relying on cron documentation. Identify unconfigured, failing, incomplete or unused supported collection jobs, especially company_site_direct_feed, free_board_sources and free_source_ats.
+4. Quantify the complete source funnel by sector: sponsors -> official websites -> careers/ATS mappings -> fetchable sources -> raw jobs -> UK jobs -> exact sponsor matched -> deduplicated -> live verified -> candidate-visible.
+5. Audit the 48-hour verification rule against actual system-wide verification throughput, including writes from ingestion jobs. Identify if fresh-job supply exceeds verification capacity.
+6. Separate three forms of coverage: job-board vacancy routes, direct employer website vacancy routes, and verified speculative Send CV contacts. Never count a general contact email as verified Send CV. Deduplicate overlapping postings while preserving all validated application routes.
+7. Diagnose why earlier sponsor website discovery and ATS inventory did not convert into more production vacancies. Identify exact blocked transitions and rank them by achievable net new live vacancies, effort, risk and cost.
+8. Check vacancy-level sector classification separately from employer industry.
+9. Identify the shortest safe development path to activating existing unused sources and importing verified discovered mappings. Preserve current production data and safety checks.
+
+DELIVERABLES:
+A. A grounded production baseline.
+B. A ranked top-10 bottleneck list with code paths and runtime evidence.
+C. An implementation plan broken into small measurable changes.
+D. An assessment of market/source feasibility for 1,000+ verified vacancies per major sector, with no invented quotas or counts.
+E. First safe improvements implemented and tested on a separate branch in development, with tests, before/after counts and a rollback plan.
+
+SAFETY:
+No production writes, deployments, schema changes, data deletion, or cron modifications without separate explicit approval. Never expose credentials. Respect robots, ATS permissions, rate limits and source terms. Do not bypass blocking or guess employer ownership.
+
+Do not stop at another generic research report. Identify the precise code, data and operations preventing growth, and implement what can be safely verified in development. Do not claim success based on mock data or raw discovery counts.
