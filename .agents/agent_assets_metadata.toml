@@ -2117,14 +2117,14 @@ content_type = "image/png"
 id = "dZQuBKtGuY45_eJEut7hS"
 uri = "file://artifacts/jobsage-mobile/assets/images/icon.png"
 type = "image"
-title = "Updated JOBSAGE mobile app icon"
-description = "Text-free career-progress symbol with a warm background; Android also has adaptive and monochrome layers."
+title = "Current mobile app icon"
+description = "The original JOBSAGE J app mark restored for iOS and Android."
 logical_id = "f4994c37-74b9-49c3-8873-b15970028b73"
-content_hash = "sha256:b87e89c9b4220a886a1d2c718051455833d88c3d42ce721ea8c9b51e60c06c37"
-size = 31408
-mtime_ms = 1792696061272
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f4994c37-74b9-49c3-8873-b15970028b73/7c6fa562-05b3-4bff-9db0-dedaa6d41cb7"
-storage_version_token = "1792697039490119"
+content_hash = "sha256:3085ab954a7de006db31a672b19f15c12fcd18d92c0a20d763b11a5cb9913652"
+size = 96982
+mtime_ms = 1792698266187
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f4994c37-74b9-49c3-8873-b15970028b73/a28c29d6-ce8e-4614-8eda-7fdeaa479a43"
+storage_version_token = "1792698476431643"
 content_type = "image/png"
 
 [[outputs]]
@@ -2145,14 +2145,14 @@ content_type = "image/png"
 id = "HAfD728zXukOh20DPqUzj"
 uri = "file://artifacts/jobsage-mobile/assets/images/splash-logo.png"
 type = "image"
-title = "Current mobile splash logo"
-description = "The transparent JOBSAGE wordmark and tagline used on the configured near-white splash screen."
+title = "Current JOBSAGE logo"
+description = "The existing JOBSAGE wordmark and tagline used for the mobile splash screen."
 logical_id = "0e86896f-6e29-43b1-bf67-b47866fea88f"
 content_hash = "sha256:2ada8265a3f9be589a8309424b4006bca627fb0bc0b5340cbc4b76742a8a032d"
 size = 269576
 mtime_ms = 1792589194348
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0e86896f-6e29-43b1-bf67-b47866fea88f/734dd576-8956-4e37-89a6-3423d8e749f7"
-storage_version_token = "1792693960646533"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0e86896f-6e29-43b1-bf67-b47866fea88f/acf17886-8a63-41d2-887f-b348f9b8adfa"
+storage_version_token = "1792698475706086"
 content_type = "image/png"
 
 [[outputs]]
