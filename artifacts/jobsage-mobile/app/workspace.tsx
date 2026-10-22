@@ -13,10 +13,10 @@ import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   BackHandler,
+  Image,
   Linking,
   Platform,
   Pressable,
@@ -594,9 +594,28 @@ export default function WorkspaceScreen() {
         ) : null}
 
         {isWorkspaceLoadBlocking(loadPhase) && !loadError ? (
-          <View style={[StyleSheet.absoluteFill, s.center, { backgroundColor: colors.background }]} pointerEvents="none" testID="workspace-initial-loader">
-            <Text style={s.wordmark}>JOBSAGE</Text>
-            <ActivityIndicator color={colors.accent} style={{ marginTop: 16 }} />
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              s.loader,
+              { backgroundColor: "#f8eee8" },
+            ]}
+            pointerEvents="none"
+            testID="workspace-initial-loader"
+            accessibilityRole="progressbar"
+            accessibilityLabel="Loading JOBSAGE workspace"
+            accessibilityLiveRegion="polite"
+          >
+            <View style={s.loaderCard}>
+              <Image
+                source={require("../assets/images/jobsage-wordmark.png")}
+                style={s.loaderWordmark}
+                resizeMode="contain"
+                accessible={false}
+              />
+              <Text style={s.loaderTagline}>Find work that moves you.</Text>
+              <Text style={s.loaderStatus}>Opening your workspace</Text>
+            </View>
           </View>
         ) : null}
       </View>
@@ -612,7 +631,34 @@ const styles = (c: ReturnType<typeof useColors>) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.background },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 10 },
-    wordmark: { fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: 4, color: c.foreground },
+    loader: { alignItems: "center", justifyContent: "center", padding: 28 },
+    loaderCard: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      maxWidth: 320,
+      paddingHorizontal: 22,
+      paddingVertical: 24,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: "#eadbd2",
+      backgroundColor: "#fffaf6",
+    },
+    loaderWordmark: { width: 260, height: 38 },
+    loaderTagline: {
+      marginTop: 12,
+      fontFamily: "Inter_500Medium",
+      fontSize: 13,
+      letterSpacing: 0.2,
+      color: "#69323b",
+    },
+    loaderStatus: {
+      marginTop: 18,
+      fontFamily: "Inter_500Medium",
+      fontSize: 12,
+      letterSpacing: 0.2,
+      color: "#847771",
+    },
     errTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: c.foreground },
     errBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20, color: c.mutedForeground, textAlign: "center", marginBottom: 8 },
     primary: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, height: 44, borderRadius: c.radius, backgroundColor: c.accent },
