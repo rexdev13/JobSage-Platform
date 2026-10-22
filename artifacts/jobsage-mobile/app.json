@@ -46,8 +46,14 @@
             }
           },
           "ios": {
+            "image": "./assets/images/splash-logo.png",
+            "imageWidth": 320,
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
             "dark": {
+              "image": "./assets/images/splash-logo.png",
+              "imageWidth": 320,
+              "resizeMode": "contain",
               "backgroundColor": "#ffffff"
             }
           }

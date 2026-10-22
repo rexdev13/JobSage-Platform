@@ -632,20 +632,14 @@ const styles = (c: ReturnType<typeof useColors>) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.background },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 10 },
-    loader: { alignItems: "center", justifyContent: "center", padding: 28 },
+    loader: { alignItems: "center", justifyContent: "center", padding: 20 },
     loaderCard: {
       alignItems: "center",
       justifyContent: "center",
       width: "100%",
-      maxWidth: 320,
-      paddingHorizontal: 22,
-      paddingVertical: 24,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: c.launchBorder,
-      backgroundColor: c.launchCard,
+      maxWidth: 420,
     },
-    loaderWordmark: { width: "100%", maxWidth: 260, aspectRatio: 1440 / 207 },
+    loaderWordmark: { width: "100%", maxWidth: 380, aspectRatio: 1440 / 207 },
     loaderTagline: {
       marginTop: 12,
       fontFamily: "Inter_500Medium",
