@@ -1935,28 +1935,28 @@ content_type = "image/png"
 id = "9Gnvl_18vtKJjOWHA3dyR"
 uri = "file://artifacts/chrome-extension/store/screenshots/01-smart-apply-helper.png"
 type = "image"
-title = "Chrome Web Store screenshot 1 — Smart Apply helper"
-description = "1280×800 screenshot of the helper on a supported application form, using synthetic demo data."
+title = "Smart Apply helper screenshot"
+description = "1280 × 800 Chrome Web Store screenshot. Marked demo application/sample data."
 logical_id = "04d23373-0b5b-4c00-9cd8-0de9cf78b0aa"
 content_hash = "sha256:72d25f249b4dd37dfa1163e86b8b852369aa3929ff808bfd1e99f30b6f78beed"
 size = 98370
 mtime_ms = 1792335555015
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/04d23373-0b5b-4c00-9cd8-0de9cf78b0aa/dbbbec9c-c18b-40e3-8e9f-44efce12c5cd"
-storage_version_token = "1792336289629579"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/04d23373-0b5b-4c00-9cd8-0de9cf78b0aa/2937900b-678e-4d63-a855-49cdcf88514f"
+storage_version_token = "1792655414564809"
 content_type = "image/png"
 
 [[outputs]]
 id = "JtKpV8lBwsrMRidA-sS8k"
 uri = "file://artifacts/chrome-extension/store/screenshots/02-review-ai-answer.png"
 type = "image"
-title = "Chrome Web Store screenshot 2 — Review an AI answer"
-description = "1280×800 screenshot of a candidate reviewing an AI-drafted application answer, using synthetic demo data."
+title = "Review an AI-drafted answer screenshot"
+description = "1280 × 800 Chrome Web Store screenshot showing an answer that the candidate can review before inserting."
 logical_id = "fa2e1cd7-9998-471c-b27f-436f8786bbe7"
 content_hash = "sha256:b641f14651b3e0cabfb77d2a5b5f64a3815e629089a1471e772153574ed24e1f"
 size = 118175
 mtime_ms = 1792335556407
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa2e1cd7-9998-471c-b27f-436f8786bbe7/ae022ed6-484e-44ef-a1e8-03b1fd7e1882"
-storage_version_token = "1792336290736338"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa2e1cd7-9998-471c-b27f-436f8786bbe7/bda8c415-43e5-4bf8-8ffd-8b57b4ab20cb"
+storage_version_token = "1792655415304380"
 content_type = "image/png"
 
 [[outputs]]
@@ -1977,14 +1977,14 @@ content_type = "image/png"
 id = "emfSS7TPKcq9L3rvtZPjo"
 uri = "file://artifacts/chrome-extension/icons/icon128.png"
 type = "image"
-title = "JOBSAGE Chrome Web Store icon"
-description = "128 × 128 PNG icon for the JOBSAGE extension’s Chrome Web Store listing."
+title = "JOBSAGE Smart Apply store icon"
+description = "128 × 128 PNG, ready for the Chrome Web Store icon upload."
 logical_id = "32e20295-5156-4363-80ea-89e290ca87be"
 content_hash = "sha256:681ed80f5b59ac6234f4c152306b419c9fd2d8c74eb18a98113d4944d23bca85"
 size = 2744
 mtime_ms = 1792048639278
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/32e20295-5156-4363-80ea-89e290ca87be/fb7f4bfd-083f-44a8-b62f-6238d54ccbaa"
-storage_version_token = "1792494723706701"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/32e20295-5156-4363-80ea-89e290ca87be/061b85aa-af9b-456a-899e-926d6985e7d3"
+storage_version_token = "1792655413543200"
 content_type = "image/png"
 
 [[outputs]]
@@ -2097,4 +2097,18 @@ size = 208713
 mtime_ms = 1792588617230
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d633336b-e322-457b-ad37-675970f6dc0f/7a6e1f5a-ddd4-46b8-b62e-cb90672212b0"
 storage_version_token = "1792588634368178"
+content_type = "image/png"
+
+[[outputs]]
+id = "poorBV69RRmxI7QauJLYP"
+uri = "file://artifacts/chrome-extension/store/03-application-tracker.png"
+type = "image"
+title = "Application tracker screenshot"
+description = "1280 × 800 Chrome Web Store screenshot. The page is marked demo data."
+logical_id = "fa243880-43d3-4ce5-bf64-98343a646dc0"
+content_hash = "sha256:d4aa3d0d8b9bb34fc2076dec9bdb25b3e56ee6892042eaa4ac485526ea80a454"
+size = 123376
+mtime_ms = 1792494507123
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa243880-43d3-4ce5-bf64-98343a646dc0/46185bb9-ee0b-4bcf-ad93-054379718c92"
+storage_version_token = "1792655416013584"
 content_type = "image/png"
