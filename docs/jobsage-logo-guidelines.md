@@ -7,7 +7,7 @@ The untouched 8000×2267 PNG is retained in private App Storage:
 `gs://replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e/.private/brand/jobsage/logo-master-2026-10-21.png`.
 Deploy optimized transparent derivatives instead of the large master.
 
-The native sign-in uses the same cropped lettering with a separate readable 14px tagline. The native workspace loading state also uses the supplied wordmark with a separately rendered tagline, on a warm light surface without a spinner. Keep the existing JOBSAGE J app mark; do not invent or substitute a new logo. Android uses that existing mark in the adaptive icon and native splash. iOS has a plain warm launch surface. These native asset changes require a subsequent native app build; they do not update an already installed binary.
+The native sign-in uses the same cropped lettering with a separate readable 14px tagline. The native workspace loading state also uses the supplied wordmark with a separately rendered tagline, on a white surface without a spinner. Keep the existing JOBSAGE J app mark; do not invent or substitute a new logo. Android uses that existing mark in the adaptive icon and the supplied JOBSAGE wordmark on the native splash. iOS has a plain white launch surface. These native asset changes require a subsequent native app build; they do not update an already installed binary.
 
 The web social image uses the full supplied lockup on a plain light 1200×630 canvas. Website browser favicons retain the supplied J with clear space. The previously packaged Chrome extension is unchanged by this mobile branding update.
 

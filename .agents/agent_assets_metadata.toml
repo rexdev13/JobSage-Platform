@@ -2145,14 +2145,14 @@ content_type = "image/png"
 id = "HAfD728zXukOh20DPqUzj"
 uri = "file://artifacts/jobsage-mobile/assets/images/splash-logo.png"
 type = "image"
-title = "Current JOBSAGE logo"
-description = "The existing JOBSAGE wordmark and tagline used for the mobile splash screen."
+title = "JOBSAGE splash — white background"
+description = "Original gradient wordmark and tagline on white; the tagline remains dark and readable."
 logical_id = "0e86896f-6e29-43b1-bf67-b47866fea88f"
-content_hash = "sha256:2ada8265a3f9be589a8309424b4006bca627fb0bc0b5340cbc4b76742a8a032d"
-size = 269576
-mtime_ms = 1792589194348
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0e86896f-6e29-43b1-bf67-b47866fea88f/acf17886-8a63-41d2-887f-b348f9b8adfa"
-storage_version_token = "1792698475706086"
+content_hash = "sha256:4feb5a1fe66126123d49f09e26494b255ad4cb1c98d827406643945350ba347b"
+size = 174631
+mtime_ms = 1792698736358
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0e86896f-6e29-43b1-bf67-b47866fea88f/51492f0c-a6e7-49da-af1d-c69d10938617"
+storage_version_token = "1792698803194448"
 content_type = "image/png"
 
 [[outputs]]

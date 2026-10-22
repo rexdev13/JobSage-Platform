@@ -1,7 +1,7 @@
 const launchColors = {
-  launchBackground: "#f8eee8",
-  launchCard: "#fffaf6",
-  launchBorder: "#eadbd2",
+  launchBackground: "#ffffff",
+  launchCard: "#ffffff",
+  launchBorder: "#e8e0de",
   launchText: "#69323b",
   launchMuted: "#847771",
 };
