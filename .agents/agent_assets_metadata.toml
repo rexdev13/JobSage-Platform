@@ -2112,3 +2112,59 @@ mtime_ms = 1792494507123
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa243880-43d3-4ce5-bf64-98343a646dc0/46185bb9-ee0b-4bcf-ad93-054379718c92"
 storage_version_token = "1792655416013584"
 content_type = "image/png"
+
+[[outputs]]
+id = "dZQuBKtGuY45_eJEut7hS"
+uri = "file://artifacts/jobsage-mobile/assets/images/icon.png"
+type = "image"
+title = "Current JOBSAGE app icon"
+description = "The square icon currently configured for iOS and web."
+logical_id = "f4994c37-74b9-49c3-8873-b15970028b73"
+content_hash = "sha256:3085ab954a7de006db31a672b19f15c12fcd18d92c0a20d763b11a5cb9913652"
+size = 96982
+mtime_ms = 1792589181552
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f4994c37-74b9-49c3-8873-b15970028b73/950a7261-03df-4596-8f23-d250c8aad3a0"
+storage_version_token = "1792693958829013"
+content_type = "image/png"
+
+[[outputs]]
+id = "B3GkxTO_cbxwgSoiESNvz"
+uri = "file://artifacts/jobsage-mobile/assets/images/icon-foreground.png"
+type = "image"
+title = "Current Android icon foreground"
+description = "The transparent J mark used with the pale Android adaptive-icon background."
+logical_id = "e8e31e04-d5cd-4939-81a6-c0bd5a7c49ac"
+content_hash = "sha256:9b9e3f55d4e7aa93a06997da18c0d8986d44551e646c45f3d91229bea49d6411"
+size = 89449
+mtime_ms = 1792589185398
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e8e31e04-d5cd-4939-81a6-c0bd5a7c49ac/887607d7-9f95-4065-b891-5eed0644d10d"
+storage_version_token = "1792693959778952"
+content_type = "image/png"
+
+[[outputs]]
+id = "HAfD728zXukOh20DPqUzj"
+uri = "file://artifacts/jobsage-mobile/assets/images/splash-logo.png"
+type = "image"
+title = "Current mobile splash logo"
+description = "The transparent JOBSAGE wordmark and tagline used on the configured near-white splash screen."
+logical_id = "0e86896f-6e29-43b1-bf67-b47866fea88f"
+content_hash = "sha256:2ada8265a3f9be589a8309424b4006bca627fb0bc0b5340cbc4b76742a8a032d"
+size = 269576
+mtime_ms = 1792589194348
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/0e86896f-6e29-43b1-bf67-b47866fea88f/734dd576-8956-4e37-89a6-3423d8e749f7"
+storage_version_token = "1792693960646533"
+content_type = "image/png"
+
+[[outputs]]
+id = "fwMKdanneqPm4zwI3x391"
+uri = "file://artifacts/jobsage-mobile/assets/images/jobsage-wordmark.png"
+type = "image"
+title = "Current standalone wordmark"
+description = "The horizontal JOBSAGE wordmark without the tagline."
+logical_id = "bf902c56-b5d0-438c-a494-fa4217d9b9ba"
+content_hash = "sha256:6bc61b639676532083e84daa17265841e7bdfcadd09b97f64e7420bf33ef9d54"
+size = 183552
+mtime_ms = 1792589190157
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bf902c56-b5d0-438c-a494-fa4217d9b9ba/eb1f5994-6a7f-4eb9-9e76-63c4eb6c0496"
+storage_version_token = "1792693961544330"
+content_type = "image/png"
