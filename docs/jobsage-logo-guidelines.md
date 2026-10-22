@@ -7,9 +7,9 @@ The untouched 8000×2267 PNG is retained in private App Storage:
 `gs://replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e/.private/brand/jobsage/logo-master-2026-10-21.png`.
 Deploy optimized transparent derivatives instead of the large master.
 
-The existing native sign-in uses the same cropped lettering with a separate readable 14px tagline. Its splash retains the complete supplied lockup. Favicons and existing native app icons use the supplied J alone: the whole wordmark and tagline are not legible at icon sizes. These native asset changes require a subsequent native app build; they do not update an already installed binary.
+The native sign-in uses the same cropped lettering with a separate readable 14px tagline. The native workspace loading state also uses the supplied wordmark with a separately rendered tagline, on a warm light surface without a spinner. Native launcher icons use the text-free career-progress symbol, not the detached J, full wordmark, or tagline. Android has separate adaptive foreground/background and monochrome layers; its native splash uses that symbol. iOS has a plain warm launch surface. These native asset changes require a subsequent native app build; they do not update an already installed binary.
 
-The web social image uses the full supplied lockup on a plain light 1200×630 canvas. Browser favicons use the same J with clear space. The previously packaged Chrome extension is unchanged by this website/mobile branding update.
+The web social image uses the full supplied lockup on a plain light 1200×630 canvas. Website browser favicons retain the supplied J with clear space. The previously packaged Chrome extension is unchanged by this mobile branding update.
 
 Source artwork: `attached_assets/image_1792588865787.png`. Web assets: `public/jobsage-wordmark.webp` (1440x207 wordmark, used in UI) and `public/logo.png` (full lockup, 1600x351, social/legacy use).
 

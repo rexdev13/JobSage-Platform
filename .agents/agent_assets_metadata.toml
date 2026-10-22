@@ -2117,14 +2117,14 @@ content_type = "image/png"
 id = "dZQuBKtGuY45_eJEut7hS"
 uri = "file://artifacts/jobsage-mobile/assets/images/icon.png"
 type = "image"
-title = "Current JOBSAGE app icon"
-description = "The square icon currently configured for iOS and web."
+title = "Updated JOBSAGE mobile app icon"
+description = "Text-free career-progress symbol with a warm background; Android also has adaptive and monochrome layers."
 logical_id = "f4994c37-74b9-49c3-8873-b15970028b73"
-content_hash = "sha256:3085ab954a7de006db31a672b19f15c12fcd18d92c0a20d763b11a5cb9913652"
-size = 96982
-mtime_ms = 1792589181552
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f4994c37-74b9-49c3-8873-b15970028b73/950a7261-03df-4596-8f23-d250c8aad3a0"
-storage_version_token = "1792693958829013"
+content_hash = "sha256:b87e89c9b4220a886a1d2c718051455833d88c3d42ce721ea8c9b51e60c06c37"
+size = 31408
+mtime_ms = 1792696061272
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f4994c37-74b9-49c3-8873-b15970028b73/7c6fa562-05b3-4bff-9db0-dedaa6d41cb7"
+storage_version_token = "1792697039490119"
 content_type = "image/png"
 
 [[outputs]]

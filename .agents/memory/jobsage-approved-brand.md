@@ -7,4 +7,4 @@ Use the owner-supplied orange-to-burgundy JOBSAGE wordmark and exact tagline “
 
 **Why:** The owner explicitly replaced the older identity and requires both the logo and its subtitle to remain visible without awkward sizing or placement. Shrinking the complete artwork into a compact header makes the embedded tagline too small.
 
-**How to apply:** Preserve the supplied lettering rather than recreating it with a font. In compact application UI, scale a cropped wordmark proportionally and set the tagline as separate readable text; use the original full lockup where space permits. Tiny icon surfaces may use the supplied J alone. See `docs/jobsage-logo-guidelines.md` for sources and asset provenance.
+**How to apply:** Preserve the supplied lettering rather than recreating it with a font. In compact application UI, scale a cropped wordmark proportionally and set the tagline as separate readable text; use the original full lockup where space permits. Website favicons may use the supplied J; the owner rejected that detached J adaptation for native mobile icons (see `mobile-launch-branding.md`). See `docs/jobsage-logo-guidelines.md` for sources and asset provenance.

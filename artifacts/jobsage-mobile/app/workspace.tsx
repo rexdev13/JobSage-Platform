@@ -483,6 +483,7 @@ export default function WorkspaceScreen() {
 
   const s = styles(colors);
   const offline = network.isConnected === false || network.isInternetReachable === false;
+  const showingLaunch = isWorkspaceLoadBlocking(loadPhase) && !loadError;
 
   if (!WORKSPACE_ORIGIN || !startUrl) {
     return (
@@ -495,8 +496,8 @@ export default function WorkspaceScreen() {
   }
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+    <View style={[s.root, { paddingTop: insets.top }, showingLaunch && { backgroundColor: colors.launchBackground }]}>
+      <StatusBar style={!showingLaunch && scheme === "dark" ? "light" : "dark"} />
       {offline ? (
         <View style={s.banner} accessibilityLiveRegion="polite">
           <Feather name="wifi-off" size={14} color={colors.accentForeground} />
@@ -593,12 +594,12 @@ export default function WorkspaceScreen() {
           </View>
         ) : null}
 
-        {isWorkspaceLoadBlocking(loadPhase) && !loadError ? (
+        {showingLaunch ? (
           <View
             style={[
               StyleSheet.absoluteFill,
               s.loader,
-              { backgroundColor: "#f8eee8" },
+              { backgroundColor: colors.launchBackground },
             ]}
             pointerEvents="none"
             testID="workspace-initial-loader"
@@ -641,23 +642,23 @@ const styles = (c: ReturnType<typeof useColors>) =>
       paddingVertical: 24,
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: "#eadbd2",
-      backgroundColor: "#fffaf6",
+      borderColor: c.launchBorder,
+      backgroundColor: c.launchCard,
     },
-    loaderWordmark: { width: 260, height: 38 },
+    loaderWordmark: { width: "100%", maxWidth: 260, aspectRatio: 1440 / 207 },
     loaderTagline: {
       marginTop: 12,
       fontFamily: "Inter_500Medium",
       fontSize: 13,
       letterSpacing: 0.2,
-      color: "#69323b",
+      color: c.launchText,
     },
     loaderStatus: {
       marginTop: 18,
       fontFamily: "Inter_500Medium",
       fontSize: 12,
       letterSpacing: 0.2,
-      color: "#847771",
+      color: c.launchMuted,
     },
     errTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: c.foreground },
     errBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20, color: c.mutedForeground, textAlign: "center", marginBottom: 8 },

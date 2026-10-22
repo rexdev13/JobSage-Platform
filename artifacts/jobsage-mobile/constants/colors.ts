@@ -1,5 +1,14 @@
+const launchColors = {
+  launchBackground: "#f8eee8",
+  launchCard: "#fffaf6",
+  launchBorder: "#eadbd2",
+  launchText: "#69323b",
+  launchMuted: "#847771",
+};
+
 const colors = {
   light: {
+    ...launchColors,
     text: "#1c1917",
     tint: "#a51d1d",
     background: "#fdfcfc",
@@ -21,6 +30,7 @@ const colors = {
   },
 
   dark: {
+    ...launchColors,
     text: "#f5f2f0",
     tint: "#a51d1d",
     background: "#141110",
