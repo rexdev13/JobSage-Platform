@@ -29,6 +29,7 @@ import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvA
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
 import { isJobSageFirstPartyPage } from "./lib/trustedOrigin";
+import { startAutomaticEmailPrefill } from "./lib/automaticEmailPrefill";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -257,6 +258,21 @@ function rememberedFields(
   return questions.filter((question) => restoredIds.has(question.id));
 }
 
+type CandidatePrefillResponse = { data?: { profile?: CandidateProfile } | CandidateProfile; error?: string };
+let candidatePrefillRequest: Promise<CandidatePrefillResponse> | null = null;
+
+function requestCandidatePrefill(): Promise<CandidatePrefillResponse> {
+  // The initial full fill and email watcher can start together. Share only the
+  // in-flight request, not a stale cache of the candidate's editable profile.
+  if (!candidatePrefillRequest) {
+    candidatePrefillRequest = sendMessage<CandidatePrefillResponse>({
+      type: "API_REQUEST",
+      endpoint: "/smart-apply/candidate-prefill",
+    }).finally(() => { candidatePrefillRequest = null; });
+  }
+  return candidatePrefillRequest;
+}
+
 async function prefillApplicationDetails(
   questions: DetectedQuestion[] = [],
   answerMemory?: AnswerMemoryController,
@@ -269,10 +285,7 @@ async function prefillApplicationDetails(
       { status: "filled" as const, message: "Saved from a previous application" },
     ]),
   );
-  const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
-    type: "API_REQUEST",
-    endpoint: "/smart-apply/candidate-prefill",
-  });
+  const response = await requestCandidatePrefill();
   if (response.error || !response.data) {
     return {
       filled: restored.map((question) => question.question),
@@ -450,6 +463,18 @@ function mountSidebar(
       onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );
+  if (tracked && questionWatcher) {
+    const stopEmailPrefill = startAutomaticEmailPrefill(questionWatcher, async () => {
+      const response = await requestCandidatePrefill();
+      if (response.error || !response.data) return null;
+      const payload = response.data as { profile?: CandidateProfile };
+      return (payload.profile ?? response.data as CandidateProfile).email ?? null;
+    });
+    window.addEventListener("pagehide", (event) => {
+      // Keep the watcher alive when the browser parks this page in BFCache.
+      if (!event.persisted) stopEmailPrefill();
+    });
+  }
   container.dataset.jobsageRenderState = "scheduled";
 
   sidebarMounted = true;

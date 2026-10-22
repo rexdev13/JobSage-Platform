@@ -152,9 +152,11 @@ function isDedicatedField(field: QuestionField, hostname: string): boolean {
 }
 
 function isVisible(el: HTMLElement): boolean {
-  if (el.hidden || el.getAttribute("aria-hidden") === "true") return false;
-  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
-  if (style && (style.display === "none" || style.visibility === "hidden")) return false;
+  if (el.closest("[hidden], [aria-hidden='true']")) return false;
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    const style = el.ownerDocument.defaultView?.getComputedStyle(node);
+    if (style && (style.display === "none" || style.visibility === "hidden")) return false;
+  }
   // jsdom reports 0 rects for everything; only trust rect checks when layout exists.
   if (typeof el.getClientRects === "function") {
     const rects = el.getClientRects();

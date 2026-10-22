@@ -123,13 +123,17 @@ function isVisible(field: DetailField): boolean {
     field.disabled ||
     ("readOnly" in field && field.readOnly) ||
     field.hidden ||
-    field.getAttribute("aria-hidden") === "true"
+    field.matches(":disabled") ||
+    field.closest("[hidden], [aria-hidden='true']")
   ) return false;
-  const style = field.ownerDocument.defaultView?.getComputedStyle(field);
-  return style?.display !== "none" && style?.visibility !== "hidden";
+  for (let element: Element | null = field; element; element = element.parentElement) {
+    const style = field.ownerDocument.defaultView?.getComputedStyle(element);
+    if (style?.display === "none" || style?.visibility === "hidden") return false;
+  }
+  return true;
 }
 
-function fieldLabel(field: DetailField): string {
+function fieldLabel(field: DetailField, promptOnly = false): string {
   const doc = field.ownerDocument;
   const labelledBy = field.getAttribute("aria-labelledby");
   const ariaText = labelledBy
@@ -142,19 +146,34 @@ function fieldLabel(field: DetailField): string {
   const label = field.id ? doc.querySelector(`label[for="${escapedId}"]`)?.textContent ?? "" : "";
   const wrappingLabel = field.closest("label")?.textContent ?? "";
   return clean([
-    field.name,
-    field.id,
-    field.getAttribute("autocomplete"),
+    ...(promptOnly ? [] : [
+      `${field.name} ${field.id}`.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " "),
+      field.getAttribute("autocomplete"),
+    ]),
     field.getAttribute("aria-label"),
     ariaText,
     label,
     wrappingLabel,
+    field.getAttribute("placeholder"),
   ].join(" "));
+}
+
+function isSensitiveField(field: DetailField): boolean {
+  const prompt = fieldLabel(field, true);
+  const identifiesEmail = /\be[-\s]?mail\b/i.test(prompt)
+    || (isInput(field) && field.type === "email")
+    || field.getAttribute("autocomplete")?.toLowerCase() === "email";
+  // Some ATSs store an explicitly labelled email in a model property called
+  // UserName. That technical name is not a password or a separate username prompt.
+  if (!identifiesEmail) return SENSITIVE_FIELD_PATTERN.test(fieldLabel(field));
+  return SENSITIVE_FIELD_PATTERN.test(prompt)
+    || SENSITIVE_FIELD_PATTERN.test(fieldLabel(field).replace(/\buser\s*name\b/gi, ""));
 }
 
 function findRule(field: DetailField): { key: DetailKey; label: string } | null {
   const label = fieldLabel(field);
-  if (SENSITIVE_FIELD_PATTERN.test(label)) return null;
+  if (isSensitiveField(field)) return null;
+  if (isInput(field) && field.type === "email") return { key: "email", label: "email" };
 
   const autocomplete = clean(field.getAttribute("autocomplete")).toLowerCase();
   if (autocomplete === "given-name") return { key: "firstName", label: "first name" };
@@ -196,6 +215,24 @@ export function prefillPersonalDetails(
   doc: Document = document,
   vacancyContext?: TrustedVacancyContext,
 ): PrefillResult {
+  return prefillDetails(profile, doc, vacancyContext);
+}
+
+/** A narrow pass for newly appearing candidate email fields; no other facts or answers. */
+export function prefillCandidateEmail(
+  email: string,
+  doc: Document = document,
+  options?: { preserveExistingEmail?: boolean; shouldFill?: (field: Element) => boolean },
+): PrefillResult {
+  return prefillDetails({ email }, doc, options, options?.shouldFill ?? (() => true));
+}
+
+function prefillDetails(
+  profile: CandidateProfile,
+  doc: Document,
+  vacancyContext?: TrustedVacancyContext,
+  emailOnly?: (field: Element) => boolean,
+): PrefillResult {
   const filled = new Set<string>();
   const missing = new Set<string>();
   const requiredMissing = new Set<string>();
@@ -225,7 +262,8 @@ export function prefillPersonalDetails(
 
     const label = fieldLabel(field);
     const questionId = field.getAttribute("data-jobsage-qid");
-    if (SENSITIVE_FIELD_PATTERN.test(label)) {
+    if (emailOnly && findRule(field)?.key !== "email") continue;
+    if (isSensitiveField(field)) {
       skipped.push(label || "sensitive field");
       const requiredness = getRequiredness(field);
       if (requiredness.requiredKnown && requiredness.required) {
@@ -252,11 +290,18 @@ export function prefillPersonalDetails(
     const candidateValue = valueFor(profile, rule.key);
     const currentValue = clean(field.value);
     if (rule.key === "email") {
+      const legend = field.closest("fieldset")?.querySelector("legend")?.textContent ?? "";
+      if (/\b(referee|references?|manager|supervisor|employer|recruiter|emergency|next\s+of\s+kin)\b/i.test(`${label} ${legend}`)) {
+        skipped.push(rule.label);
+        if (questionId) fieldResults[questionId] = { status: "skipped", message: "Not the candidate's email" };
+        continue;
+      }
       if (!isJobsageAlias(candidateValue)) {
         recordMissing(field, rule.label);
         if (questionId) fieldResults[questionId] = { status: "missing", message: "No JOBSAGE alias is available" };
         continue;
       }
+      if (emailOnly && !emailOnly(field)) continue;
       if (currentValue.toLowerCase() === candidateValue.toLowerCase()) continue;
       if (currentValue && vacancyContext?.preserveExistingEmail) {
         skipped.push(rule.label);
