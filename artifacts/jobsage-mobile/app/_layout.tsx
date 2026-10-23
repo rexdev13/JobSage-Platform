@@ -9,13 +9,16 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { Platform } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import React, { useCallback, useEffect, useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LaunchScreen } from "@/components/LaunchScreen";
+import colors from "@/constants/colors";
 import { AuthProvider } from "@/context/AuthContext";
 import { cleanupInterruptedDocumentUploads } from "@/lib/document-upload";
 import { getNativeNotifications } from "@/lib/notification-runtime";
@@ -37,7 +40,13 @@ if (Notifications) {
   });
 }
 
-SplashScreen.preventAutoHideAsync();
+if (Platform.OS !== "web") {
+  // Keep this at module scope: waiting for a React effect is too late on cold starts.
+  void SplashScreen.preventAutoHideAsync().catch((error: unknown) => {
+    console.warn("Could not retain the native splash screen.", error);
+  });
+  SplashScreen.setOptions({ fade: true, duration: 200 });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +71,11 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [navigationLaidOut, setNavigationLaidOut] = useState(false);
+  const [launchImageReady, setLaunchImageReady] = useState(false);
+  const [handoffComplete, setHandoffComplete] = useState(false);
+  const onNavigationLayout = useCallback(() => setNavigationLaidOut(true), []);
+  const onLaunchReady = useCallback(() => setLaunchImageReady(true), []);
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -70,10 +84,24 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
+    if ((Platform.OS !== "web" && !fontsLoaded && !fontError) || !navigationLaidOut || !launchImageReady) return;
+
+    // Layout and image decoding must both finish before revealing React content.
+    // Keep the matching overlay painted until native dismissal has been requested.
+    let active = true;
+    const frame = requestAnimationFrame(() => {
+      const hide = Platform.OS === "web" ? Promise.resolve() : SplashScreen.hideAsync();
+      void hide.catch((error: unknown) => {
+        console.warn("Could not dismiss the native splash screen.", error);
+      }).finally(() => {
+        if (active) setHandoffComplete(true);
+      });
+    });
+    return () => {
+      active = false;
+      cancelAnimationFrame(frame);
+    };
+  }, [fontsLoaded, fontError, navigationLaidOut, launchImageReady]);
 
   useEffect(() => {
     try {
@@ -91,10 +119,18 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
               <AuthProvider>
-                <RootLayoutNav />
+                <View style={styles.root} onLayout={onNavigationLayout}>
+                  <RootLayoutNav />
+                  {!handoffComplete ? (
+                    <>
+                      <StatusBar style="dark" />
+                      <LaunchScreen onReady={onLaunchReady} testID="startup-splash-handoff" />
+                    </>
+                  ) : null}
+                </View>
               </AuthProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
@@ -103,3 +139,7 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.light.launchBackground },
+});

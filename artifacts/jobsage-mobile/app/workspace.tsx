@@ -16,7 +16,6 @@ import {
   Alert,
   AppState,
   BackHandler,
-  Image,
   Linking,
   Platform,
   Pressable,
@@ -30,6 +29,7 @@ import WebView from "react-native-webview";
 import type { WebViewMessageEvent, WebViewOpenWindowEvent, WebViewSource } from "react-native-webview/lib/WebViewTypes";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 
+import { LaunchScreen } from "@/components/LaunchScreen";
 import { NativeApplicationBrowser } from "@/components/NativeApplicationBrowser";
 import { PushNotifications } from "@/components/PushNotifications";
 import { getNativeAuthRevision, getNativeSessionToken, getNativeSessionUserId, useAuth } from "@/context/AuthContext";
@@ -594,32 +594,9 @@ export default function WorkspaceScreen() {
           </View>
         ) : null}
 
-        {showingLaunch ? (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              s.loader,
-              { backgroundColor: colors.launchBackground },
-            ]}
-            pointerEvents="none"
-            testID="workspace-initial-loader"
-            accessibilityRole="progressbar"
-            accessibilityLabel="Loading JOBSAGE workspace"
-            accessibilityLiveRegion="polite"
-          >
-            <View style={s.loaderCard}>
-              <Image
-                source={require("../assets/images/jobsage-wordmark.png")}
-                style={s.loaderWordmark}
-                resizeMode="contain"
-                accessible={false}
-              />
-              <Text style={s.loaderTagline}>Find work that moves you.</Text>
-              <Text style={s.loaderStatus}>Opening your workspace</Text>
-            </View>
-          </View>
-        ) : null}
       </View>
+
+      {showingLaunch ? <LaunchScreen testID="workspace-initial-loader" /> : null}
 
       {appContext ? (
         <NativeApplicationBrowser context={appContext} visible onClose={() => setAppContext(null)} />
@@ -632,32 +609,10 @@ const styles = (c: ReturnType<typeof useColors>) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.background },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 10 },
-    loader: { alignItems: "center", justifyContent: "center", padding: 20 },
-    loaderCard: {
-      alignItems: "center",
-      justifyContent: "center",
-      width: "100%",
-      maxWidth: 420,
-    },
-    loaderWordmark: { width: "100%", maxWidth: 380, aspectRatio: 1440 / 207 },
-    loaderTagline: {
-      marginTop: 12,
-      fontFamily: "Inter_500Medium",
-      fontSize: 13,
-      letterSpacing: 0.2,
-      color: c.launchText,
-    },
-    loaderStatus: {
-      marginTop: 18,
-      fontFamily: "Inter_500Medium",
-      fontSize: 12,
-      letterSpacing: 0.2,
-      color: c.launchMuted,
-    },
     errTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: c.foreground },
     errBody: { fontFamily: "Inter_400Regular", fontSize: 14, lineHeight: 20, color: c.mutedForeground, textAlign: "center", marginBottom: 8 },
     primary: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, height: 44, borderRadius: c.radius, backgroundColor: c.accent },
     primaryText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: c.accentForeground },
-    banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: c.primary },
+    banner: { zIndex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: c.primary },
     bannerText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 13, color: c.primaryForeground },
   });

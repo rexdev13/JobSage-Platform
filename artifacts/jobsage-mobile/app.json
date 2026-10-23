@@ -7,9 +7,28 @@
     "icon": "./assets/images/icon.png",
     "scheme": "jobsage-mobile",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#ffffff",
+    "splash": {
+      "image": "./assets/images/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/images/splash-logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
     "ios": {
       "buildNumber": "1",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "image": "./assets/images/splash-logo.png",
+          "backgroundColor": "#ffffff"
+        }
+      }
     },
     "android": {
       "package": "uk.co.jobsage.mobile",
@@ -17,7 +36,19 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#f8eee8"
+      },
+      "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "image": "./assets/images/splash-logo.png",
+          "backgroundColor": "#ffffff"
+        }
       }
+    },
+    "androidStatusBar": {
+      "barStyle": "dark-content"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -32,30 +63,19 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
           "backgroundColor": "#ffffff",
-          "android": {
+          "dark": {
             "image": "./assets/images/splash-logo.png",
-            "imageWidth": 320,
-            "resizeMode": "contain",
-            "backgroundColor": "#ffffff",
-            "dark": {
-              "image": "./assets/images/splash-logo.png",
-              "imageWidth": 320,
-              "resizeMode": "contain",
-              "backgroundColor": "#ffffff"
-            }
+            "backgroundColor": "#ffffff"
+          },
+          "android": {
+            "imageWidth": 184
           },
           "ios": {
-            "image": "./assets/images/splash-logo.png",
-            "imageWidth": 320,
-            "resizeMode": "contain",
-            "backgroundColor": "#ffffff",
-            "dark": {
-              "image": "./assets/images/splash-logo.png",
-              "imageWidth": 320,
-              "resizeMode": "contain",
-              "backgroundColor": "#ffffff"
-            }
+            "imageWidth": 280
           }
         }
       ],
