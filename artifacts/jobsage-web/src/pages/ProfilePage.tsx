@@ -12,6 +12,8 @@ import {
   useActivateCareerProfile,
   useGenerateProfileCv,
   useListMyDocuments,
+  useDraftApplicationStrengthsFromCv,
+  type DraftApplicationStrengthsResponse,
   type CareerProfile,
   getCareerProfilesQueryKey,
 } from "@workspace/api-client-react";
@@ -199,6 +201,8 @@ export default function ProfilePage() {
   const { data: journeyData } = useGetJourneyStatus({
     query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 60_000 },
   });
+  const { data: documentsData } = useListMyDocuments();
+  const draftApplicationStrengthsMutation = useDraftApplicationStrengthsFromCv();
   const { toast } = useToast();
 
   const [selectedSector, setSelectedSector] = useState<CanonicalSector | "">("");
@@ -246,6 +250,58 @@ export default function ProfilePage() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const formDataRef = useRef(formData);
   useEffect(() => { formDataRef.current = formData; }, [formData]);
+  const [selectedStrengthCvId, setSelectedStrengthCvId] = useState<number | null>(null);
+  const [strengthDraft, setStrengthDraft] = useState<DraftApplicationStrengthsResponse | null>(null);
+
+  const pdfCvDocuments = (documentsData?.documents ?? [])
+    .filter((document) => document.documentType === "cv" && document.mimeType === "application/pdf")
+    .sort((a, b) =>
+      Number(b.isPrimary) - Number(a.isPrimary) ||
+      Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt),
+    );
+  const selectedStrengthCv =
+    pdfCvDocuments.find((document) => document.id === selectedStrengthCvId) ??
+    pdfCvDocuments[0] ??
+    null;
+
+  const draftStrengthsFromCv = async () => {
+    if (!selectedStrengthCv) return;
+    // A generation request must never cause the existing textarea value to be
+    // autosaved as a side effect of clicking the AI action.
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    setStrengthDraft(null);
+    try {
+      const result = await draftApplicationStrengthsMutation.mutateAsync({
+        data: { documentId: selectedStrengthCv.id },
+      });
+      setStrengthDraft(result);
+    } catch (error) {
+      toast({
+        title: "Could not draft strengths",
+        description: error instanceof Error ? error.message : "Please try again, or write your strengths yourself.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const useStrengthDraft = (append: boolean) => {
+    if (!strengthDraft) return;
+    const generatedText = strengthDraft.strengths.map(({ text }) => text).join(" ");
+    setFormData((previous) => {
+      const current = previous.applicationStrengths.trim();
+      const applicationStrengths = append && current
+        ? `${current}\n\n${generatedText}`
+        : generatedText;
+      return { ...previous, applicationStrengths: applicationStrengths.slice(0, 3000) };
+    });
+    toast({
+      title: "Draft added for your review",
+      description: "Check the CV evidence, edit or add your own details, then save your profile.",
+    });
+  };
 
   useEffect(() => {
     if (profile) {
@@ -1143,7 +1199,7 @@ export default function ProfilePage() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-2 border-b pb-4">Application Details</h3>
             <p className="text-xs text-muted-foreground mb-5">
-              Add details you want used for matching Smart Apply questions. JOBSAGE uses only what you enter here; unanswered details stay blank, and you review every draft before sending.
+              Add details for matching Smart Apply questions. Write your strengths yourself or start with a CV-based AI draft, then review every draft before sending.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -1161,7 +1217,53 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label htmlFor="profile-field-applicationStrengths">Your professional strengths</Label>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Label htmlFor="profile-field-applicationStrengths">Your professional strengths</Label>
+                  {selectedStrengthCv ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {pdfCvDocuments.length > 1 ? (
+                        <Select
+                          aria-label="CV to use for writing professional strengths"
+                          value={String(selectedStrengthCv.id)}
+                          onChange={(event) => setSelectedStrengthCvId(Number(event.target.value))}
+                          className="h-9 max-w-[220px] rounded-lg border px-2.5 text-xs"
+                        >
+                          {pdfCvDocuments.map((document) => (
+                            <option key={document.id} value={document.id}>
+                              {document.label || document.filename}
+                              {document.isPrimary ? " (Primary CV)" : ""}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <span className="max-w-[220px] truncate text-xs text-muted-foreground">
+                          From: {selectedStrengthCv.label || selectedStrengthCv.filename}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void draftStrengthsFromCv()}
+                        disabled={draftApplicationStrengthsMutation.isPending}
+                        aria-label="Write professional strengths from the selected CV"
+                      >
+                        {draftApplicationStrengthsMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
+                        )}
+                        {draftApplicationStrengthsMutation.isPending ? "Reading your CV…" : "Write from CV"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Link href="/documents">
+                      <span className="text-sm font-medium text-primary hover:underline">
+                        Upload a PDF CV to draft from
+                      </span>
+                    </Link>
+                  )}
+                </div>
                 <textarea
                   id="profile-field-applicationStrengths"
                   name="applicationStrengths"
@@ -1170,9 +1272,75 @@ export default function ProfilePage() {
                   onBlur={handleBlur}
                   maxLength={3000}
                   rows={3}
-                  placeholder="Describe the strengths you want to highlight…"
+                  placeholder="Write strengths from your professional experience…"
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
                 />
+                <FieldHint>
+                  Draft from an uploaded PDF CV, then review the source evidence, edit the wording, and add anything the CV does not capture before saving.
+                </FieldHint>
+                {strengthDraft ? (
+                  <div
+                    className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.035] p-4"
+                    role="region"
+                    aria-label="AI professional strengths draft from your CV"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                          Draft based on {strengthDraft.filename}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Check each statement against the quoted CV evidence. Nothing is saved until you add it to the field and save your profile.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStrengthDraft(null)}
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Dismiss CV strength draft"
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <ul className="space-y-3">
+                      {strengthDraft.strengths.map((strength, index) => (
+                        <li key={`${strength.text}-${index}`} className="rounded-lg bg-background/80 p-3">
+                          <p className="text-sm text-foreground">{strength.text}</p>
+                          <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Evidence from your CV
+                          </p>
+                          {strength.evidence.map((excerpt, excerptIndex) => (
+                            <blockquote
+                              key={`${excerpt}-${excerptIndex}`}
+                              className="mt-1 border-l-2 border-primary/30 pl-2 text-xs text-muted-foreground"
+                            >
+                              “{excerpt}”
+                            </blockquote>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => useStrengthDraft(false)}
+                        aria-label={formData.applicationStrengths.trim() ? "Replace strengths with the reviewed AI draft" : "Use the reviewed AI draft"}
+                      >
+                        {formData.applicationStrengths.trim() ? "Replace with this draft" : "Use this draft"}
+                      </Button>
+                      {formData.applicationStrengths.trim() ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => useStrengthDraft(true)}>
+                          Add after my existing text
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  AI drafts use up to 5 daily CV-writing actions. CVs with little readable text may need you to enter your strengths manually.
+                </p>
               </div>
               <div>
                 <Label htmlFor="profile-field-noticePeriod">Notice period</Label>

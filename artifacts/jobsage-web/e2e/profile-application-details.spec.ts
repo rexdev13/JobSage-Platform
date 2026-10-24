@@ -126,3 +126,127 @@ test("application details autosave, reload, and clear independently", async ({ p
     APPLICATION_DETAILS.startAvailability,
   );
 });
+
+test("candidates can review CV evidence, add their own text, and save the combined strengths", async ({ page }) => {
+  const ownStrengths = "I provide calm, compassionate care.";
+  const cvEvidence = "Led a multidisciplinary team of 12 during a service redesign.";
+  let profile: Record<string, unknown> = {
+    profession: "nurse",
+    specialty: "ICU",
+    qualificationCountry: "Nigeria",
+    qualificationType: "bachelor",
+    qualificationYear: 2015,
+    experienceYears: 5,
+    registrationStatus: "registered",
+    licenceReady: true,
+    dbsClearanceLevel: "enhanced",
+    safeguardingTrainingLevel: "level_2",
+    residencyStatus: "visa_required",
+    requiresSponsorship: true,
+    preferredRegion: ["London"],
+    alertFrequency: "weekly",
+    preferredStartDate: null,
+    profilePhotoKey: null,
+    languages: ["English"],
+    additionalNotes: null,
+    phone: "07123456789",
+    streetAddress: "10 High Street",
+    city: "London",
+    postcode: "SW1A 1AA",
+    country: "United Kingdom",
+    ...Object.fromEntries(Object.keys(APPLICATION_DETAILS).map((field) => [field, null])),
+  };
+  const profileWrites: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/**", async (route) => {
+    const { pathname } = new URL(route.request().url());
+    const method = route.request().method();
+
+    if (pathname.endsWith("/api/auth/user")) {
+      await route.fulfill({
+        json: {
+          user: {
+            id: "candidate-1",
+            email: "candidate@example.com",
+            role: "candidate",
+            firstName: "Jane",
+            lastName: "Doe",
+          },
+        },
+      });
+    } else if (pathname.endsWith("/api/consent")) {
+      await route.fulfill({ json: { hasConsented: true } });
+    } else if (pathname.endsWith("/api/profiles/me") && method === "GET") {
+      await route.fulfill({ json: profile });
+    } else if (pathname.endsWith("/api/profiles/me") && method === "PUT") {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      profileWrites.push(body);
+      profile = { ...profile, ...body };
+      await route.fulfill({ json: profile });
+    } else if (pathname.endsWith("/api/profiles/application-strengths/draft")) {
+      await route.fulfill({
+        json: {
+          documentId: 41,
+          filename: "primary-cv.pdf",
+          remaining: 4,
+          strengths: [{
+            text: "I lead multidisciplinary teams through service improvement.",
+            evidence: [cvEvidence],
+          }],
+        },
+      });
+    } else if (pathname.endsWith("/api/professions")) {
+      await route.fulfill({ json: { professions: [] } });
+    } else if (pathname.endsWith("/api/journey/status")) {
+      await route.fulfill({ json: { badges: [] } });
+    } else if (pathname.endsWith("/api/career-profiles")) {
+      await route.fulfill({ json: { profiles: [] } });
+    } else if (pathname.endsWith("/api/documents") && method === "GET") {
+      await route.fulfill({
+        json: {
+          documents: [{
+            id: 41,
+            userId: "candidate-1",
+            filename: "primary-cv.pdf",
+            mimeType: "application/pdf",
+            storageKey: "/objects/uploads/cv-41",
+            documentType: "cv",
+            label: "Primary CV",
+            isPrimary: true,
+            disclaimerText: "Uploaded for reference.",
+            uploadedAt: "2026-01-01T00:00:00.000Z",
+          }],
+        },
+      });
+    } else {
+      await route.fulfill({ json: {} });
+    }
+  });
+
+  await page.goto(`${BASE}/profile`);
+  await expect(page.getByRole("heading", { name: "Application Details" })).toBeVisible();
+
+  const field = page.locator('[name="applicationStrengths"]');
+  await field.fill(ownStrengths);
+  const draftRequest = page.waitForRequest((request) =>
+    request.method() === "POST" &&
+    new URL(request.url()).pathname.endsWith("/api/profiles/application-strengths/draft"),
+  );
+  await page.getByRole("button", { name: "Write professional strengths from the selected CV" }).click();
+  expect((await draftRequest).postDataJSON()).toEqual({ documentId: 41 });
+  await expect(page.getByText("Draft based on primary-cv.pdf")).toBeVisible();
+  await expect(page.getByText(`“${cvEvidence}”`)).toBeVisible();
+
+  await page.getByRole("button", { name: "Add after my existing text" }).click();
+  await expect(field).toHaveValue(`${ownStrengths}\n\nI lead multidisciplinary teams through service improvement.`);
+  expect(profileWrites.some((write) => write.applicationStrengths)).toBe(false);
+
+  const saveResponse = page.waitForResponse((response) =>
+    response.request().method() === "PUT" &&
+    new URL(response.url()).pathname.endsWith("/api/profiles/me"),
+  );
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  expect((await saveResponse).request().postDataJSON()).toMatchObject({
+    applicationStrengths: `${ownStrengths}\n\nI lead multidisciplinary teams through service improvement.`,
+  });
+});

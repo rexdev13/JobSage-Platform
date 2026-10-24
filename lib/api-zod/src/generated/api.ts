@@ -747,7 +747,7 @@ export const GetMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Candidate-authored professional strengths to use in matching Smart Apply questions",
+      "Candidate-reviewed professional strengths, written by the candidate or drafted from CV evidence, for matching Smart Apply questions",
     ),
   noticePeriod: zod
     .string()
@@ -966,7 +966,7 @@ export const UpsertMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe(
-      "Candidate-authored professional strengths to use in matching Smart Apply questions",
+      "Candidate-reviewed professional strengths, written by the candidate or drafted from CV evidence, for matching Smart Apply questions",
     ),
   noticePeriod: zod
     .string()
@@ -1014,6 +1014,50 @@ export const UpsertMyProfileResponse = zod.object({
     ),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+});
+
+/**
+ * @summary Draft professional strengths grounded in a selected CV
+ */
+
+export const DraftApplicationStrengthsFromCvBody = zod.object({
+  documentId: zod.number().min(1),
+});
+
+export const draftApplicationStrengthsFromCvResponseStrengthsItemTextMax = 350;
+
+export const draftApplicationStrengthsFromCvResponseStrengthsItemEvidenceItemMax = 300;
+
+export const draftApplicationStrengthsFromCvResponseStrengthsItemEvidenceMax = 3;
+
+export const draftApplicationStrengthsFromCvResponseStrengthsMax = 4;
+
+export const DraftApplicationStrengthsFromCvResponse = zod.object({
+  strengths: zod
+    .array(
+      zod.object({
+        text: zod
+          .string()
+          .min(1)
+          .max(draftApplicationStrengthsFromCvResponseStrengthsItemTextMax),
+        evidence: zod
+          .array(
+            zod
+              .string()
+              .min(1)
+              .max(
+                draftApplicationStrengthsFromCvResponseStrengthsItemEvidenceItemMax,
+              ),
+          )
+          .min(1)
+          .max(draftApplicationStrengthsFromCvResponseStrengthsItemEvidenceMax),
+      }),
+    )
+    .min(1)
+    .max(draftApplicationStrengthsFromCvResponseStrengthsMax),
+  documentId: zod.number(),
+  filename: zod.string(),
+  remaining: zod.number(),
 });
 
 /**
@@ -3297,7 +3341,7 @@ export const GetReviewCaseResponse = zod.object({
         .string()
         .nullish()
         .describe(
-          "Candidate-authored professional strengths to use in matching Smart Apply questions",
+          "Candidate-reviewed professional strengths, written by the candidate or drafted from CV evidence, for matching Smart Apply questions",
         ),
       noticePeriod: zod
         .string()

@@ -582,7 +582,7 @@ export interface CandidateProfile {
   additionalNotes?: string | null;
   /** Candidate-authored motivation to use in matching Smart Apply questions */
   applicationMotivation?: string | null;
-  /** Candidate-authored professional strengths to use in matching Smart Apply questions */
+  /** Candidate-reviewed professional strengths, written by the candidate or drafted from CV evidence, for matching Smart Apply questions */
   applicationStrengths?: string | null;
   /** Candidate-confirmed notice period */
   noticePeriod?: string | null;
@@ -681,6 +681,35 @@ export interface UpsertProfileRequest {
   city?: string | null;
   postcode?: string | null;
   country?: string | null;
+}
+
+export interface DraftApplicationStrengthsRequest {
+  /** @minimum 1 */
+  documentId: number;
+}
+
+export interface ApplicationStrengthEvidence {
+  /**
+   * @minLength 1
+   * @maxLength 350
+   */
+  text: string;
+  /**
+   * @minItems 1
+   * @maxItems 3
+   */
+  evidence: string[];
+}
+
+export interface DraftApplicationStrengthsResponse {
+  /**
+   * @minItems 1
+   * @maxItems 4
+   */
+  strengths: ApplicationStrengthEvidence[];
+  documentId: number;
+  filename: string;
+  remaining: number;
 }
 
 export interface RecordConsentRequest {

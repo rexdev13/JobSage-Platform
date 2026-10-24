@@ -69,6 +69,8 @@ import type {
   DismissMatchRequest,
   Document,
   DocumentList,
+  DraftApplicationStrengthsRequest,
+  DraftApplicationStrengthsResponse,
   EligibilityHistoryList,
   EligibilityResult,
   EmployerCandidateFeedbackInput,
@@ -3137,6 +3139,99 @@ export const useUpsertMyProfile = <
   TContext
 > => {
   return useMutation(getUpsertMyProfileMutationOptions(options));
+};
+
+/**
+ * @summary Draft professional strengths grounded in a selected CV
+ */
+export const getDraftApplicationStrengthsFromCvUrl = () => {
+  return `/api/profiles/application-strengths/draft`;
+};
+
+export const draftApplicationStrengthsFromCv = async (
+  draftApplicationStrengthsRequest: DraftApplicationStrengthsRequest,
+  options?: RequestInit,
+): Promise<DraftApplicationStrengthsResponse> => {
+  return customFetch<DraftApplicationStrengthsResponse>(
+    getDraftApplicationStrengthsFromCvUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(draftApplicationStrengthsRequest),
+    },
+  );
+};
+
+export const getDraftApplicationStrengthsFromCvMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>,
+    TError,
+    { data: BodyType<DraftApplicationStrengthsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>,
+  TError,
+  { data: BodyType<DraftApplicationStrengthsRequest> },
+  TContext
+> => {
+  const mutationKey = ["draftApplicationStrengthsFromCv"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>,
+    { data: BodyType<DraftApplicationStrengthsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return draftApplicationStrengthsFromCv(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DraftApplicationStrengthsFromCvMutationResult = NonNullable<
+  Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>
+>;
+export type DraftApplicationStrengthsFromCvMutationBody =
+  BodyType<DraftApplicationStrengthsRequest>;
+export type DraftApplicationStrengthsFromCvMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Draft professional strengths grounded in a selected CV
+ */
+export const useDraftApplicationStrengthsFromCv = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>,
+    TError,
+    { data: BodyType<DraftApplicationStrengthsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof draftApplicationStrengthsFromCv>>,
+  TError,
+  { data: BodyType<DraftApplicationStrengthsRequest> },
+  TContext
+> => {
+  return useMutation(
+    getDraftApplicationStrengthsFromCvMutationOptions(options),
+  );
 };
 
 /**

@@ -850,6 +850,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /profiles/application-strengths/draft:
+    post:
+      tags: [Profiles]
+      operationId: draftApplicationStrengthsFromCv
+      summary: Draft professional strengths grounded in a selected CV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftApplicationStrengthsRequest'
+      responses:
+        '200':
+          description: CV-grounded editable strengths with matching CV evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftApplicationStrengthsResponse'
+        '400':
+          description: Invalid document ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Candidate consent is required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: The selected CV was not found for this candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '415':
+          description: This draft currently requires an uploaded PDF CV.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: CV text was unavailable or the AI could not produce evidence-backed strengths.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Daily CV-writing limit reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: The AI service could not produce a validated draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /consent:
     post:
       tags: [Consent]
@@ -6354,7 +6421,7 @@ components:
         applicationStrengths:
           type: string
           nullable: true
-          description: Candidate-authored professional strengths to use in matching Smart Apply questions
+          description: Candidate-reviewed professional strengths, written by the candidate or drafted from CV evidence, for matching Smart Apply questions
         noticePeriod:
           type: string
           nullable: true
@@ -6529,6 +6596,48 @@ components:
         country:
           type: string
           nullable: true
+
+    DraftApplicationStrengthsRequest:
+      type: object
+      required: [documentId]
+      properties:
+        documentId:
+          type: integer
+          minimum: 1
+
+    ApplicationStrengthEvidence:
+      type: object
+      required: [text, evidence]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 350
+        evidence:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+
+    DraftApplicationStrengthsResponse:
+      type: object
+      required: [strengths, documentId, filename, remaining]
+      properties:
+        strengths:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/ApplicationStrengthEvidence'
+        documentId:
+          type: integer
+        filename:
+          type: string
+        remaining:
+          type: integer
 
     RecordConsentRequest:
       type: object
