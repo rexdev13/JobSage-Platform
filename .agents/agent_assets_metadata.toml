@@ -2168,3 +2168,31 @@ mtime_ms = 1792589190157
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bf902c56-b5d0-438c-a494-fa4217d9b9ba/eb1f5994-6a7f-4eb9-9e76-63c4eb6c0496"
 storage_version_token = "1792693961544330"
 content_type = "image/png"
+
+[[outputs]]
+id = "rhvCisRkk2_ZY4aFHGSUg"
+uri = "file://generated-artifacts/cv-quality/actual-outputs.html"
+type = "html"
+title = "Actual generated CV outputs — all three modes"
+description = "Unedited final model text using the fictional CV, with preservation warnings."
+logical_id = "8a5c8d7b-84e6-4b88-8c98-b4c176280cfa"
+content_hash = "sha256:d35c1bbe82daf19a71cda2eb71aea5b052634f6e60745da1f68f446c840e0328"
+size = 8506
+mtime_ms = 1792874208661
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8a5c8d7b-84e6-4b88-8c98-b4c176280cfa/377961db-3ba9-4121-b915-27af2c4f22e2"
+storage_version_token = "1792874235118756"
+content_type = "text/html"
+
+[[outputs]]
+id = "ponJUoIw09I-SaURpzpXY"
+uri = "file://generated-artifacts/cv-quality/general.pdf"
+type = "pdf"
+title = "Synthetic enhanced CV — PDF sample"
+description = "The actual PDF generated from the General rewrite output; fictional candidate and employers."
+logical_id = "3c59669c-cbaf-4218-9d21-07f4771f3ebf"
+content_hash = "sha256:555189717a5652896a7b852d31b2a218dcd0d31771168baa53772e2ae0e3282a"
+size = 4621
+mtime_ms = 1792874208658
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3c59669c-cbaf-4218-9d21-07f4771f3ebf/9b26ca2a-c57c-474b-814b-17435a111ffd"
+storage_version_token = "1792874235854584"
+content_type = "application/pdf"

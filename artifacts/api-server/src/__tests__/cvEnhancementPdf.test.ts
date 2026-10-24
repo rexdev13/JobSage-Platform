@@ -17,6 +17,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildCvEnhancementUserPrompt,
+  buildCvEnhancementReviewPrompt,
+  buildCvEnhancementSystemPrompt,
   extractPdfSourceText,
   getCvEnhancementPreservationWarnings,
   normaliseCvEnhancementOutput,
@@ -65,6 +67,16 @@ LANGUAGES
 English (fluent), Yoruba (native)`;
 
 describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
+  it("uses the reviewed source name once rather than injecting another account name", async () => {
+    const { buffer } = await buildRewrittenCvPdf({
+      name: "Validation Candidate",
+      content: "Mira Adebayo\nManchester, Greater Manchester\nPROFESSIONAL SUMMARY\nProject coordinator.",
+    });
+    const { text } = await parsePdf(buffer);
+    expect(text.match(/Mira Adebayo/g)).toHaveLength(1);
+    expect(text).not.toContain("Validation Candidate");
+  });
+
   it("produces a non-empty Buffer with a valid PDF header", async () => {
     const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
 
@@ -185,6 +197,17 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
 });
 
 describe("focus-only CV enhancement mode", () => {
+  it("reviews responsibility inflation and calculated figures against source evidence", () => {
+    const prompt = buildCvEnhancementReviewPrompt({
+      mode: "focus_only", focus: "Project coordination",
+      originalText: "Tracked an £85,000 budget.", draft: "Managed an £85,000 budget.",
+    });
+    expect(prompt).toContain("'tracked a budget' does NOT mean 'managed a budget'");
+    expect(prompt).toContain("Never calculate new percentages");
+    expect(prompt).toContain("volunteer coordination");
+    expect(buildCvEnhancementSystemPrompt("focus_only")).toContain("Omit unrelated roles");
+    expect(buildCvEnhancementSystemPrompt("general")).toContain("Preserve every distinct source fact");
+  });
   it("normalises focus_only without changing the existing modes", () => {
     expect(normaliseCvEnhancementMode("focus_only")).toBe("focus_only");
     expect(normaliseCvEnhancementMode("focused")).toBe("focused");
