@@ -42,6 +42,7 @@ interface EnhancementResult {
   mode:            Mode;
   focus:           string | null;
   remaining?:      number;
+  preservationWarnings?: string[];
 }
 
 interface FinalizeResult {
@@ -422,6 +423,31 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                   />
                 )}
               </div>
+
+              {result.preservationWarnings && result.preservationWarnings.length > 0 && (
+                <div
+                  className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+                  role="alert"
+                  aria-label="CV facts need review"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">Check dates and numbers against your original CV</p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs">
+                        {result.preservationWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                      </ul>
+                      <button
+                        type="button"
+                        className="text-xs font-semibold underline underline-offset-2"
+                        onClick={() => setReviewTab("before")}
+                      >
+                        Review the original CV
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {reviewTab === "after" && (
                 <p className="text-xs text-muted-foreground -mt-2">

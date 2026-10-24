@@ -28,30 +28,18 @@ async function checkAndIncrementLimit(
   userId: string,
 ): Promise<{ allowed: boolean; remaining: number }> {
   const today = new Date().toISOString().slice(0, 10);
-
-  const [row] = await db
-    .select({ count: cvEnhancementUsageTable.count })
-    .from(cvEnhancementUsageTable)
-    .where(
-      and(
-        eq(cvEnhancementUsageTable.userId, userId),
-        eq(cvEnhancementUsageTable.usageDate, today),
-      ),
-    );
-
-  const currentCount = row?.count ?? 0;
-  if (currentCount >= DAILY_LIMIT) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  await db.execute(
+  const result = await db.execute(
     sql`INSERT INTO cv_enhancement_usage (user_id, usage_date, count)
         VALUES (${userId}, ${today}, 1)
         ON CONFLICT (user_id, usage_date) DO UPDATE
-          SET count = cv_enhancement_usage.count + 1`,
+          SET count = cv_enhancement_usage.count + 1
+          WHERE cv_enhancement_usage.count < ${DAILY_LIMIT}
+        RETURNING count`,
   );
+  const count = Number((result as unknown as { rows?: Array<{ count: number }> }).rows?.[0]?.count);
+  if (!Number.isFinite(count)) return { allowed: false, remaining: 0 };
 
-  return { allowed: true, remaining: DAILY_LIMIT - (currentCount + 1) };
+  return { allowed: true, remaining: Math.max(0, DAILY_LIMIT - count) };
 }
 
 async function checkAndIncrementStrengthDraftLimit(
@@ -107,7 +95,6 @@ export function buildRewrittenCvPdf(params: {
 
     const BRAND  = "#8B1A1A";
     const DARK   = "#1A1A1A";
-    const MUTED  = "#6B7280";
     const LIGHT  = "#E5E7EB";
     const MARGIN = 55;
     const PAGE_W = 595.28;
@@ -116,7 +103,8 @@ export function buildRewrittenCvPdf(params: {
     const doc = new PDFDocument({ size: "A4", margin: MARGIN, autoFirstPage: true });
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
-    doc.on("end", () => resolve({ buffer: Buffer.concat(chunks), contentTruncated }));
+    // Preserve the complete reviewed text. PDFKit creates additional A4 pages as needed.
+    doc.on("end", () => resolve({ buffer: Buffer.concat(chunks), contentTruncated: false }));
     doc.on("error", reject);
 
     // ── Name header ───────────────────────────────────────────────────────
@@ -126,19 +114,6 @@ export function buildRewrittenCvPdf(params: {
     doc.moveDown(1.2);
 
     // ── Parse and render the AI content ──────────────────────────────────
-    // 2-page overflow guard: track pages via the 'pageAdded' event and stop
-    // rendering the moment content would spill onto a third page.
-    const PAGE_H   = 841.89; // A4 height in points
-    const SAFE_END = PAGE_H - MARGIN - 20; // stop 20 pt before the page bottom
-
-    let pageCount = 1;
-    let contentTruncated = false;
-    doc.on("pageAdded", () => { pageCount++; });
-
-    // True once we are past the safe zone on page 2 or have gone beyond page 2.
-    const overLimit = (): boolean =>
-      pageCount > 2 || (pageCount === 2 && doc.y > SAFE_END);
-
     // Detect section headers: ALL CAPS, ≤ 70 chars, ≥ 85 % uppercase letters.
     const isSectionHeader = (line: string): boolean => {
       const t = line.trim();
@@ -152,8 +127,6 @@ export function buildRewrittenCvPdf(params: {
     const lines = content.split("\n");
     let i = 0;
     while (i < lines.length) {
-      if (overLimit()) { contentTruncated = true; break; }
-
       const raw = lines[i];
       const line = raw.trim();
       i++;
@@ -184,10 +157,6 @@ export function buildRewrittenCvPdf(params: {
       // Body text
       doc.font("Helvetica").fontSize(10).fillColor(DARK)
         .text(line, { width: CONTENT, lineGap: 2 });
-    }
-
-    if (contentTruncated) {
-      console.log("[cv-pdf] Content exceeded 2 pages and was truncated to comply with UK CV standards.");
     }
 
     // ── No footer — removed to meet UK professional CV presentation standards ──
@@ -239,8 +208,8 @@ export function buildCvEnhancementUserPrompt(params: {
       "Use ONLY the uploaded CV text as the evidence source. The supplied focus is a target, " +
       "not extra work history or evidence.\n" +
       "OMIT hobbies, unrelated professions, and duties that do not support the stated focus. " +
-      "Do not delete an employer or date from the CV if that role has any focus-relevant evidence; " +
-      "shorten that role to relevant bullets only.\n" +
+      "A role with relevant evidence must retain its employer, title, dates, qualifications, and every relevant achievement. " +
+      "Do not delete or shorten a relevant fact just to fit a page limit.\n" +
       "EXPAND and highlight skills, duties, and achievements that support the focus by rephrasing " +
       "evidence already present in the CV. Never invent duties from a job title. Never add numbers " +
       "or metrics unless they appear in the source CV.\n" +
@@ -253,8 +222,39 @@ export function buildCvEnhancementUserPrompt(params: {
   }
 
   return mode === "focused"
-    ? `Here is the candidate's current CV. Rewrite it to be significantly better, specifically tailored toward: "${focus}". Emphasise the skills and experience most relevant to this focus. Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`
-    : `Here is the candidate's current CV. Rewrite it to be significantly better — stronger language, clearer structure, more professional tone. Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`;
+    ? `Rewrite the complete CV for a UK ${focus} opportunity. Emphasise the most relevant evidence, but preserve every distinct source fact, role, date, employer, qualification, registration, result, and skill. Never remove details to make the CV shorter. Do not invent information.\n\nCV:\n\n${originalText}`
+    : `Rewrite the complete CV in clear, professional UK English. Improve wording and structure while preserving every distinct source fact, role, date, employer, qualification, registration, result, and skill. Do not summarise away source details or invent information.\n\nCV:\n\n${originalText}`;
+}
+
+const PRIVATE_CV_FACT_LINE =
+  /^\s*(?:date of birth|dob|birth date|email|e-mail|phone|mobile|telephone|tel|address|home address|national insurance|ni number|postcode)\s*:/i;
+
+function getCvNumericFacts(text: string): Set<string> {
+  const factText = text
+    .split(/\r?\n/)
+    .filter((line) => !PRIVATE_CV_FACT_LINE.test(line))
+    .map((line) => line.replace(/^\s*\d+[.)]\s+/, ""))
+    .join("\n")
+    .replace(/\b\d{1,2}[/-]\d{1,2}[/-]((?:19|20)\d{2})\b/g, "$1")
+    .replace(/\b(?:\d{1,2}\s+)?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,)?\s+((?:19|20)\d{2})\b/gi, "$1")
+    .replace(/\+?\d[\d ().-]{8,}\d/g, " ");
+  const matches = factText.match(/\b(?:(?:19|20)\d{2}|\d+(?:[.,]\d+)?%?)\b/g) ?? [];
+  return new Set(matches.map((value) => value.replace(/[,]/g, "").replace(/%$/, "")));
+}
+
+export function getCvEnhancementPreservationWarnings(source: string, output: string): string[] {
+  const sourceFacts = getCvNumericFacts(source);
+  const outputFacts = getCvNumericFacts(output);
+  const missing = [...sourceFacts].filter((fact) => !outputFacts.has(fact));
+  const added = [...outputFacts].filter((fact) => !sourceFacts.has(fact));
+  const warnings: string[] = [];
+  if (missing.length) {
+    warnings.push("Some dates, measurements, or other numbers from the source may be missing or changed. Compare the Original and Enhanced tabs before saving.");
+  }
+  if (added.length) {
+    warnings.push("The rewrite contains dates, measurements, or other numbers not found in the source. Verify them before saving.");
+  }
+  return warnings;
 }
 
 // ── POST /profiles/cv-enhancement ─────────────────────────────────────────────
@@ -278,16 +278,6 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
   }
   const validatedDocumentId = documentId as number;
 
-  // Check rate limit
-  const { allowed, remaining } = await checkAndIncrementLimit(userId);
-  if (!allowed) {
-    res.status(429).json({
-      error: `Daily limit reached. You can enhance up to ${DAILY_LIMIT} CVs per day. Try again tomorrow.`,
-      limitReached: true,
-    });
-    return;
-  }
-
   try {
     // Fetch the document — must belong to this user and be a CV
     const [doc] = await db
@@ -307,6 +297,16 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       return;
     }
 
+    // Count only an owned CV enhancement attempt, and reserve quota atomically.
+    const { allowed, remaining } = await checkAndIncrementLimit(userId);
+    if (!allowed) {
+      res.status(429).json({
+        error: `Daily limit reached. You can enhance up to ${DAILY_LIMIT} CVs per day. Try again tomorrow.`,
+        limitReached: true,
+      });
+      return;
+    }
+
     if (!doc.storageKey) {
       res.status(400).json({ error: "This CV has no file attached." });
       return;
@@ -323,28 +323,18 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
 
     // Build AI prompt
     const systemPrompt =
-      "You are a senior professional CV writer specialising in UK healthcare and skilled-worker immigration.\n" +
-      "Rewrite the candidate's CV to be significantly more impactful using strong UK-standard professional language — " +
-      "while keeping every factual detail exactly as-is: employer names, job titles, dates, qualifications, " +
-      "certifications, and any numbers or statistics. Write in UK English. Do not invent anything.\n\n" +
-      "MANDATORY SECTION ORDER — use these exact ALL-CAPS headings, in this order:\n" +
-      "1. PERSONAL STATEMENT  — 3–4 sentences: current level + specialism + key strengths + career direction. " +
-      "No first-person 'I'. Do NOT use the heading 'Professional Summary', 'Objective', or any variant.\n" +
-      "2. WORK EXPERIENCE     — reverse chronological. Format each role exactly as:\n" +
-      "   Job Title | Organisation | City/Region | Mon YYYY – Mon YYYY\n" +
-      "   Each role: 2–3 bullet points. Bullets MUST be achievement-led and quantified wherever possible " +
-      "(e.g. 'Reduced waiting times by 30%', 'Managed a caseload of 40+ patients'). " +
-      "Start every bullet with a strong action verb (e.g. Led, Delivered, Implemented, Achieved).\n" +
-      "3. EDUCATION & QUALIFICATIONS — reverse chronological. Degree/Diploma | Institution | Country | Year\n" +
-      "4. PROFESSIONAL REGISTRATIONS — e.g. NMC, GMC, HCPC, SRA. Include registration number and current status, " +
-      "or state 'In process' / 'Not yet registered' as appropriate.\n" +
-      "5. KEY SKILLS          — concise bullet list of 6–10 relevant skills.\n\n" +
+      "You are an experienced UK CV editor. Adapt the CV to the candidate's actual profession and sector, using evidence from the source CV; do not assume healthcare or immigration experience.\n" +
+      "The goal is a complete, accurate rewrite, not a summary. Completeness takes priority over a target page count or short length. Preserve every distinct source fact: all roles, employers, titles, locations, dates, responsibilities, achievements, metrics, education, qualifications, registrations, certificates, training, projects, publications, volunteering, memberships, languages, and skills that appear in the source. Do not limit roles to a fixed number of bullets or skills to a fixed count. Do not merge details if that loses information.\n" +
+      "Use conventional section headings that fit the source and profession. Retain useful source sections instead of forcing irrelevant sections. Include a registration section only when the source contains registration information; never invent a registration body, status, number, or qualification.\n" +
+      "Keep employer names, job titles, institution names, registration details, dates, and all numbers/metrics unchanged. Do not infer achievements or add numbers to make bullets sound quantified. Improve wording only where the original evidence supports it. Write in UK English.\n\n" +
       "STRICT RULES:\n" +
       "- Do NOT include: date of birth, age, photograph, nationality, marital status, religion, National Insurance number, " +
       "or full home address. Use city and region only (e.g. 'Manchester, Greater Manchester').\n" +
-      "- All dates MUST follow the format Mon YYYY – Mon YYYY (e.g. 'Jan 2021 – Mar 2024'). No year-only ranges.\n" +
+      "- Keep source dates and date ranges as written; do not convert partial or ambiguous dates to more precise dates.\n" +
+      "- Preserve email, phone, and city/region contact details where they appear in the source, while omitting full home addresses.\n" +
       "- End the CV with the heading REFERENCES on its own line, followed by exactly: " +
       "'References: Available upon request.' — never list actual referee names or contact details.\n" +
+      "- Do not shorten the CV to meet a page limit; the PDF can span as many pages as the content requires.\n" +
       "Return the complete rewritten CV — nothing else, no preamble, no explanations.";
 
     const userPrompt = buildCvEnhancementUserPrompt({
@@ -359,11 +349,17 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
         { role: "system", content: systemPrompt },
         { role: "user",   content: userPrompt },
       ],
-      max_tokens:  enhMode === "focus_only" ? 2200 : 2000,
+      max_tokens: 12_000,
       temperature: 0.4,
     });
 
     const enhancedContent = completion.choices[0]?.message?.content?.trim() ?? "";
+    if (completion.choices[0]?.finish_reason === "length") {
+      res.status(422).json({
+        error: "The CV is too long to rewrite completely in one pass. Your original CV is unchanged; use the editable review or split the source CV into shorter sections.",
+      });
+      return;
+    }
     if (!enhancedContent) {
       res.status(500).json({ error: "AI returned an empty response. Please try again." });
       return;
@@ -376,6 +372,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       mode: enhMode,
       focus: focusStr || null,
       remaining,
+      preservationWarnings: getCvEnhancementPreservationWarnings(originalText, enhancedContent),
     });
   } catch (err) {
     console.error("[cv-enhancement] Error:", err);
