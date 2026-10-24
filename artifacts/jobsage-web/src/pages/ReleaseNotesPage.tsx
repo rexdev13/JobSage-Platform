@@ -350,7 +350,7 @@ export default function ReleaseNotesPage() {
             and flows directly into job applications.
           </p>
           <BulletList items={[
-            "Built with pdfkit server-side, the PDF follows UK CV formatting conventions: contact block, section headers, bullet points, and consistent typographic hierarchy.",
+            "Built with pdfkit server-side, the PDF uses A4 pages, section headers, bullet points, and consistent typographic hierarchy. It continues onto additional pages instead of cutting off CV content.",
             "On confirmation, the generated PDF replaces the candidate's primary CV in their document library.",
             "The saved record is flagged to prevent the AI extraction pipeline from re-processing a document it generated — avoiding redundant calls and data overwrite.",
             "When the candidate next applies for a role, the AI-generated CV is attached automatically, exactly as an uploaded CV would be.",

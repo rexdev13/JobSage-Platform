@@ -17,6 +17,9 @@
 import { describe, it, expect } from "vitest";
 import {
   buildCvEnhancementUserPrompt,
+  extractPdfSourceText,
+  getCvEnhancementPreservationWarnings,
+  normaliseCvEnhancementOutput,
   buildRewrittenCvPdf,
   normaliseCvEnhancementMode,
   validateCvEnhancementRequest,
@@ -135,6 +138,29 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
     expect(text).toContain("Jane");
     expect(text).toContain("EDUCATION");
   });
+
+  it("keeps complete content that requires more than two A4 pages", async () => {
+    const trailingFact = "FINAL_SOURCE_DETAIL_NOT_TO_BE_DROPPED";
+    const longContent = Array.from(
+      { length: 180 },
+      (_, index) => `- Role detail ${index + 1}: delivered complete, evidence-based service to the full caseload.`,
+    ).join("\n") + `\n${trailingFact}`;
+    const { buffer, contentTruncated } = await buildRewrittenCvPdf({
+      name: "Synthetic Candidate",
+      content: longContent,
+    });
+    const { text, numpages } = await parsePdf(buffer);
+
+    expect(numpages).toBeGreaterThan(2);
+    expect(text).toContain(trailingFact);
+    expect(contentTruncated).toBe(false);
+  });
+
+  it("removes common Markdown markers so PDF text is clean plain text", () => {
+    expect(normaliseCvEnhancementOutput(
+      "## **WORK EXPERIENCE**\n\n- **Senior Engineer**\n- Used `Linux` in production.",
+    )).toBe("WORK EXPERIENCE\n\n- Senior Engineer\n- Used Linux in production.");
+  });
 });
 
 describe("focus-only CV enhancement mode", () => {
@@ -172,6 +198,48 @@ describe("focus-only CV enhancement mode", () => {
       originalText: "CV text",
     });
     expect(focusedPrompt).not.toContain("OMIT hobbies, unrelated professions");
-    expect(focusedPrompt).toContain("Keep all factual details exactly as-is");
+    expect(focusedPrompt).toContain("preserve every distinct source fact");
+  });
+
+  it("flags missing or newly introduced numbers and dates for candidate review", () => {
+    const source = [
+      "Senior Nurse, City Hospital, 2019–2024",
+      "Managed a 20-bed ward and reduced errors by 30%.",
+      "Phone: +44 7700 900123",
+      "Date of birth: 01/02/1980",
+    ].join("\n");
+    const completeRewrite = [
+      "Senior Nurse | City Hospital | Jan 2019 – Dec 2024",
+      "Managed a 20-bed ward and reduced errors by 30%.",
+    ].join("\n");
+
+    expect(getCvEnhancementPreservationWarnings(source, completeRewrite)).toEqual([]);
+    expect(getCvEnhancementPreservationWarnings(
+      source,
+      "Senior Nurse | City Hospital | Jan 2019\nManaged a 30-bed ward and reduced errors by 55%.",
+    )).toEqual([
+      "Some dates, measurements, or other numbers from the source may be missing or changed. Compare the Original and Enhanced tabs before saving.",
+      "The rewrite contains dates, measurements, or other numbers not found in the source. Verify them before saving.",
+    ]);
+  });
+
+  it("does not treat PDF parser page labels as CV numbers", () => {
+    const source = extractPdfSourceText({
+      text: "Role 2021\n-- 1 of 2 --\n\nRole 2022\n-- 2 of 2 --",
+      pages: [{ text: "Role 2021" }, { text: "Role 2022" }],
+    });
+    expect(source).toBe("Role 2021\n\nRole 2022");
+    expect(getCvEnhancementPreservationWarnings(source, "Role 2021\nRole 2022")).toEqual([]);
+  });
+
+  it("keeps the complete source and profession in enhancement prompts without imposing a fixed template", () => {
+    const prompt = buildCvEnhancementUserPrompt({
+      mode: "general",
+      focus: "",
+      originalText: "SENIOR ENGINEER\nManaged a team of 4.\n",
+    });
+    expect(prompt).toContain("Managed a team of 4.");
+    expect(prompt).not.toContain("specialising in UK healthcare");
+    expect(prompt).not.toContain("Each role: 2–3 bullet points");
   });
 });

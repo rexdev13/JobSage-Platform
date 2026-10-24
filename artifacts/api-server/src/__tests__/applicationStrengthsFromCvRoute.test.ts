@@ -8,6 +8,7 @@ const {
   insertRows,
   upsertConfigs,
   routeErrors,
+  mockDbExecute,
   mockOpenAiCreate,
   mockGetSession,
   mockExtractCvSource,
@@ -16,6 +17,7 @@ const {
   insertRows: [] as unknown[][],
   upsertConfigs: [] as unknown[],
   routeErrors: [] as unknown[],
+  mockDbExecute: vi.fn(),
   mockOpenAiCreate: vi.fn(),
   mockGetSession: vi.fn(),
   mockExtractCvSource: vi.fn(),
@@ -25,7 +27,10 @@ vi.mock("drizzle-orm", () => ({
   and: vi.fn(() => ({})),
   desc: vi.fn(() => ({})),
   eq: vi.fn(() => ({})),
-  sql: vi.fn(() => ({})),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings: [...strings],
+    values,
+  })),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -51,7 +56,7 @@ vi.mock("@workspace/db", () => {
           },
         }),
       })),
-      execute: vi.fn().mockResolvedValue({ rows: [] }),
+      execute: mockDbExecute,
     },
     consentLogsTable: { userId: {}, consentedAt: {} },
     documentsTable: { id: {}, userId: {}, documentType: {} },
@@ -88,6 +93,7 @@ vi.mock("pdf-parse", () => ({
         ].join("\n"),
       };
     }
+    async destroy() {}
   },
 }));
 
@@ -139,6 +145,7 @@ describe("POST /profiles/application-strengths/draft", () => {
     upsertConfigs.length = 0;
     routeErrors.length = 0;
     vi.clearAllMocks();
+    mockDbExecute.mockResolvedValue({ rows: [] });
     mockGetSession.mockResolvedValue({
       user: {
         id: "candidate-1",
@@ -170,6 +177,47 @@ describe("POST /profiles/application-strengths/draft", () => {
       sourceFormat: "searchable_pdf",
       notice: null,
     });
+  });
+
+  it("reserves full-CV rewrite attempts atomically only after confirming CV ownership", async () => {
+    selectRows.push([cvDocument]);
+    mockDbExecute.mockResolvedValue({ rows: [{ count: 1 }] });
+    const response = await request(buildApp())
+      .post("/profiles/cv-enhancement")
+      .set("Authorization", "Bearer candidate-session-token")
+      .send({ documentId: 41 });
+
+    expect(response.status, JSON.stringify(routeErrors)).toBe(200);
+    expect(response.body.remaining).toBe(4);
+    expect(mockDbExecute).toHaveBeenCalledOnce();
+    const quotaSql = mockDbExecute.mock.calls[0]?.[0] as { strings: string[] };
+    expect(quotaSql.strings.join(" ")).toContain("ON CONFLICT");
+    expect(quotaSql.strings.join(" ")).toContain("WHERE cv_enhancement_usage.count <");
+  });
+
+  it("does not consume the full-CV rewrite quota for a CV the candidate does not own", async () => {
+    selectRows.push([]);
+    const response = await request(buildApp())
+      .post("/profiles/cv-enhancement")
+      .set("Authorization", "Bearer candidate-session-token")
+      .send({ documentId: 41 });
+
+    expect(response.status).toBe(404);
+    expect(mockDbExecute).not.toHaveBeenCalled();
+    expect(mockOpenAiCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a full-CV enhancement when five daily attempts are already reserved", async () => {
+    selectRows.push([cvDocument]);
+    mockDbExecute.mockResolvedValue({ rows: [] });
+    const response = await request(buildApp())
+      .post("/profiles/cv-enhancement")
+      .set("Authorization", "Bearer candidate-session-token")
+      .send({ documentId: 41 });
+
+    expect(response.status).toBe(429);
+    expect(response.body.limitReached).toBe(true);
+    expect(mockOpenAiCreate).not.toHaveBeenCalled();
   });
 
   it("requires a signed-in user", async () => {

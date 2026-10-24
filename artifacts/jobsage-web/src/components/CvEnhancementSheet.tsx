@@ -77,6 +77,8 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   const [result, setResult]                   = useState<EnhancementResult | null>(null);
   const [editedContent, setEditedContent]     = useState("");
   const [reviewTab, setReviewTab]             = useState<"before" | "after">("after");
+  const [originalReviewed, setOriginalReviewed] = useState(false);
+  const [factsConfirmed, setFactsConfirmed]   = useState(false);
   const [isSaving, setIsSaving]               = useState(false);
   const [generationsLeft, setGenerationsLeft] = useState<number | null>(null);
   const [finalizeResult, setFinalizeResult]   = useState<FinalizeResult | null>(null);
@@ -125,6 +127,8 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
       setResult(null);
       setEditedContent("");
       setReviewTab("after");
+      setOriginalReviewed(false);
+      setFactsConfirmed(false);
       setIsGenerating(false);
       setFinalizeResult(null);
       setSetAsPrimary(true);
@@ -160,6 +164,8 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
       setResult(data);
       setEditedContent(data.enhancedContent);
       setReviewTab("after");
+      setOriginalReviewed(false);
+      setFactsConfirmed(false);
       setPhase("review");
       if (data.remaining !== undefined) setGenerationsLeft(data.remaining);
     } catch (err) {
@@ -390,7 +396,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
             <div className="space-y-5">
               <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
                 <button
-                  onClick={() => setReviewTab("before")}
+                  onClick={() => { setReviewTab("before"); setOriginalReviewed(true); }}
                   className={`flex-1 py-2 transition-colors ${
                     reviewTab === "before"
                       ? "bg-muted text-foreground"
@@ -454,6 +460,23 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                   You can edit the text above before saving.
                 </p>
               )}
+              <p className="text-sm text-muted-foreground">
+                AI can omit or change details. This draft is not automatically fact-checked. Compare the full CV with the Original before saving; the PDF will use as many pages as needed.
+              </p>
+              <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+                <input
+                  type="checkbox"
+                  checked={factsConfirmed}
+                  disabled={!originalReviewed}
+                  onChange={(event) => setFactsConfirmed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                />
+                <span className="text-sm">
+                  I compared the draft with the original and checked the roles, employers, dates, qualifications, registrations, achievements and numbers.
+                  {!originalReviewed && <span className="mt-1 block text-xs text-muted-foreground">Open the Original tab above first.</span>}
+                </span>
+              </label>
+
               <AIContentReport content={editedContent} context="AI CV enhancement review" label="Report this enhanced CV draft" />
 
               {/* Mode badge */}
@@ -509,7 +532,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 <Button
                   className="flex-1 gap-2"
                   onClick={() => void handleAccept()}
-                  disabled={isSaving || !editedContent.trim()}
+                  disabled={isSaving || !editedContent.trim() || !originalReviewed || !factsConfirmed}
                 >
                   {isSaving
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</>
@@ -534,15 +557,6 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                     : "Saved as a PDF and added to your documents."}
                 </p>
               </div>
-
-              {finalizeResult.contentTruncated && (
-                <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2.5 text-left">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-800">
-                    <span className="font-semibold">CV shortened to 2 pages.</span> Some content near the end was removed to comply with UK CV standards. Edit and tighten your content if you'd like everything included.
-                  </p>
-                </div>
-              )}
 
               <div className="w-full rounded-xl border border-border bg-muted/30 p-4 flex items-center gap-3 text-left">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
