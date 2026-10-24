@@ -6,6 +6,11 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import {
+  canonicalProfessionLabel,
+  professionRequiresUkRegistration,
+  PROFESSION_OPTIONS,
+} from "@workspace/api-zod/profession-catalog";
 
 const require = createRequire(import.meta.url);
 // pdf-parse v2.x exports PDFParse as a named class in all runtimes (no .default function)
@@ -24,7 +29,7 @@ export interface CvExtractedFields {
   qualificationType: string | null;
   qualificationYear: number | null;
   experienceYears: number | null;
-  registrationStatus: "registered" | "not_registered" | "in_process" | null;
+  registrationStatus: "registered" | "not_registered" | "in_process" | "not_applicable" | null;
   requiresSponsorship: boolean | null;
   preferredRegion: string | null;
   confidence: Record<string, "high" | "medium" | "low" | "none">;
@@ -34,16 +39,8 @@ export interface CvExtractedFields {
   professionWarning: string | null;
 }
 
-const CANONICAL_PROFESSIONS = [
-  "doctor",
-  "nurse",
-  "midwife",
-  "allied_health_professional",
-  "clinical_academic",
-  "teacher",
-  "engineer",
-  "social_worker",
-] as const;
+const MAX_CV_NOTES_CHARS = 1800;
+const MAX_CV_TEXT_CHARS = 60_000;
 
 const SYSTEM_PROMPT = `You are a specialist at extracting structured professional profile data from CVs/resumes.
 Extract the following fields and return ONLY valid JSON.
@@ -55,18 +52,19 @@ CRITICAL DISTINCTION — Clinical profession vs Academic qualification:
 - "qualificationType" = the highest ACADEMIC degree found on the CV (e.g. MBBS, BScN, PhD in Education, MBA).
   Record the actual degree name as written — do not infer profession from the degree alone.
 - Set "professionQualMismatch" to true if ALL of these are met:
-    1. profession is a clinical role (doctor/nurse/midwife/allied_health_professional), AND
+     1. profession is a clinical role (Doctor/Nurse/Midwife/Allied Health Professional), AND
     2. qualificationType is clearly a non-clinical academic degree (PhD in Education, MSc in Business, MBA, LLB, MA in Arts, etc.)
   This flag catches cases where an academic credential was incorrectly mapped to a clinical profession.
 - Set "professionQualMismatchWarning" to a short plain-English explanation when professionQualMismatch is true, null otherwise.
 
-Profession values — you MUST use ONLY one of these exact strings (or null if none fit):
-  doctor, nurse, midwife, allied_health_professional, clinical_academic, teacher, engineer, social_worker
-Do NOT return any other value for "profession" (e.g. do not return "housekeeping", "domestic", "catering", "porter", etc.).
-If the candidate's work history is entirely non-professional or does not match any of the above, return null for "profession".
-Registration status values (pick exactly one): registered, not_registered, in_process
+Profession values — return the closest exact supported label from this catalogue, or null if none fit:
+  ${PROFESSION_OPTIONS.join(" | ")}
+Use the candidate's actual work history, not their qualification title. Do not force a match when the evidence does not fit.
+Registration status values (pick exactly one): registered, not_registered, in_process, not_applicable. Use not_applicable for professions that do not require UK statutory professional registration.
 
 For each field also assess your confidence: "high" (clearly stated), "medium" (inferred), "low" (guessed), "none" (not found).
+Do not guess values to fill required fields. Use null when the CV does not say.
+For rawNotes, preserve details not represented by the profile fields: distinct job titles and employers, dates, responsibilities and achievements, education institutions, training, skills, and languages. Keep each fact tied to the CV; use short bullets; exclude personal contact details.
 
 Return this exact JSON structure:
 {
@@ -76,7 +74,7 @@ Return this exact JSON structure:
   "qualificationType": "<degree/qualification name, e.g. MBBS, BScN, or null>",
   "qualificationYear": <year as integer or null>,
   "experienceYears": <total years of experience as integer or null>,
-  "registrationStatus": "<registered|not_registered|in_process|null>",
+  "registrationStatus": "<registered|not_registered|in_process|not_applicable|null>",
   "requiresSponsorship": <true if non-UK national/no settled status/unclear, false if UK citizen/settled status, null if cannot determine>,
   "preferredRegion": "<UK region if stated, e.g. London, North West, Scotland, or null>",
   "confidence": {
@@ -90,12 +88,17 @@ Return this exact JSON structure:
     "requiresSponsorship": "<high|medium|low|none>",
     "preferredRegion": "<high|medium|low|none>"
   },
-  "rawNotes": "<any additional relevant notes about the candidate, max 200 chars>",
+  "rawNotes": "<reviewable CV details not already represented above, up to 1800 chars>",
   "professionQualMismatch": <true|false>,
   "professionQualMismatchWarning": "<explanation string or null>"
 }`;
 
-const CLINICAL_PROFESSIONS = new Set(["doctor", "nurse", "midwife", "allied_health_professional"]);
+const CLINICAL_PROFESSIONS = new Set([
+  "Doctor",
+  "Nurse",
+  "Midwife",
+  "Allied Health Professional",
+]);
 
 const NON_CLINICAL_PATTERNS = [
   /\b(education|pedagogy)\b/i,
@@ -156,7 +159,7 @@ async function callVisionApi(base64: string, mimeType: string): Promise<CvExtrac
   const dataUrl = `data:${mimeType};base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
     model: "gpt-4o",
-    max_completion_tokens: 2000,
+    max_completion_tokens: 3000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {
@@ -180,7 +183,7 @@ async function callVisionApiWithPdf(pdfBuffer: Buffer): Promise<CvExtractedField
   const dataUrl = `data:application/pdf;base64,${base64}`;
   const visionResponse = await openai.chat.completions.create({
     model: "gpt-4o",
-    max_completion_tokens: 2000,
+    max_completion_tokens: 3000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {
@@ -217,20 +220,37 @@ export async function extractCvFields(
     }
 
     if (textContent) {
-      const truncated = textContent.slice(0, 8000);
+      const textWasTruncated = textContent.length > MAX_CV_TEXT_CHARS;
+      const promptText = textWasTruncated
+        ? [
+            textContent.slice(0, MAX_CV_TEXT_CHARS / 2),
+            "[Middle section omitted because this CV exceeds the text extraction limit. Review the original document for details not shown here.]",
+            textContent.slice(-MAX_CV_TEXT_CHARS / 2),
+          ].join("\n\n")
+        : textContent;
       const textResponse = await openai.chat.completions.create({
         model: "gpt-4o",
-        max_completion_tokens: 1200,
+        max_completion_tokens: 3000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: `Extract the professional profile data from this CV text:\n\n${truncated}`,
+            content: `Extract the professional profile data and reviewable CV details from the entire CV text below. Include useful details from both the beginning and end of the text.\n\n${promptText}`,
           },
         ],
         response_format: { type: "json_object" },
       });
-      return parseAiResponse(textResponse.choices[0]?.message?.content ?? "{}");
+      const extracted = parseAiResponse(textResponse.choices[0]?.message?.content ?? "{}");
+      if (textWasTruncated) {
+        const notice =
+          "Some middle CV text was omitted because the document exceeded the extraction limit. Review all pages in the original CV.";
+        const notesBudget = Math.max(0, MAX_CV_NOTES_CHARS - notice.length - 2);
+        extracted.rawNotes = [
+          extracted.rawNotes.slice(0, notesBudget).trim(),
+          notice,
+        ].filter(Boolean).join("\n\n");
+      }
+      return extracted;
     }
 
     // No text — scanned PDF. Try rendering via pdftoppm first (fastest, highest quality).
@@ -264,30 +284,31 @@ function parseAiResponse(raw: string): CvExtractedFields {
     parsed = {};
   }
 
-  const validRegStatus = ["registered", "not_registered", "in_process"];
+  const validRegStatus = ["registered", "not_registered", "in_process", "not_applicable"];
 
-  const rawProfession = typeof parsed.profession === "string" ? parsed.profession.trim().toLowerCase() : null;
+  const rawProfession = typeof parsed.profession === "string" ? parsed.profession.trim() : null;
+  const canonicalProfession = rawProfession ? canonicalProfessionLabel(rawProfession) : null;
   const professionConf = normaliseConf((parsed.confidence as Record<string, string>)?.profession);
 
   let profession: string | null = null;
   let professionNullReason: string | null = null;
-  if (rawProfession && (CANONICAL_PROFESSIONS as readonly string[]).includes(rawProfession)) {
+  if (rawProfession && canonicalProfession) {
     if (professionConf === "low" || professionConf === "none") {
       profession = null;
       professionNullReason = `Low-confidence profession "${rawProfession}" was not saved; please verify.`;
     } else {
-      profession = rawProfession;
+      profession = canonicalProfession;
     }
   } else if (rawProfession) {
     profession = null;
     professionNullReason = `Unrecognised profession "${rawProfession}" was not saved; please select your profession manually.`;
   }
 
-  const registrationStatus = validRegStatus.includes(
-    parsed.registrationStatus as string
-  )
-    ? (parsed.registrationStatus as "registered" | "not_registered" | "in_process")
-    : null;
+  const registrationStatus = profession && !professionRequiresUkRegistration(profession)
+    ? "not_applicable"
+    : validRegStatus.includes(parsed.registrationStatus as string)
+      ? parsed.registrationStatus as "registered" | "not_registered" | "in_process" | "not_applicable"
+      : null;
 
   const qualYear =
     typeof parsed.qualificationYear === "number"
@@ -342,9 +363,11 @@ function parseAiResponse(raw: string): CvExtractedFields {
       preferredRegion: normaliseConf(confidence.preferredRegion),
     },
     rawNotes: (() => {
-      const base = typeof parsed.rawNotes === "string" ? parsed.rawNotes.slice(0, 200) : "";
+      const base = typeof parsed.rawNotes === "string" ? parsed.rawNotes.slice(0, MAX_CV_NOTES_CHARS) : "";
       if (professionNullReason) {
-        return base ? `${base} | ${professionNullReason}`.slice(0, 400) : professionNullReason.slice(0, 400);
+        return base
+          ? `${base}\n\n${professionNullReason}`.slice(0, MAX_CV_NOTES_CHARS)
+          : professionNullReason.slice(0, MAX_CV_NOTES_CHARS);
       }
       return base;
     })(),

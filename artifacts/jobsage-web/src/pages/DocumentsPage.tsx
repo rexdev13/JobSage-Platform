@@ -35,6 +35,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { canonicalProfessionLabel } from "@workspace/api-zod/profession-catalog";
 
 const DOCUMENT_TYPES = [
   { value: "cv", label: "CV / Résumé" },
@@ -86,7 +87,7 @@ const FIELD_LABELS: Record<keyof CvExtractedFields, string> = {
   requiresSponsorship: "Requires Sponsorship",
   preferredRegion: "Preferred UK Region",
   confidence: "",
-  rawNotes: "AI Notes",
+  rawNotes: "Work history, skills & other CV details",
   professionQualMismatch: "",
   professionQualMismatchWarning: "",
   professionWarning: "",
@@ -229,6 +230,7 @@ function CvParseDialog({
                     <option value="registered">Registered</option>
                     <option value="not_registered">Not registered</option>
                     <option value="in_process">In process</option>
+                    <option value="not_applicable">Not applicable</option>
                   </select>
                 ) : key === "requiresSponsorship" ? (
                   <select
@@ -254,9 +256,10 @@ function CvParseDialog({
                   <textarea
                     value={String(value ?? "")}
                     onChange={(e) => updateField(key, e.target.value || undefined)}
-                    rows={2}
-                    className={`${inputClass} resize-none`}
-                    placeholder="No notes"
+                    rows={6}
+                    maxLength={1800}
+                    className={`${inputClass} resize-y`}
+                    placeholder="No additional details found. Add or correct roles, dates, achievements, skills, or training before saving."
                   />
                 ) : (
                   <input
@@ -274,6 +277,9 @@ function CvParseDialog({
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
             <p className="text-xs text-amber-800">
               <span className="font-semibold">Important:</span> Only fields with a value will be saved. Existing profile fields not found in your CV will not be overwritten. Always review before confirming.
+            </p>
+            <p className="mt-1 text-xs text-amber-800">
+              Confirmed details in the field above are added to your profile&apos;s Additional Notes. Existing notes are kept.
             </p>
           </div>
           <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-xs text-foreground">
@@ -511,6 +517,29 @@ export default function DocumentsPage() {
     }
 
     const isBootstrap = !profile;
+    const extractedProfession = extracted.profession?.trim();
+    const canonicalExtractedProfession = extractedProfession
+      ? canonicalProfessionLabel(extractedProfession)
+      : null;
+    const canonicalExistingProfession = canonicalProfessionLabel(profile?.profession);
+
+    if (extractedProfession && !canonicalExtractedProfession) {
+      toast({
+        title: "Choose a supported profession",
+        description: `“${extractedProfession}” does not match a profession in the JOBSAGE catalogue. Correct it before saving.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!canonicalExtractedProfession && !canonicalExistingProfession) {
+      toast({
+        title: "Choose a supported profession",
+        description: "Select a profession from the JOBSAGE catalogue before saving your CV details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isBootstrap) {
       const requiredFields = [
         { key: "profession", label: "Profession", value: extracted.profession },
@@ -547,24 +576,52 @@ export default function DocumentsPage() {
 
     setIsSavingProfile(true);
     try {
+      const existingNotes = profile?.additionalNotes?.trim() ?? "";
+      const cvNotes = extracted.rawNotes?.trim() ?? "";
+      const reviewedCvNotes = cvNotes ? `Reviewed CV details:\n${cvNotes}` : "";
+      const additionalNotes = cvNotes
+        ? existingNotes.includes(cvNotes)
+          ? existingNotes
+          : [existingNotes, reviewedCvNotes].filter(Boolean).join("\n\n")
+        : existingNotes || null;
+
       const merged = {
-        profession:
-          ((extracted.profession ?? profile?.profession)!) as "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic",
+        profession: canonicalExtractedProfession ?? canonicalExistingProfession!,
         specialty: (extracted.specialty ?? profile?.specialty)!,
         qualificationCountry: (extracted.qualificationCountry ?? profile?.qualificationCountry)!,
         qualificationType: (extracted.qualificationType ?? profile?.qualificationType)!,
         qualificationYear: (extracted.qualificationYear ?? profile?.qualificationYear)!,
         experienceYears: (extracted.experienceYears ?? profile?.experienceYears)!,
         registrationStatus:
-          ((extracted.registrationStatus ?? profile?.registrationStatus)!) as "registered" | "not_registered" | "in_process",
+          ((extracted.registrationStatus ?? profile?.registrationStatus)!) as
+            | "registered"
+            | "not_registered"
+            | "in_process"
+            | "not_applicable",
         requiresSponsorship: (extracted.requiresSponsorship ?? profile?.requiresSponsorship)!,
         licenceReady: profile?.licenceReady ?? null,
+        dbsClearanceLevel: profile?.dbsClearanceLevel ?? "unknown",
+        safeguardingTrainingLevel: profile?.safeguardingTrainingLevel ?? "unknown",
         residencyStatus: profile?.residencyStatus ?? "unknown",
         preferredRegion: extracted.preferredRegion
           ? [extracted.preferredRegion]
           : (Array.isArray(profile?.preferredRegion)
               ? (profile.preferredRegion as string[])
               : (profile?.preferredRegion ? [(profile.preferredRegion as string)] : null)),
+        alertFrequency: profile?.alertFrequency ?? "weekly",
+        preferredStartDate: profile?.preferredStartDate ?? null,
+        profilePhotoKey: profile?.profilePhotoKey ?? null,
+        languages: profile?.languages ?? null,
+        additionalNotes,
+        applicationMotivation: profile?.applicationMotivation ?? null,
+        applicationStrengths: profile?.applicationStrengths ?? null,
+        noticePeriod: profile?.noticePeriod ?? null,
+        startAvailability: profile?.startAvailability ?? null,
+        phone: profile?.phone ?? null,
+        streetAddress: profile?.streetAddress ?? null,
+        city: profile?.city ?? null,
+        postcode: profile?.postcode ?? null,
+        country: profile?.country ?? null,
       };
 
       await upsertProfileMutation.mutateAsync({ data: merged });
@@ -597,8 +654,14 @@ export default function DocumentsPage() {
       setParsedExtracted(null);
       setParsedFromDocId(null);
       setShowParseBanner(true);
-    } catch {
-      toast({ title: "Failed to save", description: "Could not update your profile. Please try again.", variant: "destructive" });
+    } catch (err) {
+      toast({
+        title: "Failed to save profile",
+        description: err instanceof Error && err.message
+          ? err.message
+          : "Could not update your profile. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSavingProfile(false);
     }
