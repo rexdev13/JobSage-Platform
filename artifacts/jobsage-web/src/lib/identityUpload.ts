@@ -3,6 +3,9 @@ type UploadUrlResponse = {
   storageKey: string;
 };
 
+const MAX_IDENTITY_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_IDENTITY_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
+
 async function getResponseError(response: Response, fallback: string): Promise<string> {
   try {
     const body = await response.json() as { error?: unknown };
@@ -14,6 +17,13 @@ async function getResponseError(response: Response, fallback: string): Promise<s
 }
 
 export async function uploadIdentityFile(file: File, basePath: string): Promise<string> {
+  if (!ALLOWED_IDENTITY_MIME_TYPES.has(file.type)) {
+    throw new Error("Identity documents must be JPG or PNG images.");
+  }
+  if (file.size > MAX_IDENTITY_FILE_SIZE) {
+    throw new Error("Identity images must be no larger than 5 MB.");
+  }
+
   const urlRes = await fetch(`${basePath}/api/storage/uploads/request-url`, {
     method: "POST",
     credentials: "include",

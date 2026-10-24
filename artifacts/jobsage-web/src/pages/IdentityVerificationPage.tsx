@@ -54,10 +54,30 @@ function FileDropZone({
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => ref.current?.click()}
-      className="border-2 border-dashed border-border rounded-2xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          ref.current?.click();
+        }
+      }}
+      className="border-2 border-dashed border-border rounded-2xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all"
     >
-      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+      <input
+        ref={ref}
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const selectedFile = input.files?.[0];
+          if (selectedFile) onFile(selectedFile);
+          input.value = "";
+        }}
+      />
       {file ? (
         <div className="flex flex-col items-center gap-2">
           <CheckCircle2 className="w-8 h-8 text-emerald-500" />
@@ -71,9 +91,9 @@ function FileDropZone({
           </div>
           <p className="text-sm font-semibold text-foreground">{label}</p>
           <p className="text-xs text-muted-foreground">{hint}</p>
-          <Button size="sm" variant="outline" className="mt-1 gap-1.5 pointer-events-none">
+          <span className="mt-1 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground">
             <Upload className="w-3.5 h-3.5" /> Choose file
-          </Button>
+          </span>
         </div>
       )}
     </div>
@@ -141,6 +161,17 @@ export default function IdentityVerificationPage() {
 
   const verification = data?.verification ?? null;
   const canResubmit = !verification || verification.status === "rejected";
+  const selectIdentityImage = (file: File, setter: (value: File | null) => void) => {
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      toast({ title: "Unsupported image", description: "Choose a JPG or PNG image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Identity images must be no larger than 5 MB.", variant: "destructive" });
+      return;
+    }
+    setter(file);
+  };
 
   async function handleSubmit() {
     if (!passport || !selfie) return;
@@ -219,18 +250,18 @@ export default function IdentityVerificationPage() {
                   <FileDropZone
                     label="Passport / ID"
                     icon={CreditCard}
-                    accept="image/jpeg,image/png,application/pdf"
+                    accept="image/jpeg,image/png"
                     file={passport}
-                    onFile={setPassport}
-                    hint="JPG, PNG or PDF · max 10 MB"
+                    onFile={(file) => selectIdentityImage(file, setPassport)}
+                    hint="JPG or PNG · max 5 MB"
                   />
                   <FileDropZone
                     label="Selfie photo"
                     icon={Camera}
                     accept="image/jpeg,image/png"
                     file={selfie}
-                    onFile={setSelfie}
-                    hint="JPG or PNG · clear face, good lighting"
+                    onFile={(file) => selectIdentityImage(file, setSelfie)}
+                    hint="JPG or PNG · max 5 MB · clear face, good lighting"
                   />
                 </div>
 

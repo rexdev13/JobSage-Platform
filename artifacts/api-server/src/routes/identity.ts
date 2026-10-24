@@ -8,6 +8,19 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
 
+function getIdentityImageMimeType(buffer: Buffer): "image/jpeg" | "image/png" | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.length >= 8
+    && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return "image/png";
+  }
+  return null;
+}
+
 router.get("/identity/status", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const [record] = await db
@@ -63,6 +76,20 @@ async function runAiVerification(recordId: number, passportKey: string, selfieKe
     const passportBuf = Buffer.from(await passportResponse.arrayBuffer());
     const selfieBuf = Buffer.from(await selfieResponse.arrayBuffer());
 
+    const passportMimeType = getIdentityImageMimeType(passportBuf);
+    const selfieMimeType = getIdentityImageMimeType(selfieBuf);
+    if (!passportMimeType || !selfieMimeType) {
+      await db
+        .update(identityVerificationsTable)
+        .set({
+          status: "pending",
+          aiConfidence: "none",
+          aiNotes: "AI check could not read the uploaded image; pending manual review.",
+        })
+        .where(eq(identityVerificationsTable.id, recordId));
+      return;
+    }
+
     const passportB64 = passportBuf.toString("base64");
     const selfieB64 = selfieBuf.toString("base64");
 
@@ -78,8 +105,8 @@ Return ONLY a JSON object: { "faceMatch": true/false, "confidence": "high"|"medi
           role: "user",
           content: [
             { type: "text", text: "Compare these two images. Image 1 is an identity document, Image 2 is a selfie. Do the faces match?" },
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${passportB64}`, detail: "high" } },
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${selfieB64}`, detail: "high" } },
+            { type: "image_url", image_url: { url: `data:${passportMimeType};base64,${passportB64}`, detail: "high" } },
+            { type: "image_url", image_url: { url: `data:${selfieMimeType};base64,${selfieB64}`, detail: "high" } },
           ],
         },
       ],

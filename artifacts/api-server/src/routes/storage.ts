@@ -25,14 +25,21 @@ router.post("/storage/uploads/request-url", requireAuthenticated, async (req: Re
     return;
   }
 
-  const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+  const ALLOWED_MIME_TYPES = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+  ];
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
   try {
     const { name, size, contentType } = parsed.data;
 
     if (!ALLOWED_MIME_TYPES.includes(contentType)) {
-      res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG." });
+      res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG, DOC, DOCX, and TXT." });
       return;
     }
 

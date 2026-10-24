@@ -465,14 +465,20 @@ export default function ProfilePage() {
   }, [scheduleAutoSave]);
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) {
+      input.value = "";
+      return;
+    }
     if (!["image/jpeg", "image/png"].includes(file.type)) {
       toast({ title: "Invalid file type", description: "Please upload a JPEG or PNG image.", variant: "destructive" });
+      input.value = "";
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: "File too large", description: "Profile photo must be under 5 MB.", variant: "destructive" });
+      input.value = "";
       return;
     }
     const localUrl = URL.createObjectURL(file);
@@ -482,7 +488,14 @@ export default function ProfilePage() {
       const { uploadURL, storageKey } = await requestUploadUrlMutation.mutateAsync({
         data: { name: file.name, size: file.size, contentType: file.type },
       });
-      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      const uploadResponse = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!uploadResponse.ok) {
+        throw new Error(`Photo upload failed with status ${uploadResponse.status}`);
+      }
       setFormData((prev) => ({ ...prev, profilePhotoKey: storageKey }));
       toast({ title: "Photo ready", description: "Photo uploaded — auto-saving…" });
       setTimeout(() => doAutoSave(), 200);
@@ -491,6 +504,7 @@ export default function ProfilePage() {
       setPhotoPreviewUrl(null);
     } finally {
       setIsPhotoUploading(false);
+      input.value = "";
     }
   };
 

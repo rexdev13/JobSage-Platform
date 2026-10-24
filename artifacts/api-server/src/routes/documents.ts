@@ -146,7 +146,7 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
   const { filename, mimeType, storageKey, fileSize } = parsed.data;
 
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-    res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG." });
+    res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG, DOC, DOCX, and TXT." });
     return;
   }
 
