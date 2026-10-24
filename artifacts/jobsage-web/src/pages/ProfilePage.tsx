@@ -22,7 +22,8 @@ import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQu
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AIContentReport } from "@/components/AIContentReport";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import {
   PROFESSION_OPTIONS,
@@ -1650,23 +1651,42 @@ function CareerProfileCard({
           <div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-foreground">{cp.name}</p>
-              {cp.isActive && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                  <BadgeCheck className="w-3 h-3" /> Active
-                </span>
-              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">{cp.focusArea}</p>
           </div>
         </div>
-        <button
-          onClick={() => onDelete(cp.id)}
-          disabled={deleting}
-          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10 shrink-0"
-          aria-label="Delete profile"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "text-xs font-semibold",
+                cp.isActive ? "text-primary" : "text-muted-foreground"
+              )}
+              data-testid={`career-profile-status-${cp.id}`}
+            >
+              {cp.isActive ? "Active" : "Not active"}
+            </span>
+            <Switch
+              checked={cp.isActive}
+              onCheckedChange={(checked) => {
+                if (checked && !cp.isActive) onActivate(cp.id);
+              }}
+              disabled={activating || cp.isActive}
+              aria-label={cp.isActive ? `${cp.name} is active` : `Activate ${cp.name}`}
+              title={cp.isActive ? "Turn on another profile to switch the active profile." : `Activate ${cp.name}`}
+              className={cn(cp.isActive && "disabled:cursor-default disabled:opacity-100")}
+              data-testid={`career-profile-toggle-${cp.id}`}
+            />
+          </div>
+          <button
+            onClick={() => onDelete(cp.id)}
+            disabled={deleting}
+            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10 shrink-0"
+            aria-label="Delete profile"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {cp.aiCvContent && (
@@ -1717,18 +1737,6 @@ function CareerProfileCard({
       )}
 
       <div className="flex flex-wrap gap-2 mt-auto">
-        {!cp.isActive && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 h-8 text-xs"
-            onClick={() => onActivate(cp.id)}
-            disabled={activating}
-          >
-            {activating ? <Loader2 className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
-            Set Active
-          </Button>
-        )}
         <Button
           size="sm"
           variant="outline"
@@ -1877,7 +1885,7 @@ function CareerProfilesSection() {
       </div>
 
       <p className="text-sm text-muted-foreground mb-5">
-        Create up to {MAX_PROFILES} career profiles — each with its own target direction and evidence-bound {CAREER_PROFILE_MAKER_LABEL} draft. {CAREER_PROFILE_MAKER_DESCRIPTION} For rewriting an uploaded CV, use <strong>Enhance CV</strong> on Documents.
+        Create up to {MAX_PROFILES} career profiles — each with its own target direction and evidence-bound {CAREER_PROFILE_MAKER_LABEL} draft. {CAREER_PROFILE_MAKER_DESCRIPTION} For rewriting an uploaded CV, use <strong>Enhance CV</strong> on Documents. One profile stays active at a time; its focus guides role matching and pre-fills the target for an uploaded-CV rewrite. Turn on another profile's toggle to switch.
       </p>
 
       {isLoading ? (
@@ -1910,7 +1918,7 @@ function CareerProfilesSection() {
               onDelete={handleDelete}
               onGenerateCv={handleGenerateCv}
               onReview={setReviewingProfile}
-              activating={actingId === cp.id && activateMutation.isPending}
+              activating={activateMutation.isPending}
               deleting={actingId === cp.id && deleteMutation.isPending}
               generating={actingId === cp.id && generateCvMutation.isPending}
             />
