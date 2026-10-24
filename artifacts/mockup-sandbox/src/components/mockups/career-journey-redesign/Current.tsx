@@ -5,8 +5,8 @@ const stages: CareerJourneyStage[] = [
   { label: "Upload", status: "complete" },
   { label: "Enhance", status: "complete" },
   { label: "Match", status: "complete" },
-  { label: "Apply", status: "complete" },
-  { label: "Interview", status: "current" },
+  { label: "Apply", status: "current" },
+  { label: "Interview", status: "upcoming" },
   { label: "Offer", status: "upcoming" },
   { label: "Visa", status: "upcoming" },
   { label: "Relocate", status: "upcoming" },
@@ -20,8 +20,8 @@ export function Current() {
         <CareerJourneyCard
           title="UK Career Journey"
           stages={stages}
-          layout="vertical"
-          className="max-w-sm"
+          layout="grid"
+          className="w-full"
         />
       </section>
     </main>
