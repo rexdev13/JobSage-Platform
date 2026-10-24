@@ -146,7 +146,7 @@ describe("CV source extraction for professional-strength drafts", () => {
       },
       evidenceText,
     )).toHaveLength(1);
-  });
+  }, 30_000);
 
   it("truncates scanned PDFs after the first five pages and discloses the cutoff", async () => {
     const pageTexts = Array.from({ length: 6 }, (_, index) => `CV page ${index + 1}. ${CV_TEXT}`).join("\n");

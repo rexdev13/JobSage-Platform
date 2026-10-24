@@ -1,9 +1,10 @@
 import { date, integer, pgTable, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { usersTable } from "./auth";
 
 export const applicationStrengthsDraftUsageTable = pgTable(
   "application_strengths_draft_usage",
   {
-    userId: varchar("user_id").notNull(),
+    userId: varchar("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
     usageDate: date("usage_date", { mode: "string" }).notNull(),
     count: integer("count").notNull().default(0),
   },

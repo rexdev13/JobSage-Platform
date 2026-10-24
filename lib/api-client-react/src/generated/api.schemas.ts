@@ -701,6 +701,16 @@ export interface ApplicationStrengthEvidence {
   evidence: string[];
 }
 
+export type DraftApplicationStrengthsResponseSourceFormat =
+  (typeof DraftApplicationStrengthsResponseSourceFormat)[keyof typeof DraftApplicationStrengthsResponseSourceFormat];
+
+export const DraftApplicationStrengthsResponseSourceFormat = {
+  searchable_pdf: "searchable_pdf",
+  scanned_pdf_ocr: "scanned_pdf_ocr",
+  word_docx: "word_docx",
+  word_doc: "word_doc",
+} as const;
+
 export interface DraftApplicationStrengthsResponse {
   /**
    * @minItems 1
@@ -709,6 +719,8 @@ export interface DraftApplicationStrengthsResponse {
   strengths: ApplicationStrengthEvidence[];
   documentId: number;
   filename: string;
+  sourceFormat: DraftApplicationStrengthsResponseSourceFormat;
+  notice: string | null;
   remaining: number;
 }
 

@@ -73,21 +73,24 @@ async function extractScannedPdfText(
 async function extractPdfText(buffer: Buffer): Promise<ExtractedStrengthsCvSource> {
   const { PDFParse } = (await import("pdf-parse")) as unknown as {
     PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
-      getText(): Promise<{ text: string; total?: number }>;
+      getText(): Promise<{ text: string; pages?: Array<{ text: string }>; total?: number }>;
       destroy(): Promise<void>;
     };
   };
   const parser = new PDFParse({ data: buffer });
   let text = "";
   let totalPages = MAX_SCANNED_PDF_PAGES;
-  let parseError: unknown;
 
   try {
     const result = await parser.getText();
-    text = result.text ?? "";
+    // The aggregate includes synthetic page-number labels even on image-only
+    // PDFs. Only actual page content can establish that a CV is searchable.
+    text = result.pages
+      ? result.pages.map((page) => page.text).join("\n\n")
+      : (result.text ?? "").replace(/--\s*\d+\s+of\s+\d+\s*--/g, "");
     totalPages = result.total || MAX_SCANNED_PDF_PAGES;
-  } catch (error) {
-    parseError = error;
+  } catch {
+    // Poppler may still be able to render a PDF that PDF.js could not parse.
   } finally {
     await parser.destroy().catch(() => {});
   }
@@ -101,20 +104,15 @@ async function extractPdfText(buffer: Buffer): Promise<ExtractedStrengthsCvSourc
   }
 
   const pagesToRead = Math.max(1, Math.min(totalPages, MAX_SCANNED_PDF_PAGES));
-  try {
-    const ocrText = await extractScannedPdfText(buffer, pagesToRead);
-    return {
-      text: ocrText,
-      sourceFormat: "scanned_pdf_ocr",
-      notice:
-        totalPages > MAX_SCANNED_PDF_PAGES
-          ? `OCR checked the first ${MAX_SCANNED_PDF_PAGES} pages of this scanned CV. Review the excerpts carefully.`
-          : "OCR was used for this scanned PDF. Review the excerpts carefully.",
-    };
-  } catch (error) {
-    if (parseError) throw error;
-    throw error;
-  }
+  const ocrText = await extractScannedPdfText(buffer, pagesToRead);
+  return {
+    text: ocrText,
+    sourceFormat: "scanned_pdf_ocr",
+    notice:
+      totalPages > MAX_SCANNED_PDF_PAGES
+        ? `OCR checked the first ${MAX_SCANNED_PDF_PAGES} pages of this scanned CV. Review the excerpts carefully.`
+        : "OCR was used for this scanned PDF. Review the excerpts carefully.",
+  };
 }
 
 export async function extractStrengthsCvSource(

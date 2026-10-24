@@ -1057,6 +1057,13 @@ export const DraftApplicationStrengthsFromCvResponse = zod.object({
     .max(draftApplicationStrengthsFromCvResponseStrengthsMax),
   documentId: zod.number(),
   filename: zod.string(),
+  sourceFormat: zod.enum([
+    "searchable_pdf",
+    "scanned_pdf_ocr",
+    "word_docx",
+    "word_doc",
+  ]),
+  notice: zod.string().nullable(),
   remaining: zod.number(),
 });
 

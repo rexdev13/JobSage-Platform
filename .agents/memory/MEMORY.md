@@ -128,3 +128,4 @@
 - [Approved JOBSAGE brand](jobsage-approved-brand.md) — use the supplied gradient wordmark and exact tagline; keep the subtitle readable independently in compact UI.
 - [Mobile launch branding](mobile-launch-branding.md) — do not invent a replacement logo; preserve the existing J app mark and company wordmark.
 - [References grouping](references-product-grouping.md) — references belong inside CV and Supporting Documents, not in separate sidebar navigation.
+- [Professional strengths drafting](professional-strengths-drafting.md) — separate CV-rewrite allowance; local OCR and candidate-reviewed evidence remain required.

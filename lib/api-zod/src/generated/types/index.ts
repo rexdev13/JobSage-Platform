@@ -102,6 +102,7 @@ export * from "./documentList";
 export * from "./documentParsedData";
 export * from "./draftApplicationStrengthsRequest";
 export * from "./draftApplicationStrengthsResponse";
+export * from "./draftApplicationStrengthsResponseSourceFormat";
 export * from "./eligibilityHistoryList";
 export * from "./eligibilityOutcome";
 export * from "./eligibilityResult";

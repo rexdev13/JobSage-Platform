@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ApplicationStrengthEvidence } from "./applicationStrengthEvidence";
+import type { DraftApplicationStrengthsResponseSourceFormat } from "./draftApplicationStrengthsResponseSourceFormat";
 
 export interface DraftApplicationStrengthsResponse {
   /**
@@ -15,5 +16,7 @@ export interface DraftApplicationStrengthsResponse {
   strengths: ApplicationStrengthEvidence[];
   documentId: number;
   filename: string;
+  sourceFormat: DraftApplicationStrengthsResponseSourceFormat;
+  notice: string | null;
   remaining: number;
 }
