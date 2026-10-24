@@ -139,6 +139,27 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
     expect(text).toContain("EDUCATION");
   });
 
+  it("styles title-case headings and dated role lines while keeping an ATS-readable single column", async () => {
+    const content = [
+      "Professional Summary",
+      "Experienced project coordinator with evidence of delivery and stakeholder management.",
+      "",
+      "Work Experience",
+      "Project Coordinator | Example Works Group | 2022–2025",
+      "- Coordinated four workstreams and maintained weekly delivery records.",
+      "",
+      "Education",
+      "Project Management Certificate | Example Institute | 2021",
+    ].join("\n");
+    const { buffer } = await buildRewrittenCvPdf({ name: "Synthetic Candidate", content });
+    const { text, numpages } = await parsePdf(buffer);
+
+    expect(numpages).toBe(1);
+    expect(text).toContain("PROFESSIONAL SUMMARY");
+    expect(text).toContain("WORK EXPERIENCE");
+    expect(text).toContain("Project Coordinator | Example Works Group | 2022–2025");
+  });
+
   it("keeps complete content that requires more than two A4 pages", async () => {
     const trailingFact = "FINAL_SOURCE_DETAIL_NOT_TO_BE_DROPPED";
     const longContent = Array.from(
@@ -241,5 +262,8 @@ describe("focus-only CV enhancement mode", () => {
     expect(prompt).toContain("Managed a team of 4.");
     expect(prompt).not.toContain("specialising in UK healthcare");
     expect(prompt).not.toContain("Each role: 2–3 bullet points");
+    expect(prompt).toContain("evidence-led UK English");
+    expect(prompt).toContain("Remove repetition and empty claims");
+    expect(prompt).toContain("single-column CV structure");
   });
 });

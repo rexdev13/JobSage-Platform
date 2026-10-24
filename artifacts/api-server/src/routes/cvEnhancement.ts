@@ -108,73 +108,150 @@ export function buildRewrittenCvPdf(params: {
   return new Promise((resolve, reject) => {
     const { name, content } = params;
 
-    const BRAND  = "#8B1A1A";
-    const DARK   = "#1A1A1A";
-    const LIGHT  = "#E5E7EB";
-    const MARGIN = 55;
+    const BRAND  = "#7B1E25";
+    const DARK   = "#202328";
+    const LIGHT  = "#D9DEE3";
+    const MARGIN = 56;
     const PAGE_W = 595.28;
     const CONTENT = PAGE_W - MARGIN * 2;
 
-    const doc = new PDFDocument({ size: "A4", margin: MARGIN, autoFirstPage: true });
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: MARGIN,
+      autoFirstPage: true,
+    });
+    doc.info.Title = `CV - ${name}`;
+    doc.info.Author = "JOBSAGE";
+    doc.info.Subject = "Candidate CV";
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     // Preserve the complete reviewed text. PDFKit creates additional A4 pages as needed.
     doc.on("end", () => resolve({ buffer: Buffer.concat(chunks), contentTruncated: false }));
     doc.on("error", reject);
 
-    // ── Name header ───────────────────────────────────────────────────────
-    doc.font("Helvetica-Bold").fontSize(22).fillColor(DARK).text(name, MARGIN, MARGIN, { width: CONTENT });
-    doc.moveTo(MARGIN, doc.y + 8).lineTo(PAGE_W - MARGIN, doc.y + 8)
-      .strokeColor(BRAND).lineWidth(1.5).stroke();
-    doc.moveDown(1.2);
+    // A restrained single-column layout stays readable and ATS-friendly.
+    doc.font("Helvetica-Bold").fontSize(22).fillColor(DARK).text(name.trim(), MARGIN, MARGIN, {
+      width: CONTENT,
+      lineBreak: false,
+    });
+    doc.moveTo(MARGIN, doc.y + 10).lineTo(PAGE_W - MARGIN, doc.y + 10)
+      .strokeColor(BRAND).lineWidth(1.6).stroke();
+    doc.y += 22;
 
     // ── Parse and render the AI content ──────────────────────────────────
-    // Detect section headers: ALL CAPS, ≤ 70 chars, ≥ 85 % uppercase letters.
+    // Recognise common section names in title case as well as ALL-CAPS output.
+    const sectionNames = new Set([
+      "profile",
+      "professional profile",
+      "professional summary",
+      "summary",
+      "career summary",
+      "key achievements",
+      "selected achievements",
+      "work experience",
+      "professional experience",
+      "employment history",
+      "career history",
+      "experience",
+      "education",
+      "education and qualifications",
+      "qualifications",
+      "professional qualifications",
+      "professional registration",
+      "registrations",
+      "certifications",
+      "certificates and training",
+      "training",
+      "key skills",
+      "core skills",
+      "technical skills",
+      "skills",
+      "projects",
+      "selected projects",
+      "publications",
+      "volunteering",
+      "voluntary experience",
+      "languages",
+      "professional memberships",
+      "memberships",
+      "interests",
+      "references",
+    ]);
+
     const isSectionHeader = (line: string): boolean => {
       const t = line.trim();
       if (!t || t.length > 70) return false;
+      const normalized = t
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/:$/, "")
+        .replace(/\s+/g, " ")
+        .toLocaleLowerCase("en-GB");
+      if (sectionNames.has(normalized)) return true;
+
       const letters = t.replace(/[^A-Za-z]/g, "");
       if (!letters.length) return false;
       const upperRatio = (t.replace(/[^A-Z]/g, "").length) / letters.length;
       return upperRatio >= 0.85;
     };
 
+    const isRoleHeading = (line: string): boolean =>
+      line.length <= 140
+      && /(?:19|20)\d{2}|present|current/i.test(line)
+      && /[|—–]/.test(line);
+
     const lines = content.split("\n");
     let i = 0;
     while (i < lines.length) {
       const raw = lines[i];
-      const line = raw.trim();
+      const line = raw.trim().replace(/^#{1,6}\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1");
       i++;
 
       if (!line) {
-        doc.moveDown(0.4);
+        doc.moveDown(0.45);
         continue;
       }
 
       if (isSectionHeader(line)) {
-        doc.moveDown(0.6);
-        doc.font("Helvetica-Bold").fontSize(9).fillColor(BRAND).text(line);
-        doc.moveTo(MARGIN, doc.y + 2).lineTo(PAGE_W - MARGIN, doc.y + 2)
-          .strokeColor(LIGHT).lineWidth(0.8).stroke();
-        doc.moveDown(0.5);
+        doc.moveDown(0.65);
+        const title = line.replace(/:$/, "").toLocaleUpperCase("en-GB");
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(BRAND).text(title, {
+          width: CONTENT,
+          characterSpacing: 0.45,
+        });
+        doc.moveTo(MARGIN, doc.y + 4).lineTo(PAGE_W - MARGIN, doc.y + 4)
+          .strokeColor(LIGHT).lineWidth(0.7).stroke();
+        doc.y += 10;
         continue;
       }
 
-      // Bullet point
-      if (line.startsWith("- ") || line.startsWith("• ") || line.startsWith("* ")) {
-        const text = line.slice(2).trim();
+      const bulletMatch = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+      if (bulletMatch) {
+        const text = bulletMatch[1].trim();
         const y = doc.y;
-        doc.font("Helvetica").fontSize(10).fillColor(DARK).text("•", MARGIN, y, { width: 12 });
-        doc.text(text, MARGIN + 14, y, { width: CONTENT - 14, lineGap: 2 });
+        doc.font("Helvetica").fontSize(10).fillColor(BRAND).text("•", MARGIN + 1, y, {
+          width: 12,
+          lineBreak: false,
+        });
+        doc.font("Helvetica").fontSize(10).fillColor(DARK).text(text, MARGIN + 16, y, {
+          width: CONTENT - 16,
+          lineGap: 2.5,
+          paragraphGap: 2,
+        });
         continue;
       }
 
-      // Body text
-      doc.font("Helvetica").fontSize(10).fillColor(DARK)
-        .text(line, { width: CONTENT, lineGap: 2 });
-    }
+      // Date-led role lines are given a subtle typographic anchor, without columns or tables.
+      if (isRoleHeading(line)) {
+        doc.moveDown(0.3);
+        doc.font("Helvetica-Bold").fontSize(10.25).fillColor(DARK)
+          .text(line, { width: CONTENT, lineGap: 2 });
+        doc.moveDown(0.15);
+        continue;
+      }
 
-    // ── No footer — removed to meet UK professional CV presentation standards ──
+      doc.font("Helvetica").fontSize(10).fillColor(DARK)
+        .text(line, { width: CONTENT, lineGap: 3, paragraphGap: 2 });
+    }
 
     doc.end();
   });
@@ -216,10 +293,13 @@ export function buildCvEnhancementUserPrompt(params: {
   originalText: string;
 }): string {
   const { mode, focus, originalText } = params;
+  const editorialStandard =
+    "EDITORIAL STANDARD: Write for a recruiter scanning quickly. Use concise, evidence-led UK English, active verbs where supported, consistent tense (present for a current role and past for previous roles), and clear conventional headings. Remove repetition and empty claims such as 'highly motivated' unless the source supports them. Keep job titles, employers, qualifications, dates, registration details, and metrics exact. Use a clean single-column CV structure with readable section headings and short bullets; do not use tables, columns, decorative symbols, or Markdown. Never invent skills, duties, achievements, or metrics.";
 
   if (mode === "focus_only") {
     return (
       `Here is the candidate's current CV. Rewrite it to focus only on: "${focus}".\n\n` +
+      `${editorialStandard}\n` +
       "Use ONLY the uploaded CV text as the evidence source. The supplied focus is a target, " +
       "not extra work history or evidence.\n" +
       "OMIT hobbies, unrelated professions, and duties that do not support the stated focus. " +
@@ -237,8 +317,8 @@ export function buildCvEnhancementUserPrompt(params: {
   }
 
   return mode === "focused"
-    ? `Rewrite the complete CV for a UK ${focus} opportunity. Emphasise the most relevant evidence, but preserve every distinct source fact, role, date, employer, qualification, registration, result, and skill. Preserve each distinct work-experience bullet; combine only word-for-word duplicate bullets, never related but different duties. Never remove details to make the CV shorter. Do not invent information.\n\nCV:\n\n${originalText}`
-    : `Rewrite the complete CV in clear, professional UK English. Improve wording and structure while preserving every distinct source fact, role, date, employer, qualification, registration, result, and skill. Preserve each distinct work-experience bullet; combine only word-for-word duplicate bullets, never related but different duties. Do not summarise away source details or invent information.\n\nCV:\n\n${originalText}`;
+    ? `${editorialStandard}\n\nRewrite the complete CV for a UK ${focus} opportunity. Emphasise the most relevant evidence, but preserve every distinct source fact, role, date, employer, qualification, registration, result, and skill. Preserve each distinct work-experience bullet; combine only word-for-word duplicate bullets, never related but different duties. Never remove details to make the CV shorter. Do not invent information.\n\nCV:\n\n${originalText}`
+    : `${editorialStandard}\n\nRewrite the complete CV in clear, professional UK English. Improve wording and structure while preserving every distinct source fact, role, date, employer, qualification, registration, result, and skill. Preserve each distinct work-experience bullet; combine only word-for-word duplicate bullets, never related but different duties. Do not summarise away source details or invent information.\n\nCV:\n\n${originalText}`;
 }
 
 const PRIVATE_CV_FACT_LINE =
@@ -377,7 +457,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
         { role: "user",   content: userPrompt },
       ],
       max_tokens: 12_000,
-      temperature: 0.4,
+      temperature: 0.2,
     });
 
     const enhancedContent = normaliseCvEnhancementOutput(completion.choices[0]?.message?.content ?? "");
