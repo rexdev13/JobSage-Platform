@@ -36,6 +36,7 @@ import { CanonicalSectorSelect } from "@/components/forms/CanonicalSectorSelect"
 import { useToast } from "@/hooks/use-toast";
 import {
   CAREER_PROFILE_MAKER_DESCRIPTION,
+  CAREER_PROFILE_MAKER_ENHANCED_CV_LABEL,
   CAREER_PROFILE_MAKER_LABEL,
   CAREER_PROFILE_MAKER_REVIEW_WARNING,
 } from "@/lib/careerProfileMakerCopy";
@@ -1487,6 +1488,12 @@ type MakerSourceDocument = {
   parsedData?: Record<string, unknown> | null;
 };
 
+function hasCandidateConfirmedMakerFields(document: MakerSourceDocument | undefined): boolean {
+  const parsedData = document?.parsedData;
+  return parsedData !== null && parsedData !== undefined &&
+    typeof parsedData === "object" && !Array.isArray(parsedData);
+}
+
 function CareerProfileDraftReview({
   cp,
   onClose,
@@ -1620,6 +1627,13 @@ function CareerProfileCard({
 }) {
   const { toast } = useToast();
   const [sourceDocumentId, setSourceDocumentId] = useState("");
+  const selectedSourceDocument = sourceDocuments.find((doc) => String(doc.id) === sourceDocumentId);
+  const selectedSourceUnavailable = Boolean(sourceDocumentId) &&
+    !hasCandidateConfirmedMakerFields(selectedSourceDocument);
+
+  useEffect(() => {
+    if (sourceDocumentId && selectedSourceUnavailable) setSourceDocumentId("");
+  }, [sourceDocumentId, selectedSourceUnavailable]);
 
   function handleDownloadCv() {
     if (!cp.aiCvContent || !cp.aiCvReviewedAt) return;
@@ -1717,17 +1731,21 @@ function CareerProfileCard({
             id={`maker-source-${cp.id}`}
             value={sourceDocumentId}
             onChange={(e) => setSourceDocumentId(e.target.value)}
+            data-testid={`career-profile-source-${cp.id}`}
             className="w-full rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <option value="">Use confirmed profile fields only</option>
-            {sourceDocuments.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.label ?? doc.filename}{doc.parsedData ? "" : " — parse and confirm first"}
-              </option>
-            ))}
+            {sourceDocuments.map((doc) => {
+              const hasConfirmedFields = hasCandidateConfirmedMakerFields(doc);
+              return (
+                <option key={doc.id} value={doc.id} disabled={!hasConfirmedFields}>
+                  {doc.label ?? doc.filename}{hasConfirmedFields ? "" : " — parse and confirm first"}
+                </option>
+              );
+            })}
           </select>
           <p className="text-[11px] text-muted-foreground">
-            Only candidate-confirmed fields saved from a CV are used. The focus area is never treated as evidence.
+            Unreviewed CVs are unavailable as sources. Parse and save their reviewed fields on Documents first, or generate from your confirmed profile fields. The focus area is never treated as evidence.
           </p>
         </div>
       ) : (
@@ -1740,12 +1758,13 @@ function CareerProfileCard({
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5 h-8 text-xs"
+          className="gap-1.5 h-auto min-h-8 text-xs"
           onClick={() => onGenerateCv(cp.id, sourceDocumentId ? Number(sourceDocumentId) : undefined)}
-          disabled={generating}
+          disabled={generating || selectedSourceUnavailable}
+          data-testid={`career-profile-generate-cv-${cp.id}`}
         >
           {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-          {cp.aiCvContent ? "Regenerate factual draft" : "Make factual CV draft"}
+          {cp.aiCvContent ? CAREER_PROFILE_MAKER_ENHANCED_CV_LABEL : "Make factual CV draft"}
         </Button>
         {cp.aiCvContent && (
           <Button
