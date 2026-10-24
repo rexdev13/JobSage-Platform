@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui-enhanced";
 import { AIContentReport } from "@/components/AIContentReport";
 import { useToast } from "@/hooks/use-toast";
 import {
+  ArrowLeft,
   AlertTriangle,
   Check,
   CheckCircle2,
@@ -30,6 +25,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CV_ENHANCEMENT_LABEL } from "@/lib/careerProfileMakerCopy";
+import { AppLayout } from "@/components/layout/AppLayout";
 import "./CvEnhancementSheet.css";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -63,11 +59,6 @@ interface CvDocument {
   isPrimary: boolean;
 }
 
-interface CvEnhancementSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
 const modeOptions: { value: Mode; title: string; detail: string }[] = [
   {
     value: "general",
@@ -86,7 +77,8 @@ const modeOptions: { value: Mode; title: string; detail: string }[] = [
   },
 ];
 
-export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetProps) {
+export function CvEnhancementPage() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -122,14 +114,10 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   const selectedCv = cvDocuments.find((document) => document.id === selectedCvId);
 
   useEffect(() => {
-    if (!open) {
-      setFocusInitialized(false);
-      return;
-    }
     if (focusInitialized || careerProfilesData === undefined) return;
     setFocus(activeCareerProfile?.focusArea?.trim() ?? "");
     setFocusInitialized(true);
-  }, [open, careerProfilesData, activeCareerProfile?.focusArea, focusInitialized]);
+  }, [careerProfilesData, activeCareerProfile?.focusArea, focusInitialized]);
 
   useEffect(() => {
     if (!documentsData || selectedCvId !== null) return;
@@ -138,20 +126,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   }, [documentsData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClose() {
-    onOpenChange(false);
-    setTimeout(() => {
-      setPhase("input");
-      setResult(null);
-      setEditedContent("");
-      setReviewTab("after");
-      setOriginalReviewed(false);
-      setFactsConfirmed(false);
-      setIsGenerating(false);
-      setFinalizeResult(null);
-      setSetAsPrimary(true);
-      setFocus("");
-      setFocusInitialized(false);
-    }, 300);
+    setLocation("/documents");
   }
 
   async function handleEnhance() {
@@ -244,9 +219,17 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
     : null;
 
   return (
-    <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="jobsage-cv-sheet flex w-full flex-col overflow-y-auto border-l border-[#e7ddd4] bg-[#fbf8f4] p-0 sm:max-w-[620px]">
-        <SheetHeader className="sticky top-0 z-10 border-b border-[#e7ddd4] bg-[#fbf8f4]/95 px-6 pb-5 pt-7 text-left backdrop-blur sm:px-8">
+    <AppLayout>
+      <div className="jobsage-cv-page min-h-full w-full bg-[#fbf8f4]" data-testid="page-cv-enhancement">
+        <div className="mx-auto min-h-full w-full max-w-[1120px] border-x border-[#eee6df]">
+        <div className="px-6 pt-5 sm:px-8 lg:px-10">
+          <button type="button" onClick={handleClose} data-testid="button-back-to-documents"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-[#705548] transition-colors hover:text-[#8b1a1a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a1a]">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to Documents
+          </button>
+        </div>
+        <header className="border-b border-[#e7ddd4] px-6 pb-5 pt-4 text-left sm:px-8 lg:px-10">
           <div className="flex items-start gap-4">
             <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f2e8df] text-[#8b1a1a]">
               <FileText className="h-5 w-5" aria-hidden="true" />
@@ -255,16 +238,16 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b1a1a]">
                 <span>Documents</span><span aria-hidden="true">/</span><span>CV editor</span>
               </div>
-              <SheetTitle className="font-display text-[22px] font-semibold leading-tight text-[#29231f]">
+              <h1 id="cv-enhancement-title" className="font-display text-[22px] font-semibold leading-tight text-[#29231f]">
                 {phase === "success" ? "Your new CV is ready" : CV_ENHANCEMENT_LABEL}
-              </SheetTitle>
-              <SheetDescription className="mt-1.5 max-w-[440px] text-[13px] leading-relaxed text-[#746a63]">
+              </h1>
+              <p className="mt-1.5 max-w-[560px] text-[13px] leading-relaxed text-[#746a63]">
                 {phase === "input"
                   ? "A clearer, more considered version of your CV — with you in control of every detail."
                   : phase === "review"
                     ? "Review the original and edit the new draft before anything is saved."
                     : "Your reviewed draft has been saved as a new PDF."}
-              </SheetDescription>
+              </p>
             </div>
           </div>
           {phase !== "success" && (
@@ -274,9 +257,9 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <span className="ml-1 text-[11px] font-medium text-[#82766e]">{phase === "input" ? "1 of 2 · Set up" : "2 of 2 · Review"}</span>
             </div>
           )}
-        </SheetHeader>
+        </header>
 
-        <div className="flex-1 px-6 pb-8 pt-6 sm:px-8">
+        <main className="px-6 pb-10 pt-6 sm:px-8 lg:px-10" aria-labelledby="cv-enhancement-title">
           {phase === "input" && (
             <div className="space-y-6">
               <section className="rounded-2xl border border-[#e8d9cc] bg-[#f5ede5] p-4" aria-label="How the CV rewrite works">
@@ -614,14 +597,15 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                     <Download className="h-4 w-4" aria-hidden="true" />Download your new CV (PDF)
                   </a>
                 )}
-                <Button variant="outline" className="h-11 w-full border-[#ded2c8] bg-transparent text-[#594a40] hover:bg-[#f4eee8]" onClick={handleClose} data-testid="button-close-cv-sheet">
-                  Close
+                <Button variant="outline" className="h-11 w-full border-[#ded2c8] bg-transparent text-[#594a40] hover:bg-[#f4eee8]" onClick={handleClose} data-testid="button-close-cv-page">
+                  Back to Documents
                 </Button>
               </div>
             </div>
           )}
+        </main>
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </AppLayout>
   );
 }

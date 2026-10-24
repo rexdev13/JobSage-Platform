@@ -4,18 +4,14 @@ import "@testing-library/jest-dom/vitest";
 import { AppLayout } from "./AppLayout";
 
 vi.mock("./AppSidebar", () => ({
-  AppSidebar: ({ onNavigate, onEnhance }: { onNavigate?: () => void; onEnhance?: () => void }) => (
+  AppSidebar: ({ onNavigate }: { onNavigate?: () => void }) => (
     <nav aria-label="Main navigation">
       <button type="button" onClick={onNavigate} data-testid="mock-navigation-link">Go to profile</button>
-      <button type="button" onClick={onEnhance} data-testid="mock-enhance">CV Enhancement</button>
+      <button type="button" onClick={onNavigate} data-testid="mock-cv-route">CV Enhancement</button>
     </nav>
   ),
 }));
 vi.mock("@/components/QuickHelpMenu", () => ({ QuickHelpMenu: () => null }));
-vi.mock("@/components/CvEnhancementSheet", () => ({
-  CvEnhancementSheet: ({ open }: { open: boolean }) =>
-    open ? <div role="dialog" aria-label="CV enhancement flow" /> : null,
-}));
 
 describe("mobile navigation drawer", () => {
   afterEach(() => {
@@ -60,7 +56,7 @@ describe("mobile navigation drawer", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("closes after navigation and waits for the drawer exit before opening CV Enhancement", async () => {
+  it("closes the mobile drawer when CV Enhancement is selected as a route", async () => {
     render(<AppLayout><div>Page content</div></AppLayout>);
     const trigger = screen.getByRole("button", { name: "Open navigation menu" });
     fireEvent.click(trigger);
@@ -71,9 +67,8 @@ describe("mobile navigation drawer", () => {
 
     fireEvent.click(trigger);
     const drawer = await screen.findByRole("dialog", { name: "JOBSAGE navigation" });
-    fireEvent.click(within(drawer).getByTestId("mock-enhance"));
+    fireEvent.click(within(drawer).getByTestId("mock-cv-route"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "JOBSAGE navigation" })).not.toBeInTheDocument());
     expect(screen.queryByRole("dialog", { name: "CV enhancement flow" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("dialog", { name: "CV enhancement flow" }, { timeout: 1000 })).toBeInTheDocument();
   });
 });

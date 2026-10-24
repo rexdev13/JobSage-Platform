@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { CANDIDATE_NAVIGATION, getUnreadBadgeText, isNavigationItemActive } from "./candidateNavigation";
 import { CAREER_JOURNEY_STAGES, deriveCareerJourney, getCareerJourneyOverview } from "./candidateJourney";
 
@@ -14,6 +14,7 @@ describe("candidate navigation configuration", () => {
     const all = CANDIDATE_NAVIGATION.flatMap((section) => section.items);
     for (const [label, href] of [
       ["CV and Supporting Documents", "/documents"],
+      ["CV Enhancement", "/cv-enhancement"],
       ["Personal & Professional Details", "/profile"],
       ["ID Verification", "/identity"],
       ["Visa Sponsoring Employers", "/sponsor-licences"],
@@ -31,10 +32,7 @@ describe("candidate navigation configuration", () => {
     ]) {
       expect(all.find((item) => item.label === label)).toMatchObject({ href, kind: "route" });
     }
-    expect(all.find((item) => item.label === "CV Enhancement")).toMatchObject({
-      kind: "action", action: "enhance-cv",
-    });
-    expect(all.every((item) => item.kind === "route" || item.kind === "action")).toBe(true);
+    expect(all.every((item) => item.kind === "route")).toBe(true);
   });
 
   it("handles root and nested active routes", () => {
@@ -43,6 +41,7 @@ describe("candidate navigation configuration", () => {
     expect(isNavigationItemActive("/profile/edit", "/profile")).toBe(true);
     expect(isNavigationItemActive("/applications", "/")).toBe(false);
     expect(isNavigationItemActive("/documents/references", "/documents")).toBe(true);
+    expect(isNavigationItemActive("/cv-enhancement", "/cv-enhancement")).toBe(true);
   });
 
   it("groups references under documents instead of a separate sidebar destination", () => {
@@ -59,13 +58,6 @@ describe("candidate navigation configuration", () => {
     expect(getUnreadBadgeText(0)).toBeNull();
   });
 
-  it("invokes the available action callback", () => {
-    const onEnhance = vi.fn();
-    const enhancement = CANDIDATE_NAVIGATION.flatMap((section) => section.items)
-      .find((item) => item.kind === "action");
-    if (enhancement?.kind === "action") onEnhance();
-    expect(onEnhance).toHaveBeenCalledOnce();
-  });
 });
 
 describe("candidate career journey evidence", () => {

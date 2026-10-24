@@ -37,7 +37,7 @@ vi.mock("@workspace/api-client-react", () => {
   };
 });
 
-afterEach(() => { cleanup(); fixture.role = "candidate"; fixture.logout.mockClear(); });
+afterEach(() => { cleanup(); fixture.role = "candidate"; fixture.location = "/applications/24"; fixture.logout.mockClear(); });
 
 describe("rendered candidate navigation", () => {
   it("renders the ordered sections, unread badge, nested active link and evidence summary", () => {
@@ -50,11 +50,13 @@ describe("rendered candidate navigation", () => {
     expect(screen.getByText("Career journey: 1 of 9 stages complete.")).toBeInTheDocument();
   });
 
-  it("launches enhancement without a standalone exam-preparation or learning destination", () => {
-    const onEnhance = vi.fn();
-    render(<AppSidebar onEnhance={onEnhance} />);
-    fireEvent.click(screen.getByRole("button", { name: "CV Enhancement" }));
-    expect(onEnhance).toHaveBeenCalledOnce();
+  it("shows CV Enhancement as a route and highlights it while active", () => {
+    fixture.location = "/cv-enhancement";
+    render(<AppSidebar />);
+    const enhancement = screen.getByRole("link", { name: "CV Enhancement" });
+    expect(enhancement).toHaveAttribute("href", "/cv-enhancement");
+    expect(enhancement).toHaveAttribute("aria-current", "page");
+    expect(enhancement).toHaveClass("bg-primary", "text-primary-foreground");
     expect(screen.queryByRole("link", { name: /learning hub/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /professional exams/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /exam preparation/i })).not.toBeInTheDocument();
@@ -94,7 +96,7 @@ describe("other-role navigation", () => {
     render(<AppSidebar />);
     expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
     expect(screen.queryByRole("heading", { name: "My Profile" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "CV Enhancement" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "CV Enhancement" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "ID Verification" })).not.toBeInTheDocument();
     if (role === "admin" || role === "reviewer") {
       expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CvEnhancementSheet } from "@/components/CvEnhancementSheet";
+import { Link } from "wouter";
 import {
   useListMyDocuments,
   useDeleteDocument,
@@ -425,7 +425,6 @@ export default function DocumentsPage() {
   const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [showParseBanner, setShowParseBanner] = useState(false);
-  const [enhanceSheetOpen, setEnhanceSheetOpen] = useState(false);
   const [professionWarningMsg, setProfessionWarningMsg] = useState<string | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -856,13 +855,14 @@ export default function DocumentsPage() {
                     )}
                     <div className="flex-1 h-px bg-border" />
                     {isCvCategory && (
-                      <button
-                        onClick={() => setEnhanceSheetOpen(true)}
+                      <Link
+                        href="/cv-enhancement"
+                        data-testid="link-enhance-cv-from-documents"
                         className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors shrink-0"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         Enhance CV
-                      </button>
+                      </Link>
                     )}
                   </div>
 
@@ -1064,10 +1064,6 @@ export default function DocumentsPage() {
         )}
       </PageTransition>
 
-      <CvEnhancementSheet
-        open={enhanceSheetOpen}
-        onOpenChange={setEnhanceSheetOpen}
-      />
     </>
   );
 }

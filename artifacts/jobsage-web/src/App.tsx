@@ -60,6 +60,7 @@ const OnboardingPage            = lazy(() => import("@/pages/OnboardingPage"));
 const DashboardPage             = lazy(() => import("@/pages/DashboardPage"));
 const ProfilePage               = lazy(() => import("@/pages/ProfilePage"));
 const DocumentsPage             = lazy(() => import("@/pages/DocumentsWorkspacePage"));
+const CvEnhancementPage         = lazy(() => import("@/components/CvEnhancementSheet").then((module) => ({ default: module.CvEnhancementPage })));
 const EligibilityPage           = lazy(() => import("@/pages/EligibilityPage"));
 const AdminRulesetsPage         = lazy(() => import("@/pages/AdminRulesetsPage"));
 const OpportunitiesPage         = lazy(() => import("@/pages/OpportunitiesPage"));
@@ -341,6 +342,18 @@ function ModeratorGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function CandidateGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "candidate") setLocation("/");
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading || !user || user.role !== "candidate") return null;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     // Single Suspense boundary — shows LoadingScreen while any lazy chunk loads.
@@ -385,6 +398,9 @@ function Router() {
                 <Route path="/profile" component={ProfilePage} />
                 <Route path="/documents" component={DocumentsPage} />
                 <Route path="/documents/references" component={DocumentsPage} />
+                <Route path="/cv-enhancement">
+                  <CandidateGuard><CvEnhancementPage /></CandidateGuard>
+                </Route>
 
                 <Route path="/eligibility" component={EligibilityPage} />
                 <Route path="/opportunities" component={OpportunitiesPage} />

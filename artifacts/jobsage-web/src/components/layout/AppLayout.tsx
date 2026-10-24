@@ -5,7 +5,6 @@ import { AppSidebar } from "./AppSidebar";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
 import { QuickHelpMenu } from "@/components/QuickHelpMenu";
-import { CvEnhancementSheet } from "@/components/CvEnhancementSheet";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -23,7 +22,6 @@ interface AuthUserResponse {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [enhanceOpen, setEnhanceOpen] = React.useState(false);
   const [impersonation, setImpersonation] = React.useState<ImpersonationState | null>(null);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
@@ -33,15 +31,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     desktop.addEventListener("change", closeOnDesktop);
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
-
-  function openEnhancement() {
-    if (mobileMenuOpen) {
-      setMobileMenuOpen(false);
-      window.setTimeout(() => setEnhanceOpen(true), 320);
-      return;
-    }
-    setEnhanceOpen(true);
-  }
 
   function fetchImpersonationState() {
     fetch(`${API_BASE}/auth/user`, { credentials: "include" })
@@ -118,14 +107,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </SheetClose>
           <div className="min-h-0 flex-1 overflow-hidden">
-            <AppSidebar onNavigate={() => setMobileMenuOpen(false)} onEnhance={openEnhancement} />
+            <AppSidebar onNavigate={() => setMobileMenuOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
 
       {/* Desktop Sidebar */}
       <div className="hidden md:flex">
-        <AppSidebar onEnhance={openEnhancement} />
+        <AppSidebar />
       </div>
 
       {/* Main Content */}
@@ -150,7 +139,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <QuickHelpMenu />
-      <CvEnhancementSheet open={enhanceOpen} onOpenChange={setEnhanceOpen} />
     </div>
   );
 }

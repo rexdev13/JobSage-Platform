@@ -1,110 +1,110 @@
 /*
- * The sheet keeps its warm editorial palette in light mode. These scoped
+ * The page keeps its warm editorial palette in light mode. These scoped
  * overrides provide an intentional dark counterpart for the component's
  * handcrafted palette while leaving the shared application theme untouched.
  */
-.dark .jobsage-cv-sheet [class*="bg-[#"] {
+.dark .jobsage-cv-page [class*="bg-[#"] {
   background-color: #211f1c !important;
 }
 
-.dark .jobsage-cv-sheet .bg-white {
+.dark .jobsage-cv-page .bg-white {
   background-color: #302b26 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="bg-[#8b1a1a"],
-.dark .jobsage-cv-sheet [class*="bg-[#741515"] {
+.dark .jobsage-cv-page [class*="bg-[#8b1a1a"],
+.dark .jobsage-cv-page [class*="bg-[#741515"] {
   background-color: #8b302d !important;
 }
 
-.dark .jobsage-cv-sheet [class*="bg-[#edf2eb"],
-.dark .jobsage-cv-sheet [class*="bg-[#e8efe5"] {
+.dark .jobsage-cv-page [class*="bg-[#edf2eb"],
+.dark .jobsage-cv-page [class*="bg-[#e8efe5"] {
   background-color: #26342a !important;
 }
 
-.dark .jobsage-cv-sheet [class*="bg-[#fff2ed"],
-.dark .jobsage-cv-sheet [class*="bg-[#fff3ef"] {
+.dark .jobsage-cv-page [class*="bg-[#fff2ed"],
+.dark .jobsage-cv-page [class*="bg-[#fff3ef"] {
   background-color: #3a2622 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="bg-[#fff8e9"],
-.dark .jobsage-cv-sheet [class*="bg-[#fff9ef"],
-.dark .jobsage-cv-sheet [class*="bg-[#fbf3e5"] {
+.dark .jobsage-cv-page [class*="bg-[#fff8e9"],
+.dark .jobsage-cv-page [class*="bg-[#fff9ef"],
+.dark .jobsage-cv-page [class*="bg-[#fbf3e5"] {
   background-color: #382f20 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#"] {
+.dark .jobsage-cv-page [class*="text-[#"] {
   color: #d0c5bb !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#29231f"],
-.dark .jobsage-cv-sheet [class*="text-[#342a24"],
-.dark .jobsage-cv-sheet [class*="text-[#382b22"],
-.dark .jobsage-cv-sheet [class*="text-[#513a25"] {
+.dark .jobsage-cv-page [class*="text-[#29231f"],
+.dark .jobsage-cv-page [class*="text-[#342a24"],
+.dark .jobsage-cv-page [class*="text-[#382b22"],
+.dark .jobsage-cv-page [class*="text-[#513a25"] {
   color: #f2ebe4 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#8b1a1a"],
-.dark .jobsage-cv-sheet [class*="text-[#762b20"],
-.dark .jobsage-cv-sheet [class*="text-[#763d32"],
-.dark .jobsage-cv-sheet [class*="text-[#8b1a1a]"] {
+.dark .jobsage-cv-page [class*="text-[#8b1a1a"],
+.dark .jobsage-cv-page [class*="text-[#762b20"],
+.dark .jobsage-cv-page [class*="text-[#763d32"],
+.dark .jobsage-cv-page [class*="text-[#8b1a1a]"] {
   color: #f0aaa3 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#5d7758"],
-.dark .jobsage-cv-sheet [class*="text-[#4f7051"],
-.dark .jobsage-cv-sheet [class*="text-[#50664d"] {
+.dark .jobsage-cv-page [class*="text-[#5d7758"],
+.dark .jobsage-cv-page [class*="text-[#4f7051"],
+.dark .jobsage-cv-page [class*="text-[#50664d"] {
   color: #b9d4b7 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#a4772e"],
-.dark .jobsage-cv-sheet [class*="text-[#775523"],
-.dark .jobsage-cv-sheet [class*="text-[#9b6233"] {
+.dark .jobsage-cv-page [class*="text-[#a4772e"],
+.dark .jobsage-cv-page [class*="text-[#775523"],
+.dark .jobsage-cv-page [class*="text-[#9b6233"] {
   color: #e7c27b !important;
 }
 
-.dark .jobsage-cv-sheet [class*="border-[#"] {
+.dark .jobsage-cv-page [class*="border-[#"] {
   border-color: #51483f !important;
 }
 
-.dark .jobsage-cv-sheet [class*="border-[#8b1a1a"],
-.dark .jobsage-cv-sheet [class*="border-[#9c5c4e"] {
+.dark .jobsage-cv-page [class*="border-[#8b1a1a"],
+.dark .jobsage-cv-page [class*="border-[#9c5c4e"] {
   border-color: #bd7770 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="border-[#ead6ad"],
-.dark .jobsage-cv-sheet [class*="border-[#ead8b8"] {
+.dark .jobsage-cv-page [class*="border-[#ead6ad"],
+.dark .jobsage-cv-page [class*="border-[#ead8b8"] {
   border-color: #79643e !important;
 }
 
-.dark .jobsage-cv-sheet [class*="border-[#e6c9bf"],
-.dark .jobsage-cv-sheet [class*="border-[#e8c9be"] {
+.dark .jobsage-cv-page [class*="border-[#e6c9bf"],
+.dark .jobsage-cv-page [class*="border-[#e8c9be"] {
   border-color: #79504a !important;
 }
 
-.dark .jobsage-cv-sheet [class*="hover:border-[#"]:hover {
+.dark .jobsage-cv-page [class*="hover:border-[#"]:hover {
   border-color: #bd7770 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="hover:bg-[#"]:hover {
+.dark .jobsage-cv-page [class*="hover:bg-[#"]:hover {
   background-color: #302b26 !important;
 }
 
-.dark .jobsage-cv-sheet [class*="focus-visible:ring-[#"]:focus-visible {
+.dark .jobsage-cv-page [class*="focus-visible:ring-[#"]:focus-visible {
   --tw-ring-color: #e6a19a !important;
 }
 
-.dark .jobsage-cv-sheet [class*="focus:ring-[#"]:focus {
+.dark .jobsage-cv-page [class*="focus:ring-[#"]:focus {
   --tw-ring-color: rgb(230 161 154 / 0.38) !important;
 }
 
-.dark .jobsage-cv-sheet [class*="accent-[#"] {
+.dark .jobsage-cv-page [class*="accent-[#"] {
   accent-color: #e6a19a !important;
 }
 
-.dark .jobsage-cv-sheet [class*="fill-[#"] {
+.dark .jobsage-cv-page [class*="fill-[#"] {
   fill: #d6b77d !important;
 }
 
-.dark .jobsage-cv-sheet [class*="text-[#a17738"] {
+.dark .jobsage-cv-page [class*="text-[#a17738"] {
   color: #e6c98d !important;
 }

@@ -1,6 +1,5 @@
 export type CandidateNavEntry =
-  | { label: string; href: string; kind: "route"; badge?: "unread-messages" }
-  | { label: string; kind: "action"; action: "enhance-cv" };
+  { label: string; href: string; kind: "route"; badge?: "unread-messages" };
 
 export interface CandidateNavSection {
   label: string;
@@ -14,7 +13,7 @@ export const CANDIDATE_NAVIGATION: CandidateNavSection[] = [
       { label: "CV and Supporting Documents", href: "/documents", kind: "route" },
       { label: "Personal & Professional Details", href: "/profile", kind: "route" },
       { label: "ID Verification", href: "/identity", kind: "route" },
-      { label: "CV Enhancement", kind: "action", action: "enhance-cv" },
+      { label: "CV Enhancement", href: "/cv-enhancement", kind: "route" },
     ],
   },
   {

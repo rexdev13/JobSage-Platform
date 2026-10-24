@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Props = { onNavigate?: () => void; onEnhance?: () => void };
+type Props = { onNavigate?: () => void };
 type OtherNavItem = { name: string; href: string; icon: LucideIcon; roles: string[] };
 
 const otherRoleNavigation: OtherNavItem[] = [
@@ -140,7 +140,7 @@ const iconForCandidateItem: Record<string, LucideIcon> = {
   Feedback: MessageSquareText,
 };
 
-export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
+export function AppSidebar({ onNavigate }: Props = {}) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -265,17 +265,6 @@ export function AppSidebar({ onNavigate, onEnhance }: Props = {}) {
                 {section.label === "UK Career Journey" && renderCandidateJourney()}
                 <div className="space-y-0.5">
                   {section.items.map((item) => {
-                    if (item.kind === "action") {
-                      const Icon = iconForCandidateItem[item.label];
-                      return (
-                        <button key={item.label} type="button" onClick={() => { onNavigate?.(); onEnhance?.(); }}
-                          data-testid="button-enhance-cv"
-                          className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent">
-                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="flex-1 leading-snug">{item.label}</span>
-                        </button>
-                      );
-                    }
                     return renderLink(item.label, item.href, iconForCandidateItem[item.label],
                       item.badge === "unread-messages" ? inboxData?.unreadCount : undefined);
                   })}
