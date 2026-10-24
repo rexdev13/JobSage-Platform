@@ -617,6 +617,8 @@ router.post(
       const inheritedParsedData = {
         ...((sourceDoc.parsedData as Record<string, unknown> | null) ?? {}),
         rawNotes: content,
+        aiGenerated: true,
+        aiGenerationKind: "cv_enhancement",
       };
 
       const newDoc = await db.transaction(async (tx) => {

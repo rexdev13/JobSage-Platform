@@ -68,6 +68,7 @@ import type {
   DescriptionFeedbackResponse,
   DismissMatchRequest,
   Document,
+  DocumentLabelUpdate,
   DocumentList,
   DraftApplicationStrengthsRequest,
   DraftApplicationStrengthsResponse,
@@ -4420,6 +4421,93 @@ export function useListDecisions<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Rename a document or mark a CV as primary
+ */
+export const getUpdateDocumentLabelUrl = (id: number) => {
+  return `/api/documents/${id}/label`;
+};
+
+export const updateDocumentLabel = async (
+  id: number,
+  documentLabelUpdate: DocumentLabelUpdate,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getUpdateDocumentLabelUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(documentLabelUpdate),
+  });
+};
+
+export const getUpdateDocumentLabelMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentLabel>>,
+    TError,
+    { id: number; data: BodyType<DocumentLabelUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDocumentLabel>>,
+  TError,
+  { id: number; data: BodyType<DocumentLabelUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateDocumentLabel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDocumentLabel>>,
+    { id: number; data: BodyType<DocumentLabelUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDocumentLabel(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDocumentLabelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDocumentLabel>>
+>;
+export type UpdateDocumentLabelMutationBody = BodyType<DocumentLabelUpdate>;
+export type UpdateDocumentLabelMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Rename a document or mark a CV as primary
+ */
+export const useUpdateDocumentLabel = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentLabel>>,
+    TError,
+    { id: number; data: BodyType<DocumentLabelUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDocumentLabel>>,
+  TError,
+  { id: number; data: BodyType<DocumentLabelUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateDocumentLabelMutationOptions(options));
+};
 
 /**
  * @summary Delete a document

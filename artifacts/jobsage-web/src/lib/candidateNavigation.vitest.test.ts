@@ -86,7 +86,7 @@ describe("candidate career journey evidence", () => {
     const stages = deriveCareerJourney({
       documents: [
         { documentType: "cv", label: "Uploaded CV" },
-        { documentType: "cv", label: "AI Enhanced CV" },
+        { documentType: "cv", label: "UK Platform CV", parsedData: { aiGenerated: true } },
       ],
       matchedRoleCount: 2,
       applications: [{ status: "applied" }, { status: "interview", interviewDate: null }, { status: "offer" }],

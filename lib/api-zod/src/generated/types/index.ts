@@ -98,6 +98,7 @@ export * from "./descriptionFeedbackRequestSentiment";
 export * from "./descriptionFeedbackResponse";
 export * from "./dismissMatchRequest";
 export * from "./document";
+export * from "./documentLabelUpdate";
 export * from "./documentList";
 export * from "./documentParsedData";
 export * from "./draftApplicationStrengthsRequest";

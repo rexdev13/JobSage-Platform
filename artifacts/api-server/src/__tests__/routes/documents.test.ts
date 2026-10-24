@@ -246,6 +246,60 @@ describe("candidate document lifecycle", () => {
     expect(extractCvFieldsMock).toHaveBeenCalledWith(expect.any(Buffer), "application/pdf");
   });
 
+  it("saves a candidate-chosen CV name after trimming surrounding whitespace", async () => {
+    dbResults.push(
+      [{ id: 41, userId: "cand-1", documentType: "cv" }],
+      [{ id: 41, label: "NHS Clinical CV" }],
+    );
+
+    const response = await request(buildApp())
+      .patch("/documents/41/label")
+      .set("Authorization", `Bearer ${SESSION}`)
+      .send({ label: "  NHS Clinical CV  " });
+
+    expect(response.status).toBe(200);
+    expect(response.body.label).toBe("NHS Clinical CV");
+    expect(updateSets).toEqual([{ label: "NHS Clinical CV" }]);
+  });
+
+  it("clears a custom CV name so the original filename is displayed again", async () => {
+    dbResults.push(
+      [{ id: 41, userId: "cand-1", documentType: "cv" }],
+      [{ id: 41, label: null }],
+    );
+
+    const response = await request(buildApp())
+      .patch("/documents/41/label")
+      .set("Authorization", `Bearer ${SESSION}`)
+      .send({ label: "   " });
+
+    expect(response.status).toBe(200);
+    expect(updateSets).toEqual([{ label: null }]);
+  });
+
+  it("rejects CV names over 100 characters", async () => {
+    const response = await request(buildApp())
+      .patch("/documents/41/label")
+      .set("Authorization", `Bearer ${SESSION}`)
+      .send({ label: "A".repeat(101) });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("100 characters");
+    expect(updateSets).toHaveLength(0);
+  });
+
+  it("does not rename a document owned by another candidate", async () => {
+    dbResults.push([]);
+
+    const response = await request(buildApp())
+      .patch("/documents/41/label")
+      .set("Authorization", `Bearer ${SESSION}`)
+      .send({ label: "Private CV" });
+
+    expect(response.status).toBe(404);
+    expect(updateSets).toHaveLength(0);
+  });
+
   it("deletes stored bytes before deleting the owned document row", async () => {
     dbResults.push(
       [{ id: 41, storageKey: STORAGE_KEY }],

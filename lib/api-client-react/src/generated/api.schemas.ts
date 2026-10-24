@@ -766,6 +766,16 @@ export interface DocumentList {
   documents: Document[];
 }
 
+export interface DocumentLabelUpdate {
+  /**
+   * Candidate-chosen display name for the document; null clears the name.
+   * @maxLength 100
+   */
+  label?: string | null;
+  /** Whether this CV is the candidate's primary CV. */
+  isPrimary?: boolean;
+}
+
 export interface RegisterDocumentRequest {
   /** @minLength 1 */
   filename: string;

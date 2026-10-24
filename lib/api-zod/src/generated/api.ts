@@ -1490,6 +1490,49 @@ export const ListDecisionsResponse = zod.object({
 });
 
 /**
+ * @summary Rename a document or mark a CV as primary
+ */
+export const UpdateDocumentLabelParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateDocumentLabelBodyLabelMax = 100;
+
+export const UpdateDocumentLabelBody = zod.object({
+  label: zod
+    .string()
+    .max(updateDocumentLabelBodyLabelMax)
+    .nullish()
+    .describe(
+      "Candidate-chosen display name for the document; null clears the name.",
+    ),
+  isPrimary: zod
+    .boolean()
+    .optional()
+    .describe("Whether this CV is the candidate's primary CV."),
+});
+
+export const UpdateDocumentLabelResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  filename: zod.string(),
+  mimeType: zod.string(),
+  storageKey: zod.string(),
+  fileSize: zod.number().nullish(),
+  documentType: zod.string().nullish(),
+  label: zod.string().nullish(),
+  isPrimary: zod.boolean(),
+  disclaimerText: zod.string(),
+  uploadedAt: zod.date(),
+  parsedData: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "Parsed CV fields stored after AI extraction and user confirmation.",
+    ),
+});
+
+/**
  * @summary Delete a document
  */
 export const DeleteDocumentParams = zod.object({

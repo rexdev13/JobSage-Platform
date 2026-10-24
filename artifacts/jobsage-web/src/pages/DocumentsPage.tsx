@@ -4,6 +4,7 @@ import {
   useListMyDocuments,
   useDeleteDocument,
   useParseCv,
+  useUpdateDocumentLabel,
   useUpsertMyProfile,
   useGetMyProfile,
   getListMyDocumentsQueryKey,
@@ -320,21 +321,24 @@ function LabelEditor({
   const [value, setValue] = useState(currentLabel ?? "");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const updateDocumentLabel = useUpdateDocumentLabel();
 
   async function save() {
     setSaving(true);
     try {
-      await fetch(`${base}/api/documents/${docId}/label`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: value.trim() || null }),
+      const label = value.trim() || null;
+      await updateDocumentLabel.mutateAsync({
+        id: docId,
+        data: { label },
       });
       onSaved();
       setEditing(false);
+      toast({
+        title: label ? "CV renamed" : "CV name reset",
+        description: label ? `It is now named “${label}”.` : "The original file name is shown again.",
+      });
     } catch {
-      toast({ title: "Failed to save label", variant: "destructive" });
+      toast({ title: "Failed to rename CV", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -342,43 +346,55 @@ function LabelEditor({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5 mt-1">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void save();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          autoFocus
-          maxLength={60}
-          placeholder="e.g. Clinical CV"
-          className="flex-1 text-xs rounded-lg border border-border bg-muted/40 px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-        <button
-          onClick={() => void save()}
-          disabled={saving}
-          className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
-        >
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-        </button>
-        <button onClick={() => setEditing(false)} className="p-1 rounded text-muted-foreground hover:bg-muted">
-          <X className="w-3.5 h-3.5" />
-        </button>
+      <div className="mt-1 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            aria-label="CV name"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            autoFocus
+            maxLength={100}
+            placeholder="Enter a name for this CV"
+            className="flex-1 text-xs rounded-lg border border-border bg-muted/40 px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            onClick={() => void save()}
+            disabled={saving}
+            aria-label="Save CV name"
+            className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            aria-label="Cancel CV rename"
+            className="p-1 rounded text-muted-foreground hover:bg-muted"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          Changes the name shown in JOBSAGE; the downloaded file name stays the same.
+        </p>
       </div>
     );
   }
 
   return (
     <button
+      type="button"
+      aria-label="Rename CV"
+      title="Rename CV"
       onClick={() => { setValue(currentLabel ?? ""); setEditing(true); }}
-      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1 group"
+      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
     >
-      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-      <span className={currentLabel ? "font-medium text-foreground" : "italic"}>
-        {currentLabel ?? "Add a label…"}
-      </span>
+      <Pencil className="w-3 h-3" />
+      Rename CV
     </button>
   );
 }
@@ -789,7 +805,12 @@ export default function DocumentsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {docs.map((doc) => {
-                      const docWithExtras = doc as typeof doc & { documentType?: string | null; label?: string | null; isPrimary?: boolean };
+                       const docWithExtras = doc as typeof doc & {
+                         documentType?: string | null;
+                         label?: string | null;
+                         isPrimary?: boolean;
+                         parsedData?: Record<string, unknown> | null;
+                       };
                       const isPdf = doc.mimeType === "application/pdf";
                       const isImg = doc.mimeType.startsWith("image/");
                       const canParse = isPdf || isImg;
@@ -798,9 +819,19 @@ export default function DocumentsPage() {
                       const isSettingPrimary = settingPrimaryId === doc.id;
                       const isPrimaryDoc = docWithExtras.isPrimary === true;
                       const isCvDoc = docWithExtras.documentType === "cv";
+                       const parsedData = docWithExtras.parsedData;
+                       const isAiGeneratedCv = isCvDoc && (
+                         parsedData?.aiGenerated === true ||
+                         docWithExtras.label === "AI Enhanced CV"
+                       );
+                       const displayName = docWithExtras.label?.trim() || doc.filename;
 
                       return (
-                        <Card key={doc.id} className={`p-5 flex flex-col group hover:shadow-md transition-all ${isPrimaryDoc ? "border-primary/40 ring-1 ring-primary/20" : ""}`}>
+                        <Card
+                          key={doc.id}
+                          data-testid={`document-card-${doc.id}`}
+                          className={`p-5 flex flex-col group hover:shadow-md transition-all ${isPrimaryDoc ? "border-primary/40 ring-1 ring-primary/20" : ""}`}
+                        >
                           <div className="flex items-start justify-between mb-3">
                             <div className="relative">
                               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
@@ -835,10 +866,26 @@ export default function DocumentsPage() {
 
                           <h4
                             className="font-semibold text-foreground truncate mb-0.5"
-                            title={doc.filename}
+                            title={displayName}
+                            data-testid={`document-name-${doc.id}`}
                           >
-                            {doc.filename}
+                            {displayName}
                           </h4>
+
+                          {isAiGeneratedCv && (
+                            <div
+                              className="mt-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2"
+                              data-testid={`ai-cv-disclosure-${doc.id}`}
+                            >
+                              <p className="flex items-center gap-1 text-[11px] font-semibold text-primary">
+                                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                                AI rewrite · UK CV conventions
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                                AI-generated and not independently verified. Check details before using.
+                              </p>
+                            </div>
+                          )}
 
                           {isCvDoc && (
                             <LabelEditor
@@ -849,7 +896,7 @@ export default function DocumentsPage() {
                           )}
 
                           {isCvDoc && (() => {
-                            const pd = (docWithExtras as typeof docWithExtras & { parsedData?: Record<string, unknown> | null }).parsedData;
+                            const pd = parsedData;
                             if (!pd) return null;
                             const prof = pd.profession as string | null | undefined;
                             const spec = pd.specialty as string | null | undefined;

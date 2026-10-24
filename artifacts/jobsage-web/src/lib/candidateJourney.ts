@@ -12,7 +12,11 @@ export const CAREER_JOURNEY_STAGES = [
 
 export type JourneyStageStatus = "complete" | "current" | "upcoming";
 export interface JourneyEvidence {
-  documents: Array<{ documentType?: string | null; label?: string | null }>;
+  documents: Array<{
+    documentType?: string | null;
+    label?: string | null;
+    parsedData?: Record<string, unknown> | null;
+  }>;
   matchedRoleCount: number;
   applications: Array<{ status?: string | null; interviewDate?: string | null }>;
 }
@@ -39,14 +43,16 @@ const nextStepForStage: Record<(typeof CAREER_JOURNEY_STAGES)[number], CareerJou
 };
 
 export function deriveCareerJourney(evidence: JourneyEvidence): CareerJourneyStage[] {
+  const isAiEnhancedCv = (document: JourneyEvidence["documents"][number]) =>
+    document.documentType === "cv" &&
+    (document.label === "AI Enhanced CV" || document.parsedData?.aiGenerated === true);
   const originalCv = evidence.documents.some(
     (document) =>
       document.documentType === "cv" &&
-      document.label !== "AI Enhanced CV",
+      !isAiEnhancedCv(document),
   );
   const hasEnhancedCv = evidence.documents.some(
-    (document) =>
-      document.documentType === "cv" && document.label === "AI Enhanced CV",
+    isAiEnhancedCv,
   );
   const hasSubmittedApplication = evidence.applications.some((application) =>
     ["applied", "shortlisted", "interview", "offer"].includes(application.status ?? ""),

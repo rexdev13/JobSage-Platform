@@ -413,6 +413,17 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 ><Sparkles className="w-3.5 h-3.5" />Enhanced</button>
               </div>
 
+              <div
+                role="note"
+                data-testid="uk-cv-conventions-note"
+                className="rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-3 text-sm text-foreground"
+              >
+                <p className="font-semibold">UK CV conventions applied</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  This AI rewrite uses UK English and a structure suited to the UK job market. It is not independently fact-checked; compare it with your original before saving.
+                </p>
+              </div>
+
               <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
                 {reviewTab === "before" ? (
                   <div className="p-4 min-h-[280px] max-h-[420px] overflow-y-auto">

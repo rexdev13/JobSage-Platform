@@ -241,7 +241,23 @@ router.patch("/documents/:id/label", requireAuthenticated, async (req: Request, 
     return;
   }
 
-  const { label, isPrimary } = req.body as { label?: string | null; isPrimary?: boolean };
+  const { label, isPrimary } = req.body as { label?: unknown; isPrimary?: unknown };
+  if (label !== undefined && label !== null && typeof label !== "string") {
+    res.status(400).json({ error: "CV name must be text." });
+    return;
+  }
+  if (typeof label === "string" && label.trim().length > 100) {
+    res.status(400).json({ error: "CV name must be 100 characters or fewer." });
+    return;
+  }
+  if (isPrimary !== undefined && typeof isPrimary !== "boolean") {
+    res.status(400).json({ error: "isPrimary must be a boolean." });
+    return;
+  }
+  if (label === undefined && isPrimary === undefined) {
+    res.status(400).json({ error: "Provide a CV name or primary status to update." });
+    return;
+  }
   const userId = req.user!.id;
 
   const [existing] = await db
@@ -261,7 +277,7 @@ router.patch("/documents/:id/label", requireAuthenticated, async (req: Request, 
   }
 
   const updates: { label?: string | null; isPrimary?: boolean } = {};
-  if (label !== undefined) updates.label = label ?? null;
+  if (label !== undefined) updates.label = typeof label === "string" ? label.trim() || null : null;
   if (isPrimary !== undefined) updates.isPrimary = isPrimary;
 
   // When marking as primary, wrap both updates in a transaction so we can

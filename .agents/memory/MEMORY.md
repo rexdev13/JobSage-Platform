@@ -81,7 +81,7 @@
 - [Vacancy sync-log contract](vacancy-sync-log-contract.md) — every external vacancy batch needs an explicit kind, liveness counters, and one serialized writer path.
 - [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.
 - [Factual CV draft freshness](cv-draft-freshness.md) — Maker source-fact changes clear reviewed state but preserve draft text; readiness self-attestations stay separate.
-- [Full CV enhancement completeness](cv-enhancement-completeness.md) — long rewrites must retain every distinct source detail and require explicit review against the original before saving.
+- [Full CV enhancement completeness](cv-enhancement-completeness.md) — preserve source details and require review; keep AI/UK disclosure independent of candidate-renamed labels.
 - [Per-marketer Google Calendar authorization](per-marketer-google-calendar.md) — custom JOBSAGE users need encrypted, marketer-specific Google OAuth rather than the workspace connector identity.
 - [Marketer calendar invite timing](marketer-calendar-invite-timing.md) — scheduled Google Meet calls start attendee-free; a marketer explicitly sends the lead invitation later.
 - [Staging-only k6 load testing](k6-load-testing-safety.md) — capacity tests use isolated non-production targets and synthetic accounts; never load-test the production custom domain.
