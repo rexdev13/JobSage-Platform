@@ -28,6 +28,7 @@ export * from "./careerProfiles";
 export * from "./vacancyFavorites";
 export * from "./socialLeads";
 export * from "./cvEnhancementUsage";
+export * from "./applicationStrengthsDraftUsage";
 export * from "./alertDeliveries";
 export * from "./vacancyAiUsage";
 export * from "./nhsVacancyOutageBackoffs";

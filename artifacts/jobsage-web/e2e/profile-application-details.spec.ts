@@ -184,10 +184,14 @@ test("candidates can review CV evidence, add their own text, and save the combin
       profile = { ...profile, ...body };
       await route.fulfill({ json: profile });
     } else if (pathname.endsWith("/api/profiles/application-strengths/draft")) {
+      const { documentId } = route.request().postDataJSON() as { documentId: number };
+      const fromScannedPdf = documentId === 41;
       await route.fulfill({
         json: {
-          documentId: 41,
-          filename: "primary-cv.pdf",
+          documentId,
+          filename: fromScannedPdf ? "primary-cv.pdf" : "word-cv.docx",
+          sourceFormat: fromScannedPdf ? "scanned_pdf_ocr" : "word_docx",
+          notice: fromScannedPdf ? "OCR was used for this scanned PDF. Review the excerpts carefully." : null,
           remaining: 4,
           strengths: [{
             text: "I lead multidisciplinary teams through service improvement.",
@@ -204,18 +208,44 @@ test("candidates can review CV evidence, add their own text, and save the combin
     } else if (pathname.endsWith("/api/documents") && method === "GET") {
       await route.fulfill({
         json: {
-          documents: [{
-            id: 41,
-            userId: "candidate-1",
-            filename: "primary-cv.pdf",
-            mimeType: "application/pdf",
-            storageKey: "/objects/uploads/cv-41",
-            documentType: "cv",
-            label: "Primary CV",
-            isPrimary: true,
-            disclaimerText: "Uploaded for reference.",
-            uploadedAt: "2026-01-01T00:00:00.000Z",
-          }],
+          documents: [
+            {
+              id: 41,
+              userId: "candidate-1",
+              filename: "primary-cv.pdf",
+              mimeType: "application/pdf",
+              storageKey: "/objects/uploads/cv-41",
+              documentType: "cv",
+              label: "Primary CV",
+              isPrimary: true,
+              disclaimerText: "Uploaded for reference.",
+              uploadedAt: "2026-01-01T00:00:00.000Z",
+            },
+            {
+              id: 42,
+              userId: "candidate-1",
+              filename: "word-cv.docx",
+              mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              storageKey: "/objects/uploads/cv-42",
+              documentType: "cv",
+              label: "Word CV",
+              isPrimary: false,
+              disclaimerText: "Uploaded for reference.",
+              uploadedAt: "2026-02-01T00:00:00.000Z",
+            },
+            {
+              id: 43,
+              userId: "candidate-1",
+              filename: "legacy-word-cv.doc",
+              mimeType: "application/msword",
+              storageKey: "/objects/uploads/cv-43",
+              documentType: "cv",
+              label: "Legacy Word CV",
+              isPrimary: false,
+              disclaimerText: "Uploaded for reference.",
+              uploadedAt: "2026-03-01T00:00:00.000Z",
+            },
+          ],
         },
       });
     } else {
@@ -228,14 +258,24 @@ test("candidates can review CV evidence, add their own text, and save the combin
 
   const field = page.locator('[name="applicationStrengths"]');
   await field.fill(ownStrengths);
-  const draftRequest = page.waitForRequest((request) =>
+  const scannedDraftRequest = page.waitForRequest((request) =>
     request.method() === "POST" &&
     new URL(request.url()).pathname.endsWith("/api/profiles/application-strengths/draft"),
   );
   await page.getByRole("button", { name: "Write professional strengths from the selected CV" }).click();
-  expect((await draftRequest).postDataJSON()).toEqual({ documentId: 41 });
-  await expect(page.getByText("Draft based on primary-cv.pdf")).toBeVisible();
+  expect((await scannedDraftRequest).postDataJSON()).toEqual({ documentId: 41 });
+  await expect(page.getByText("Draft based on primary-cv.pdf · Scanned PDF (OCR)")).toBeVisible();
   await expect(page.getByText(`“${cvEvidence}”`)).toBeVisible();
+  await expect(page.getByText("OCR was used for this scanned PDF. Review the excerpts carefully.")).toBeVisible();
+
+  await page.getByLabel("CV to use for writing professional strengths").selectOption("42");
+  const wordDraftRequest = page.waitForRequest((request) =>
+    request.method() === "POST" &&
+    new URL(request.url()).pathname.endsWith("/api/profiles/application-strengths/draft"),
+  );
+  await page.getByRole("button", { name: "Write professional strengths from the selected CV" }).click();
+  expect((await wordDraftRequest).postDataJSON()).toEqual({ documentId: 42 });
+  await expect(page.getByText("Draft based on word-cv.docx · Word DOCX")).toBeVisible();
 
   await page.getByRole("button", { name: "Add after my existing text" }).click();
   await expect(field).toHaveValue(`${ownStrengths}\n\nI lead multidisciplinary teams through service improvement.`);

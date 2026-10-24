@@ -893,7 +893,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '415':
-          description: This draft currently requires an uploaded PDF CV.
+          description: The selected document must be a PDF, DOC, or DOCX CV.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '413':
+          description: The selected CV exceeds the supported file size.
           content:
             application/json:
               schema:
@@ -905,7 +911,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '429':
-          description: Daily CV-writing limit reached.
+          description: Daily professional-strength draft limit reached. This is separate from CV rewriting.
           content:
             application/json:
               schema:
@@ -6624,7 +6630,7 @@ components:
 
     DraftApplicationStrengthsResponse:
       type: object
-      required: [strengths, documentId, filename, remaining]
+      required: [strengths, documentId, filename, sourceFormat, notice, remaining]
       properties:
         strengths:
           type: array
@@ -6636,6 +6642,12 @@ components:
           type: integer
         filename:
           type: string
+        sourceFormat:
+          type: string
+          enum: [searchable_pdf, scanned_pdf_ocr, word_docx, word_doc]
+        notice:
+          type: string
+          nullable: true
         remaining:
           type: integer
 

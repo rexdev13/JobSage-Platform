@@ -6,6 +6,7 @@ import {
   profilesTable,
   documentsTable,
   cvEnhancementUsageTable,
+  applicationStrengthsDraftUsageTable,
   DOCUMENT_DISCLAIMER,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -13,12 +14,14 @@ import { sql } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { prepareCvEvidenceText, validateCvStrengths } from "../lib/applicationStrengthsFromCv";
+import { extractStrengthsCvSource } from "../lib/applicationStrengthsCvSource";
 import PDFDocument from "pdfkit";
 
 const router: IRouter = Router();
 const objectStorageSvc = new ObjectStorageService();
 
 const DAILY_LIMIT = 5;
+const STRENGTHS_DRAFT_DAILY_LIMIT = 5;
 
 // ── DB-backed daily rate limit ─────────────────────────────────────────────────
 async function checkAndIncrementLimit(
@@ -49,6 +52,32 @@ async function checkAndIncrementLimit(
   );
 
   return { allowed: true, remaining: DAILY_LIMIT - (currentCount + 1) };
+}
+
+async function checkAndIncrementStrengthDraftLimit(
+  userId: string,
+): Promise<{ allowed: boolean; remaining: number }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const [row] = await db
+    .insert(applicationStrengthsDraftUsageTable)
+    .values({ userId, usageDate: today, count: 1 })
+    .onConflictDoUpdate({
+      target: [
+        applicationStrengthsDraftUsageTable.userId,
+        applicationStrengthsDraftUsageTable.usageDate,
+      ],
+      set: {
+        count: sql`${applicationStrengthsDraftUsageTable.count} + 1`,
+      },
+      setWhere: sql`${applicationStrengthsDraftUsageTable.count} < ${STRENGTHS_DRAFT_DAILY_LIMIT}`,
+    })
+    .returning({ count: applicationStrengthsDraftUsageTable.count });
+
+  if (!row) return { allowed: false, remaining: 0 };
+  return {
+    allowed: true,
+    remaining: Math.max(0, STRENGTHS_DRAFT_DAILY_LIMIT - row.count),
+  };
 }
 
 // ── Download and parse a CV PDF from storage ───────────────────────────────────
@@ -382,24 +411,45 @@ router.post(
         res.status(404).json({ error: "That CV is no longer available in your documents." });
         return;
       }
-      if (cv.mimeType !== "application/pdf") {
-        res.status(415).json({ error: "AI drafting currently requires a PDF CV. Upload a PDF in CV and Supporting Documents." });
+      if (!cv.storageKey) {
+        res.status(400).json({ error: "This CV has no file attached." });
         return;
       }
 
-      const originalText = await extractCvText(cv.storageKey);
-      const evidenceText = prepareCvEvidenceText(originalText);
-      if (evidenceText.length < 40) {
-        res.status(422).json({
-          error: "JOBSAGE could not read enough text from this PDF. Try a text-based PDF or add your strengths yourself.",
+      if (
+        ![
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ].includes(cv.mimeType)
+      ) {
+        res.status(415).json({
+          error: "AI drafting supports PDF, DOC, and DOCX CVs. Upload a supported file in CV and Supporting Documents.",
         });
         return;
       }
 
-      const usage = await checkAndIncrementLimit(req.user!.id);
+      if (cv.fileSize && cv.fileSize > 5 * 1024 * 1024) {
+        res.status(413).json({ error: "This CV exceeds the 5 MB upload limit." });
+        return;
+      }
+
+      const usage = await checkAndIncrementStrengthDraftLimit(req.user!.id);
       if (!usage.allowed) {
         res.status(429).json({
-          error: `You have used today's ${DAILY_LIMIT} AI CV-writing actions. You can still write and save your strengths yourself.`,
+          error: `You have used today's ${STRENGTHS_DRAFT_DAILY_LIMIT} professional-strength draft attempts. This limit is separate from CV rewrites; you can still write and save your strengths yourself.`,
+        });
+        return;
+      }
+
+      const objectFile = await objectStorageSvc.getObjectEntityFile(cv.storageKey);
+      const fileResponse = await objectStorageSvc.downloadObject(objectFile);
+      const fileBuffer = Buffer.from(await fileResponse.arrayBuffer());
+      const extractedSource = await extractStrengthsCvSource(fileBuffer, cv.mimeType);
+      const evidenceText = prepareCvEvidenceText(extractedSource.text);
+      if (evidenceText.length < 40) {
+        res.status(422).json({
+          error: "JOBSAGE could not read enough text from this CV. Try a clearer document or add your strengths yourself.",
         });
         return;
       }
@@ -446,6 +496,8 @@ router.post(
         strengths,
         documentId: cv.id,
         filename: cv.filename,
+        sourceFormat: extractedSource.sourceFormat,
+        notice: extractedSource.notice,
         remaining: usage.remaining,
       });
     } catch (err) {

@@ -253,15 +253,22 @@ export default function ProfilePage() {
   const [selectedStrengthCvId, setSelectedStrengthCvId] = useState<number | null>(null);
   const [strengthDraft, setStrengthDraft] = useState<DraftApplicationStrengthsResponse | null>(null);
 
-  const pdfCvDocuments = (documentsData?.documents ?? [])
-    .filter((document) => document.documentType === "cv" && document.mimeType === "application/pdf")
+  const strengthsCvDocuments = (documentsData?.documents ?? [])
+    .filter((document) =>
+      document.documentType === "cv" &&
+      [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ].includes(document.mimeType),
+    )
     .sort((a, b) =>
       Number(b.isPrimary) - Number(a.isPrimary) ||
       Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt),
     );
   const selectedStrengthCv =
-    pdfCvDocuments.find((document) => document.id === selectedStrengthCvId) ??
-    pdfCvDocuments[0] ??
+    strengthsCvDocuments.find((document) => document.id === selectedStrengthCvId) ??
+    strengthsCvDocuments[0] ??
     null;
 
   const draftStrengthsFromCv = async () => {
@@ -1221,14 +1228,14 @@ export default function ProfilePage() {
                   <Label htmlFor="profile-field-applicationStrengths">Your professional strengths</Label>
                   {selectedStrengthCv ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      {pdfCvDocuments.length > 1 ? (
+                      {strengthsCvDocuments.length > 1 ? (
                         <Select
                           aria-label="CV to use for writing professional strengths"
                           value={String(selectedStrengthCv.id)}
                           onChange={(event) => setSelectedStrengthCvId(Number(event.target.value))}
                           className="h-9 max-w-[220px] rounded-lg border px-2.5 text-xs"
                         >
-                          {pdfCvDocuments.map((document) => (
+                          {strengthsCvDocuments.map((document) => (
                             <option key={document.id} value={document.id}>
                               {document.label || document.filename}
                               {document.isPrimary ? " (Primary CV)" : ""}
@@ -1259,7 +1266,7 @@ export default function ProfilePage() {
                   ) : (
                     <Link href="/documents">
                       <span className="text-sm font-medium text-primary hover:underline">
-                        Upload a PDF CV to draft from
+                        Upload a PDF or Word CV to draft from
                       </span>
                     </Link>
                   )}
@@ -1276,7 +1283,7 @@ export default function ProfilePage() {
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
                 />
                 <FieldHint>
-                  Draft from an uploaded PDF CV, then review the source evidence, edit the wording, and add anything the CV does not capture before saving.
+                  Draft from an uploaded PDF or Word CV, then review the source evidence, edit the wording, and add anything the CV does not capture before saving.
                 </FieldHint>
                 {strengthDraft ? (
                   <div
@@ -1288,7 +1295,15 @@ export default function ProfilePage() {
                       <div>
                         <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                           <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
-                          Draft based on {strengthDraft.filename}
+                          Draft based on {strengthDraft.filename} · {
+                            strengthDraft.sourceFormat === "scanned_pdf_ocr"
+                              ? "Scanned PDF (OCR)"
+                              : strengthDraft.sourceFormat === "word_docx"
+                                ? "Word DOCX"
+                                : strengthDraft.sourceFormat === "word_doc"
+                                  ? "Word DOC"
+                                  : "Searchable PDF"
+                          }
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Check each statement against the quoted CV evidence. Nothing is saved until you add it to the field and save your profile.
@@ -1303,6 +1318,11 @@ export default function ProfilePage() {
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
+                    {strengthDraft.notice ? (
+                      <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        {strengthDraft.notice}
+                      </p>
+                    ) : null}
                     <ul className="space-y-3">
                       {strengthDraft.strengths.map((strength, index) => (
                         <li key={`${strength.text}-${index}`} className="rounded-lg bg-background/80 p-3">
@@ -1339,7 +1359,7 @@ export default function ProfilePage() {
                   </div>
                 ) : null}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  AI drafts use up to 5 daily CV-writing actions. CVs with little readable text may need you to enter your strengths manually.
+                  Up to 5 professional-strength draft attempts per day, separate from full CV rewrites. CVs with little readable text may need you to enter your strengths manually.
                 </p>
               </div>
               <div>

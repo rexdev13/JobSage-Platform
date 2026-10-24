@@ -3,11 +3,22 @@ import cookieParser from "cookie-parser";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { selectRows, routeErrors, mockOpenAiCreate, mockGetSession } = vi.hoisted(() => ({
+const {
+  selectRows,
+  insertRows,
+  upsertConfigs,
+  routeErrors,
+  mockOpenAiCreate,
+  mockGetSession,
+  mockExtractCvSource,
+} = vi.hoisted(() => ({
   selectRows: [] as unknown[][],
+  insertRows: [] as unknown[][],
+  upsertConfigs: [] as unknown[],
   routeErrors: [] as unknown[],
   mockOpenAiCreate: vi.fn(),
   mockGetSession: vi.fn(),
+  mockExtractCvSource: vi.fn(),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -32,11 +43,20 @@ vi.mock("@workspace/db", () => {
   return {
     db: {
       select: query,
+      insert: vi.fn(() => ({
+        values: () => ({
+          onConflictDoUpdate: (config: unknown) => {
+            upsertConfigs.push(config);
+            return { returning: async () => insertRows.shift() ?? [] };
+          },
+        }),
+      })),
       execute: vi.fn().mockResolvedValue({ rows: [] }),
     },
     consentLogsTable: { userId: {}, consentedAt: {} },
     documentsTable: { id: {}, userId: {}, documentType: {} },
     cvEnhancementUsageTable: { userId: {}, usageDate: {}, count: {} },
+    applicationStrengthsDraftUsageTable: { userId: {}, usageDate: {}, count: {} },
     profilesTable: {},
     DOCUMENT_DISCLAIMER: "Uploaded by candidate for reference.",
   };
@@ -44,6 +64,10 @@ vi.mock("@workspace/db", () => {
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: mockOpenAiCreate } } },
+}));
+
+vi.mock("../lib/applicationStrengthsCvSource", () => ({
+  extractStrengthsCvSource: mockExtractCvSource,
 }));
 
 vi.mock("../lib/objectStorage", () => ({
@@ -111,6 +135,8 @@ function buildApp() {
 describe("POST /profiles/application-strengths/draft", () => {
   beforeEach(() => {
     selectRows.length = 0;
+    insertRows.length = 0;
+    upsertConfigs.length = 0;
     routeErrors.length = 0;
     vi.clearAllMocks();
     mockGetSession.mockResolvedValue({
@@ -135,6 +161,15 @@ describe("POST /profiles/application-strengths/draft", () => {
         },
       }],
     });
+    mockExtractCvSource.mockResolvedValue({
+      text: [
+        "Email: candidate@example.com",
+        "Registered nurse with experience in urgent and emergency care.",
+        evidence,
+      ].join("\n"),
+      sourceFormat: "searchable_pdf",
+      notice: null,
+    });
   });
 
   it("requires a signed-in user", async () => {
@@ -157,7 +192,8 @@ describe("POST /profiles/application-strengths/draft", () => {
   });
 
   it("uses only redacted text from an owned CV and returns verifiable draft evidence", async () => {
-    selectRows.push([consentRow], [cvDocument], [{ count: 0 }]);
+    selectRows.push([consentRow], [cvDocument]);
+    insertRows.push([{ count: 1 }]);
     const response = await request(buildApp())
       .post("/profiles/application-strengths/draft")
       .set("Authorization", "Bearer candidate-session-token")
@@ -167,6 +203,8 @@ describe("POST /profiles/application-strengths/draft", () => {
     expect(response.body).toMatchObject({
       documentId: 41,
       filename: "primary-cv.pdf",
+      sourceFormat: "searchable_pdf",
+      notice: null,
       remaining: 4,
       strengths: [{
         text: "I lead multidisciplinary teams through service improvement.",
@@ -178,15 +216,46 @@ describe("POST /profiles/application-strengths/draft", () => {
     const sourceText = aiInput.messages[1].content as string;
     expect(sourceText).toContain(evidence);
     expect(sourceText).not.toContain("candidate@example.com");
+    expect(upsertConfigs).toHaveLength(1);
+    expect(upsertConfigs[0]).toMatchObject({
+      set: { count: expect.any(Object) },
+      setWhere: expect.any(Object),
+    });
   });
 
-  it("rejects a non-PDF CV before calling the AI", async () => {
-    selectRows.push([consentRow], [{ ...cvDocument, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }]);
+  it.each([
+    ["Word DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "word_docx"],
+    ["Word DOC", "application/msword", "word_doc"],
+  ])("accepts %s files from the supported CV types", async (_label, mimeType, sourceFormat) => {
+    selectRows.push([consentRow], [{ ...cvDocument, mimeType }]);
+    insertRows.push([{ count: 1 }]);
+    mockExtractCvSource.mockResolvedValue({
+      text: `Registered nurse with experience in urgent and emergency care.\n${evidence}`,
+      sourceFormat,
+      notice: null,
+    });
     const response = await request(buildApp())
       .post("/profiles/application-strengths/draft")
       .set("Authorization", "Bearer candidate-session-token")
       .send({ documentId: 41 });
-    expect(response.status, JSON.stringify(routeErrors)).toBe(415);
+    expect(response.status, JSON.stringify(routeErrors)).toBe(200);
+    expect(response.body.sourceFormat).toBe(sourceFormat);
+    expect(mockExtractCvSource).toHaveBeenCalledWith(expect.any(Buffer), mimeType);
+    expect(mockOpenAiCreate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the new strength quota separate and denies a sixth daily attempt before parsing", async () => {
+    selectRows.push([consentRow], [cvDocument]);
+    insertRows.push([]);
+    const response = await request(buildApp())
+      .post("/profiles/application-strengths/draft")
+      .set("Authorization", "Bearer candidate-session-token")
+      .send({ documentId: 41 });
+
+    expect(response.status).toBe(429);
+    expect(response.body.error).toContain("separate from CV rewrites");
+    expect(mockExtractCvSource).not.toHaveBeenCalled();
     expect(mockOpenAiCreate).not.toHaveBeenCalled();
+    expect(upsertConfigs).toHaveLength(1);
   });
 });
