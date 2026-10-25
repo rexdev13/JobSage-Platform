@@ -6,6 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { setBaseUrl } from "@workspace/api-client-react";
+import Constants from "expo-constants";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -45,7 +46,9 @@ if (Platform.OS !== "web") {
   void SplashScreen.preventAutoHideAsync().catch((error: unknown) => {
     console.warn("Could not retain the native splash screen.", error);
   });
-  SplashScreen.setOptions({ fade: true, duration: 200 });
+  if (Constants.executionEnvironment !== "storeClient") {
+    SplashScreen.setOptions({ fade: true, duration: 200 });
+  }
 }
 
 const queryClient = new QueryClient({

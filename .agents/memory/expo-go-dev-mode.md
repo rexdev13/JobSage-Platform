@@ -5,6 +5,8 @@ description: Keep Replit's mobile preview on stock Expo Go when the project reta
 
 When the Replit preview must open in stock Expo Go but the project retains `expo-dev-client` for its existing EAS profile, keep the dependency and EAS settings intact and add Expo CLI's `--go` flag to the managed dev command. Confirm the workflow says it is using Expo Go and emits an `exp://` URL.
 
+Guard `SplashScreen.setOptions()` from Expo Go by checking `Constants.executionEnvironment !== "storeClient"`; Expo Go emits a runtime warning for that native-only option.
+
 **Why:** Expo CLI otherwise selected a development-client QR for this project, even after its SDK matched the installed Expo Go runtime.
 
 **How to apply:** Use this for Expo Go preview workflows that also preserve a custom development-client profile; do not remove the package solely to change the QR target.
