@@ -60,7 +60,9 @@ const queryClient = new QueryClient({
   },
 });
 
-export const unstable_settings = { initialRouteName: "workspace" };
+export const unstable_settings = {
+  initialRouteName: __DEV__ ? "splash-preview" : "workspace",
+};
 
 function RootLayoutNav() {
   return (
