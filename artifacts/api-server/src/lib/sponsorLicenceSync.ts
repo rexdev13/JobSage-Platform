@@ -3,6 +3,11 @@ import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db"
 import { sql, lt } from "drizzle-orm";
 import { classifyByKeyword } from "./industryClassifier";
 import { countyToRegion } from "./countyToRegion";
+import {
+  reconcileSponsorRegisterRows,
+  type SponsorRegisterRow as ParsedRow,
+  type ReconciledSponsorRegisterRow,
+} from "./sponsorRegisterReconciliation";
 
 export type SyncTriggeredBy = "scheduler" | "manual";
 
@@ -46,16 +51,6 @@ async function resolveLatestRegisterUrl(): Promise<string> {
 
 function getRegisterUrl(): string | null {
   return process.env["SPONSOR_LICENCE_REGISTER_URL"] ?? null;
-}
-
-interface ParsedRow {
-  organisationName: string;
-  townCity: string | null;
-  county: string | null;
-  route: string | null;
-  subRoute: string | null;
-  rating: string | null;
-  industry: string | null;
 }
 
 function normaliseKey(s: string): string {
@@ -230,12 +225,10 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
 }
 
 interface SyncDiff {
-  rows: ParsedRow[];
+  rows: ReconciledSponsorRegisterRow[];
   addedCount: number;
   updatedCount: number;
   removedCount: number;
-  existingCount: number;
-  existingNames: Set<string>;
 }
 
 async function attemptSync(url: string): Promise<SyncDiff> {
@@ -244,10 +237,18 @@ async function attemptSync(url: string): Promise<SyncDiff> {
 
   if (rows.length === 0) throw new Error("No records parsed from register");
 
-  // Load existing org names to compute a real record-level diff.
-  // We key on organisation_name (the stable identifier in the register).
+  // Names are not unique in the register. Read row IDs and source fields so
+  // each incoming occurrence can be reconciled with at most one stored row.
   const existingRows = await db
-    .select({ organisationName: sponsorLicencesTable.organisationName })
+    .select({
+      id: sponsorLicencesTable.id,
+      organisationName: sponsorLicencesTable.organisationName,
+      townCity: sponsorLicencesTable.townCity,
+      county: sponsorLicencesTable.county,
+      route: sponsorLicencesTable.route,
+      subRoute: sponsorLicencesTable.subRoute,
+      rating: sponsorLicencesTable.rating,
+    })
     .from(sponsorLicencesTable);
 
   const existingCount = existingRows.length;
@@ -260,15 +261,14 @@ async function attemptSync(url: string): Promise<SyncDiff> {
     );
   }
 
-  // Build org name sets for true diff computation
-  const existingNames = new Set(existingRows.map((r) => r.organisationName.toLowerCase().trim()));
-  const newNames = new Set(rows.map((r) => r.organisationName.toLowerCase().trim()));
-
-  const addedCount = rows.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim())).length;
-  const removedCount = existingRows.filter((r) => !newNames.has(r.organisationName.toLowerCase().trim())).length;
-  const updatedCount = rows.filter((r) => existingNames.has(r.organisationName.toLowerCase().trim())).length;
-
-  return { rows, addedCount, updatedCount, removedCount, existingCount, existingNames };
+  const reconciled = reconcileSponsorRegisterRows(rows, existingRows);
+  const addedCount = reconciled.rows.filter((row) => row.existingId === null).length;
+  return {
+    rows: reconciled.rows,
+    addedCount,
+    updatedCount: rows.length - addedCount,
+    removedCount: reconciled.removedCount,
+  };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -289,11 +289,11 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const { rows, addedCount, updatedCount, removedCount, existingNames } = await attemptSync(url);
+      const { rows, addedCount, updatedCount, removedCount } = await attemptSync(url);
 
-      // Outer batch: 500 rows at a time.
+      // Outer batch: 200 rows at a time.
       // Inner UPDATE_CHUNK: max rows per single VALUES clause.
-      // Keeping VALUES clauses small (≤150 rows × 9 params = 1350 params) avoids
+      // Keeping VALUES clauses small (≤150 rows × 10 params = 1500 params) avoids
       // hitting Postgres wire-protocol message size limits on managed instances and
       // keeps individual statement run-time well under any statement_timeout ceiling.
       const BATCH = 200;
@@ -305,8 +305,10 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH);
 
-        const toUpdate = batch.filter((r) => existingNames.has(r.organisationName.toLowerCase().trim()));
-        const toInsert = batch.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim()));
+        const toUpdate = batch.filter((r) => r.existingId !== null);
+        const toInsert = batch
+          .filter((r) => r.existingId === null)
+          .map(({ existingId: _existingId, ...row }) => row);
 
         if (toUpdate.length > 0) {
           // Split into two groups to achieve COALESCE(d.industry, sl.industry) semantics
@@ -323,6 +325,7 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
             await db.execute(sql`
               UPDATE sponsor_licences AS sl
               SET
+                organisation_name = d.organisation_name,
                 town_city   = d.town_city,
                 county      = d.county,
                 route       = d.route,
@@ -333,11 +336,11 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
                 chunk.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
+                  sql`(${r.existingId}::integer, ${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
                 ),
                 sql`, `
-              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, region, synced_at)
-              WHERE sl.organisation_name = d.organisation_name
+              )}) AS d(id, organisation_name, town_city, county, route, sub_route, rating, industry, region, synced_at)
+              WHERE sl.id = d.id
             `);
           }
 
@@ -347,6 +350,7 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
             await db.execute(sql`
               UPDATE sponsor_licences AS sl
               SET
+                organisation_name = d.organisation_name,
                 town_city   = d.town_city,
                 county      = d.county,
                 route       = d.route,
@@ -356,11 +360,11 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
                 chunk.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
+                  sql`(${r.existingId}::integer, ${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
                 ),
                 sql`, `
-              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, region, synced_at)
-              WHERE sl.organisation_name = d.organisation_name
+              )}) AS d(id, organisation_name, town_city, county, route, sub_route, rating, region, synced_at)
+              WHERE sl.id = d.id
             `);
           }
         }
@@ -372,10 +376,6 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
             await db.insert(sponsorLicencesTable).values(
               chunk.map((r) => ({ ...r, syncedAt, region: countyToRegion(r.county) })) as any
             );
-            // Track newly inserted names so later batches don't re-insert them
-            for (const r of chunk) {
-              existingNames.add(r.organisationName.toLowerCase().trim());
-            }
           }
         }
 
@@ -387,10 +387,19 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
         }
       }
 
-      // Remove orgs that were in the old register but not the new one
+      // Remove unmatched stored occurrences, including surplus duplicates.
       await db
         .delete(sponsorLicencesTable)
         .where(lt(sponsorLicencesTable.syncedAt, syncedAt));
+
+      const [stored] = await db
+        .select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(sponsorLicencesTable);
+      if (stored?.count !== rows.length) {
+        throw new Error(
+          `Sponsor register row-count mismatch: parsed ${rows.length}, stored ${stored?.count ?? "unknown"}`,
+        );
+      }
 
       const durationMs = Date.now() - startMs;
 

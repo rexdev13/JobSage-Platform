@@ -7,7 +7,6 @@ import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
 import { startCompanySiteDiscoveryScheduler } from "./lib/companySiteScheduler";
-import { startDailyVacancySyncScheduler } from "./lib/dailyVacancySync";
 import { startVacancyLivenessSweepScheduler } from "./lib/vacancyLivenessSweep";
 import { startSponsorVacancyCleanupScheduler } from "./lib/sponsorVacancyCleanup";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
@@ -86,7 +85,6 @@ void verifyDeletionStartupBarrier().then(() => server.listen(port, () => {
   if (runExternalBackgroundJobs) {
     startAlertScheduler();
     startSponsorLicenceScheduler();
-    startDailyVacancySyncScheduler();
     startSponsorVacancyCleanupScheduler();
     startApplyUrlBackfillScheduler();
     startCalendlySyncScheduler();

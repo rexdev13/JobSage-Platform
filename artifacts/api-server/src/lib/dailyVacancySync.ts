@@ -1,6 +1,4 @@
-import cron from "node-cron";
 import { runSponsorLicenceSync } from "./sponsorLicenceSync";
-import { runCheckAllVacanciesPass } from "./vacancyCheckAllRunner";
 
 /**
  * Full daily pipeline: refresh the sponsor register, then check every
@@ -26,18 +24,3 @@ export async function runDailyVacancySync(): Promise<void> {
   console.log("[daily-vacancy-sync] Daily pipeline complete");
 }
 
-export function startDailyVacancySyncScheduler(): void {
-  // Run once daily at 04:00 Europe/London — after the 02:00 register sync window
-  // used historically, but this job also runs its own register sync first.
-  cron.schedule(
-    "0 4 * * *",
-    () => {
-      runDailyVacancySync().catch((err) => {
-        console.error("[daily-vacancy-sync] Unhandled scheduler error:", err instanceof Error ? err.message : err);
-      });
-    },
-    { timezone: "Europe/London" },
-  );
-
-  console.log("[daily-vacancy-sync] Scheduler registered: daily at 04:00 Europe/London");
-}

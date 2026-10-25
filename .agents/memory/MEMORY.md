@@ -132,3 +132,4 @@
 - [Professional strengths drafting](professional-strengths-drafting.md) — separate CV-rewrite allowance; local OCR and candidate-reviewed evidence remain required.
 - [Career profile activation](career-profile-activation.md) — one profile stays active; candidates switch matching and rewrite focus from each profile card.
 - [Candidate navigation screens](candidate-navigation-screens.md) — navigation-led candidate tools that need active sidebar state should use full workspace routes, not modal windows.
+- [Sponsor register counting](sponsor-register-counting.md) — retain every source occurrence, including identical repeats; register-row totals and distinct-name totals are different metrics.
