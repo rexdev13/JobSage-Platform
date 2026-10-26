@@ -1137,7 +1137,9 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
           location: job.location,
           salary: undefined,
           description: job.description,
-          postedDate: job.created_at,
+          postedDate: typeof job.created_at === "number"
+            ? new Date(job.created_at * 1000).toISOString()
+            : null,
           metadata: {
             remote: job.remote === true,
             employmentType: Array.isArray(job.job_types) ? job.job_types : [],

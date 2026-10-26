@@ -439,4 +439,44 @@ export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       };
     },
   },
+  {
+    id: "remoteok",
+    provider: "remoteok",
+    boardName: "Remote OK",
+    parserVersion: "remoteok-api-v1",
+    maxPagesPerRun: 1,
+    async fetchPage({ deadlineMs }) {
+      const response = await fetchText("https://remoteok.com/api", deadlineMs);
+      let payload: unknown;
+      try {
+        payload = JSON.parse(response);
+      } catch {
+        throw new Error("Remote OK returned a non-JSON response.");
+      }
+      if (!Array.isArray(payload)) {
+        throw new Error("Remote OK response omitted its jobs array.");
+      }
+      const jobs = payload.filter(
+        (entry): entry is Record<string, unknown> =>
+          typeof entry === "object" && entry !== null && "company" in entry,
+      );
+      const adverts = jobs.map((job) => makeAdvert(
+        { id: "remoteok", provider: "remoteok", boardName: "Remote OK", parserVersion: "remoteok-api-v1" },
+        {
+          externalId: typeof job["id"] === "string" || typeof job["id"] === "number" ? String(job["id"]) : null,
+          title: job["position"],
+          employer: job["company"],
+          url: job["url"],
+          location: job["location"],
+          description: job["description"],
+          postedDate: job["date"],
+          metadata: {
+            remote: true,
+            category: Array.isArray(job["tags"]) ? job["tags"] : [],
+          },
+        },
+      ));
+      return { adverts, recordsFetched: adverts.length, nextCursor: null };
+    },
+  },
 ];

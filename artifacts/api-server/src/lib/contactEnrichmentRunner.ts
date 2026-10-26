@@ -307,14 +307,19 @@ export async function lookupOfficialWebsite(
 }
 
 export async function selectContactEnrichmentBatch(limit = CONTACT_ENRICHMENT_BATCH_SIZE): Promise<ContactEnrichmentTarget[]> {
+  // With CONTACT_ENRICHMENT_ALL_WEBSITE_SPONSORS=1 the website stage also covers
+  // sponsors that have an official website but no stored vacancy yet. Emails
+  // still only come from each employer's own published pages.
+  const includeWebsiteSponsors = process.env["CONTACT_ENRICHMENT_ALL_WEBSITE_SPONSORS"] === "1";
   const result = await db.execute<any>(sql`
     WITH organisations AS (
       SELECT lower(btrim(sl.organisation_name)) AS organisation_key,
         min(btrim(sl.organisation_name)) AS organisation_name, max(NULLIF(trim(sl.website), '')) AS website,
         min(v.url) FILTER (WHERE v.source_type = 'company_site' AND v.liveness <> 'dead') AS company_site_url
       FROM sponsor_licences sl
-      JOIN sponsor_licence_vacancies v ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
-      WHERE NULLIF(trim(sl.contact_email), '') IS NULL AND v.liveness <> 'dead'
+      LEFT JOIN sponsor_licence_vacancies v ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
+      WHERE NULLIF(trim(sl.contact_email), '') IS NULL
+        AND (v.liveness <> 'dead' OR (${includeWebsiteSponsors} AND NULLIF(trim(sl.website), '') IS NOT NULL))
       GROUP BY lower(btrim(sl.organisation_name))
     )
     SELECT o.organisation_key AS organisation_name, COALESCE(e.website_url, o.website) AS website, o.company_site_url,
@@ -323,8 +328,8 @@ export async function selectContactEnrichmentBatch(limit = CONTACT_ENRICHMENT_BA
       COALESCE(e.attempts, 0) AS attempts
     FROM organisations o
     LEFT JOIN sponsor_licence_contact_enrichments e ON lower(btrim(e.organisation_name)) = o.organisation_key
-    WHERE e.stored_harvested_at IS NOT NULL
-      AND (e.status IN ('pending', 'retry') AND (e.retry_after IS NULL OR e.retry_after <= NOW()))
+    WHERE (e.stored_harvested_at IS NOT NULL OR (${includeWebsiteSponsors} AND e.organisation_name IS NULL AND o.website IS NOT NULL))
+      AND (e.status IS NULL OR (e.status IN ('pending', 'retry') AND (e.retry_after IS NULL OR e.retry_after <= NOW())))
     ORDER BY (e.website_cited_at IS NULL), COALESCE(e.updated_at, to_timestamp(0)), o.organisation_name
     LIMIT ${Math.max(1, Math.floor(limit))}
   `);
@@ -543,6 +548,16 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
   let website = isPermittedOfficialWebsite(target.website) ?? websiteFromVacancyUrl(target.companySiteUrl);
   let websiteEvidenceUrl = website ?? undefined;
   if (!target.citedWebsite) {
+    if (website) {
+      // A stored or vacancy-derived website is already vetted upstream, so it
+      // does not need a paid grounded lookup; identity is still corroborated
+      // against the fetched homepage below.
+      await saveState(target, {
+        stage: "website", status: "pending", websiteUrl: website,
+        websiteLookupSource: target.website ? "stored" : "vacancy",
+        websiteLookupAt: new Date(), websiteCitedAt: new Date(), websiteEvidenceUrl,
+      });
+    } else {
     const lookup = await lookupOfficialWebsite(target.organisationName, website);
     if (lookup.deferred) return "budget_exhausted";
     if (!lookup.url) {
@@ -558,6 +573,7 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
       websiteLookupSource: target.website ? "stored" : target.companySiteUrl ? "vacancy" : "web_search",
       websiteLookupAt: new Date(), websiteCitedAt: new Date(), websiteEvidenceUrl,
     });
+    }
   } else if (!website) {
     await retry(target, "cited website is no longer valid");
     return "inconclusive";
@@ -628,7 +644,8 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
 }
 
 export async function runContactEnrichmentBatch(options: { batchSize?: number } = {}): Promise<ContactEnrichmentSummary> {
-  const batchSize = Math.min(5, Math.max(1, Math.floor(options.batchSize ?? CONTACT_ENRICHMENT_BATCH_SIZE)));
+  const batchSizeLimit = Math.max(1, Number(process.env["CONTACT_ENRICHMENT_BATCH_LIMIT"]) || 5);
+  const batchSize = Math.min(batchSizeLimit, Math.max(1, Math.floor(options.batchSize ?? CONTACT_ENRICHMENT_BATCH_SIZE)));
   const harvest = await runStoredContactHarvestBatch();
   if (!shouldRunPaidContactEnrichment(harvest.remaining)) {
     const remaining = await countContactEnrichmentRemaining();

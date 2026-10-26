@@ -1203,7 +1203,9 @@ export async function upsertSharedBoardVacancies(
     }
   }
 
-  if (options.enrichContacts !== false && !options.dryRun) {
+  // Feed-supplied contact emails are validated and persisted without extra
+  // fetching; enrichContacts only gates the per-advert enrichment pass above.
+  if (!options.dryRun) {
     await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
   }
 

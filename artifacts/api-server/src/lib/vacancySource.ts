@@ -112,7 +112,8 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
     hostMatches(host, "arbeitnow.com") ||
     hostMatches(host, "arbeitnow.co.uk") ||
     hostMatches(host, "arbeitnow.fr") ||
-    hostMatches(host, "arbeitnow.ch")
+    hostMatches(host, "arbeitnow.ch") ||
+    hostMatches(host, "arbeitnow.nl")
   ) {
     return {
       boardName: "Arbeitnow",
@@ -129,6 +130,12 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
     return {
       boardName: "Himalayas",
       externalListingId: path.match(/\/(?:jobs\/|companies\/[^/?#]+\/jobs\/)([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
+  if (hostMatches(host, "remoteok.com")) {
+    return {
+      boardName: "Remote OK",
+      externalListingId: path.match(/\/remote-jobs\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
   return null;

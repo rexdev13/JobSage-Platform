@@ -73,7 +73,8 @@ export type VacancyJobSummary = {
 };
 
 export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
-export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
+export const COMPANY_SITE_HTTP_BUDGET_MS = Math.max(
+  1_000, Number(process.env.COMPANY_SITE_HTTP_BUDGET_MS) || 20_000);
 export const FREE_BOARD_HTTP_BUDGET_MS = 45_000;
 export const LIVENESS_HTTP_BUDGET_MS = 18_000;
 export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 45_000;

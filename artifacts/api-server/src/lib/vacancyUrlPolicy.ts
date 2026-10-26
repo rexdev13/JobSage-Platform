@@ -348,7 +348,8 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
     hostMatches(host, "arbeitnow.com") ||
     hostMatches(host, "arbeitnow.co.uk") ||
     hostMatches(host, "arbeitnow.fr") ||
-    hostMatches(host, "arbeitnow.ch")
+    hostMatches(host, "arbeitnow.ch") ||
+    hostMatches(host, "arbeitnow.nl")
   ) {
     return /^\/jobs\/(?:companies\/[^/?#]+\/)?[^/?#]+$/i.test(path);
   }
@@ -357,6 +358,9 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   }
   if (hostMatches(host, "himalayas.app")) {
     return /^\/(?:jobs\/[^/?#]+|companies\/[^/?#]+\/jobs\/[^/?#]+)$/i.test(path);
+  }
+  if (hostMatches(host, "remoteok.com")) {
+    return /^\/remote-jobs\/[^/?#]+$/i.test(path);
   }
   return false;
 }

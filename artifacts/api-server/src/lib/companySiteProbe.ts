@@ -21,7 +21,8 @@ export const COMPANY_SITE_PROBE_OK_RECHECK_MS = 6 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_BATCH_SIZE = 60;
 export const COMPANY_SITE_PROBE_CONCURRENCY = 18;
 export const COMPANY_SITE_PROBE_WRITE_RESERVE_MS = 3_000;
-export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = 25_000;
+export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = Math.max(
+  1_000, Number(process.env.COMPANY_SITE_PROBE_HTTP_BUDGET_MS) || 25_000);
 // Match the full crawler's bounded page size. 128 KB rejected ordinary homepages.
 export const COMPANY_SITE_PROBE_MAX_ROOT_BYTES = 1_000_000;
 
