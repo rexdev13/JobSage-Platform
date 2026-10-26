@@ -2196,3 +2196,17 @@ mtime_ms = 1792874208658
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3c59669c-cbaf-4218-9d21-07f4771f3ebf/9b26ca2a-c57c-474b-814b-17435a111ffd"
 storage_version_token = "1792874235854584"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "eUgCAw7JoVmDk88K2bU4e"
+uri = "file://.local/reports/jobsage-vacancy-system-summary.md"
+type = "text"
+title = "JOBSAGE vacancy system summary"
+description = "Download the source-grounded current-state report as a Markdown file."
+logical_id = "91fe16d0-c6b7-4462-8506-878b37a67d39"
+content_hash = "sha256:db7079377dfb0cf756a1151a4ff7210f1aacf5370a986700a43f3e766e28d3fb"
+size = 23710
+mtime_ms = 1793006997691
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/91fe16d0-c6b7-4462-8506-878b37a67d39/4a8c721c-c358-40df-8d2b-6fd909322356"
+storage_version_token = "1793007114850722"
+content_type = "text/markdown"
