@@ -3,6 +3,7 @@ import { Button } from "@/components/ui-enhanced";
 import { X, Chrome, Download, Sparkles, ChevronDown, ChevronUp, CheckCircle2, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
+import { isDesktopSmartApplyInstallAvailable, openChromeWebStorePopup } from "@/lib/smartApplyExtensionInstall";
 
 const DISMISS_KEY = "smart-apply-extension-dismissed";
 const NUDGE_SHOWN_KEY = "smart-apply-extension-nudge-shown";
@@ -124,6 +125,14 @@ function ManualInstallInstructions() {
 function InstallInstructions() {
   const storeUrl = chromeWebStoreListingUrl();
 
+  if (!isDesktopSmartApplyInstallAvailable()) {
+    return (
+      <p role="status" className="text-xs text-muted-foreground">
+        Smart Apply is available only in desktop Chrome. Open JOBSAGE on a desktop or laptop to install and use it.
+      </p>
+    );
+  }
+
   if (!storeUrl) return <ManualInstallInstructions />;
 
   return (
@@ -132,6 +141,7 @@ function InstallInstructions() {
         href={storeUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={(event) => openChromeWebStorePopup(event, storeUrl)}
         className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
       >
         <Chrome className="h-4 w-4" />
@@ -139,6 +149,10 @@ function InstallInstructions() {
         <ExternalLink className="h-3 w-3 opacity-80" />
       </a>
       <p className="text-xs text-muted-foreground">AI is used</p>
+      <p className="text-xs text-muted-foreground">
+        The Chrome Web Store opens in a separate window. Install there, then close it to return to JOBSAGE. If your
+        browser blocks the popup, the Store opens in a new tab instead.
+      </p>
       <p className="text-xs text-muted-foreground">
         The assistant opens automatically when you start a tracked application from JOBSAGE. On an untracked employer
         page, click the JOBSAGE extension icon and choose <span className="font-medium text-foreground">Use JOBSAGE on this page</span>.
@@ -160,6 +174,7 @@ function InstallInstructions() {
 export function SmartApplyExtensionBanner() {
   const { installed, dismissed, dismiss } = useSmartApplyExtension();
   const [expanded, setExpanded] = useState(false);
+  const desktopInstallAvailable = isDesktopSmartApplyInstallAvailable();
 
   if (installed || dismissed) return null;
 
@@ -171,24 +186,33 @@ export function SmartApplyExtensionBanner() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-foreground">Apply faster on employer sites with the Smart Apply extension</p>
-            <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-semibold uppercase tracking-wide">Free</span>
+            <p className="text-sm font-semibold text-foreground">
+              {desktopInstallAvailable
+                ? "Apply faster on employer sites with the Smart Apply extension"
+                : "Smart Apply is available on desktop Chrome"}
+            </p>
+            {desktopInstallAvailable && (
+              <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-semibold uppercase tracking-wide">Free</span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Our Chrome assistant follows you to NHS Jobs, Trac and other employer sites — helping you fill in applications
-            with your JOBSAGE profile and automatically logging them in your tracker.
+            {desktopInstallAvailable
+              ? "Our Chrome assistant follows you to NHS Jobs, Trac and other employer sites — helping you fill in applications with your JOBSAGE profile and automatically logging them in your tracker."
+              : "Open JOBSAGE on a desktop or laptop to install the extension and use it on employer sites."}
           </p>
           <div className="mt-2 flex items-center gap-3 flex-wrap">
-            <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => setExpanded((v) => !v)}>
-              <Sparkles className="w-3.5 h-3.5" /> Get the extension
-              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </Button>
+            {desktopInstallAvailable && (
+              <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => setExpanded((v) => !v)}>
+                <Sparkles className="w-3.5 h-3.5" /> Get the extension
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </Button>
+            )}
             <button className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={dismiss}>
               No thanks
             </button>
           </div>
           <AnimatePresence>
-            {expanded && (
+            {desktopInstallAvailable && expanded && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -225,7 +249,7 @@ export function SmartApplyExtensionNudge({ open, onClose }: { open: boolean; onC
   const { installed, dismissed, dismiss } = useSmartApplyExtension();
   const [showInstructions, setShowInstructions] = useState(false);
 
-  if (!open || installed || dismissed) return null;
+  if (!isDesktopSmartApplyInstallAvailable() || !open || installed || dismissed) return null;
 
   return (
     <AnimatePresence>
@@ -302,7 +326,7 @@ export function ExtensionRequiredModal({
   const [checking, setChecking] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  if (!open) return null;
+  if (!open || !isDesktopSmartApplyInstallAvailable()) return null;
 
   async function handleRecheck() {
     setChecking(true);
