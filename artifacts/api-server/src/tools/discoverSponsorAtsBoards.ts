@@ -240,14 +240,22 @@ async function main(): Promise<void> {
           ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
           LIMIT ${limit}`)
       : await db.execute<any>(sql`
-          SELECT DISTINCT ON (lower(btrim(sl.organisation_name))) sl.organisation_name
-          FROM sponsor_licences sl
-          WHERE NOT EXISTS (
-            SELECT 1 FROM sponsor_licence_company_site_checks c
-            WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
-              AND (c.last_outcome = 'ats_probe_none' OR c.ats_mapping_status = 'verified')
-          )
-          ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
+          SELECT organisation_name FROM (
+            SELECT DISTINCT ON (lower(btrim(sl.organisation_name))) sl.organisation_name, sl.industry
+            FROM sponsor_licences sl
+            WHERE NOT EXISTS (
+              SELECT 1 FROM sponsor_licence_company_site_checks c
+              WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
+                AND (c.last_outcome = 'ats_probe_none' OR c.ats_mapping_status = 'verified')
+            )
+            ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
+          ) t
+          ORDER BY
+            CASE
+              WHEN lower(btrim(COALESCE(industry, ''))) ~ '(technology|software|digital|cyber|data|telecom|finance|financial|fintech|bank|insurance|legal|law|engineer|manufactur|construction|architect|hospitality|hotel|restaurant|retail|wholesale|logistics|transport|warehouse|pharma|biotech|life science|energy|aerospace|defence|media|marketing|advertis|consult)' THEN 0
+              ELSE 1
+            END,
+            lower(btrim(organisation_name)), organisation_name
           LIMIT ${limit} OFFSET ${totalOffset}`);
     if (!result.rows.length) break;
     totalOffset += result.rows.length;

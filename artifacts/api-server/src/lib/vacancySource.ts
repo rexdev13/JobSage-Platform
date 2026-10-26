@@ -138,6 +138,19 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
       externalListingId: path.match(/\/remote-jobs\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
+  if (hostMatches(host, "devitjobs.uk")) {
+    return {
+      boardName: "DevITJobs UK",
+      externalListingId: path.match(/\/jobs\/([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
+  if (hostMatches(host, "workingnomads.com")) {
+    return {
+      boardName: "Working Nomads",
+      externalListingId: path.match(/\/job\/go\/([^/?#]+)/i)?.[1]
+        ?? path.match(/\/job\/([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
   return null;
 }
 

@@ -362,6 +362,12 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   if (hostMatches(host, "remoteok.com")) {
     return /^\/remote-jobs\/[^/?#]+$/i.test(path);
   }
+  if (hostMatches(host, "devitjobs.uk")) {
+    return /^\/jobs\/[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "workingnomads.com")) {
+    return /^\/job\//i.test(path);
+  }
   return false;
 }
 

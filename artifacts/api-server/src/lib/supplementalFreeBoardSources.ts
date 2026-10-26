@@ -479,4 +479,78 @@ export const SUPPLEMENTAL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       return { adverts, recordsFetched: adverts.length, nextCursor: null };
     },
   },
+  {
+    id: "devitjobs",
+    provider: "devitjobs",
+    boardName: "DevITJobs UK",
+    parserVersion: "devitjobs-feed-v1",
+    maxPagesPerRun: 1,
+    async fetchPage({ deadlineMs }) {
+      const xml = await fetchText("https://devitjobs.uk/job_feed.xml", deadlineMs);
+      const cdata = (block: string, tag: string): string | null => {
+        const match = block.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`));
+        return match?.[1]?.trim() || null;
+      };
+      const adverts = [...xml.matchAll(/<job\s[^>]*>([\s\S]*?)<\/job>/g)].map((m) => {
+        const block = m[1]!;
+        return makeAdvert(
+          { id: "devitjobs", provider: "devitjobs", boardName: "DevITJobs UK", parserVersion: "devitjobs-feed-v1" },
+          {
+            externalId: cdata(block, "id"),
+            title: cdata(block, "title"),
+            employer: cdata(block, "company-name") ?? cdata(block, "company"),
+            url: cdata(block, "link") ?? cdata(block, "url"),
+            location: [cdata(block, "location"), cdata(block, "country")]
+              .filter(Boolean).join(", "),
+            description: cdata(block, "description"),
+            postedDate: cdata(block, "pub_date") ?? cdata(block, "date"),
+            salary: cdata(block, "salary"),
+            metadata: { remote: /remote/i.test(cdata(block, "location") ?? "") },
+          },
+        );
+      });
+      return { adverts, recordsFetched: adverts.length, nextCursor: null };
+    },
+  },
+  {
+    id: "workingnomads",
+    provider: "workingnomads",
+    boardName: "Working Nomads",
+    parserVersion: "workingnomads-api-v1",
+    maxPagesPerRun: 1,
+    async fetchPage({ deadlineMs }) {
+      const response = await fetchText("https://www.workingnomads.com/api/exposed_jobs/", deadlineMs);
+      let payload: unknown;
+      try {
+        payload = JSON.parse(response);
+      } catch {
+        throw new Error("Working Nomads returned a non-JSON response.");
+      }
+      if (!Array.isArray(payload)) {
+        throw new Error("Working Nomads response omitted its jobs array.");
+      }
+      const jobs = payload.filter(
+        (entry): entry is Record<string, unknown> =>
+          typeof entry === "object" && entry !== null && "title" in entry,
+      );
+      const adverts = jobs.map((job) => makeAdvert(
+        { id: "workingnomads", provider: "workingnomads", boardName: "Working Nomads", parserVersion: "workingnomads-api-v1" },
+        {
+          externalId: typeof job["url"] === "string" ? job["url"].replace(/\/$/, "").split("/").pop() ?? null : null,
+          title: job["title"],
+          employer: job["company_name"],
+          url: job["url"],
+          location: job["location"],
+          description: job["description"],
+          postedDate: job["pub_date"],
+          metadata: {
+            remote: true,
+            category: job["category_name"],
+            tags: Array.isArray(job["tags"]) ? job["tags"] : [],
+          },
+        },
+      ));
+      return { adverts, recordsFetched: adverts.length, nextCursor: null };
+    },
+  },
 ];
