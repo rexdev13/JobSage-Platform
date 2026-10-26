@@ -135,6 +135,7 @@ All routes under `/api`:
 ## Development Notes
 
 - Before changing a JOBSAGE interface, inspect the existing component and applicable project UI/brand guidance plus the relevant frontend design skill. Preserve the approved wordmark and exact tagline, size assets for their specific layout, and verify the affected screen with a preview or focused component test. If authentication blocks the preview, state that limitation rather than claiming the signed-in screen was visually verified.
+- Preserve established loading spinners by default. Do not replace them with branded or custom loading screens unless the user explicitly requests or approves that change.
 - Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`
 - Run `pnpm --filter @workspace/db run push` after changing DB schema in `lib/db/src/schema/`
 - Rebuild libs: `pnpm exec tsc --build lib/db lib/api-zod lib/api-client-react lib/auth-web`

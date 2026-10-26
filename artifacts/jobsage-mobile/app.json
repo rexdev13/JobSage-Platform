@@ -7,28 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "jobsage-mobile",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#ffffff",
-    "splash": {
-      "image": "./assets/images/splash-logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
-      "dark": {
-        "image": "./assets/images/splash-logo.png",
-        "backgroundColor": "#ffffff"
-      }
-    },
     "ios": {
       "buildNumber": "1",
-      "supportsTablet": false,
-      "splash": {
-        "image": "./assets/images/splash-logo.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff",
-        "dark": {
-          "image": "./assets/images/splash-logo.png",
-          "backgroundColor": "#ffffff"
-        }
-      }
+      "supportsTablet": false
     },
     "android": {
       "package": "uk.co.jobsage.mobile",
@@ -36,15 +17,6 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon-foreground.png",
         "backgroundColor": "#f8eee8"
-      },
-      "splash": {
-        "image": "./assets/images/splash-logo.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff",
-        "dark": {
-          "image": "./assets/images/splash-logo.png",
-          "backgroundColor": "#ffffff"
-        }
       }
     },
     "androidStatusBar": {
@@ -63,19 +35,22 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-logo.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "image": "./assets/images/splash-logo.png",
-            "backgroundColor": "#ffffff"
-          },
+          "backgroundColor": "#fdfcfc",
           "android": {
-            "imageWidth": 184
+            "image": "./assets/images/jobsage-app-symbol.png",
+            "imageWidth": 160,
+            "backgroundColor": "#f8eee8",
+            "dark": {
+              "image": "./assets/images/jobsage-app-symbol.png",
+              "imageWidth": 160,
+              "backgroundColor": "#f8eee8"
+            }
           },
           "ios": {
-            "imageWidth": 280
+            "backgroundColor": "#f8eee8",
+            "dark": {
+              "backgroundColor": "#f8eee8"
+            }
           }
         }
       ],

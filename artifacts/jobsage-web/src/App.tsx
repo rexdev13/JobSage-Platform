@@ -20,7 +20,6 @@ import {
   requiresCandidateProfile,
 } from "@/lib/roleAccess";
 import { QuickHelpMenu } from "@/components/QuickHelpMenu";
-import { BrandLogo } from "@/components/BrandLogo";
 import { useEmployerOrganizations } from "@/hooks/useEmployerOrganizations";
 import { canVisitEmployerRoute } from "@/lib/employerRouteAccess";
 
@@ -94,11 +93,9 @@ const queryClient = new QueryClient();
 
 function LoadingScreen() {
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-[#f8eee8] p-7" role="status" aria-live="polite">
-      <div className="w-full max-w-[320px] rounded-[20px] border border-[#eadbd2] bg-[#fffaf6] px-5 py-6 text-center">
-        <BrandLogo size="lg" align="center" />
-        <p className="mt-[18px] text-xs font-medium tracking-[0.02em] text-[#847771]">Opening your workspace</p>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background" role="status" aria-live="polite">
+      <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
+      <p className="text-muted-foreground font-medium animate-pulse">Loading JOBSAGE...</p>
     </div>
   );
 }

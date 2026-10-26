@@ -60,9 +60,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export const unstable_settings = {
-  initialRouteName: __DEV__ ? "splash-preview" : "workspace",
-};
+export const unstable_settings = { initialRouteName: "workspace" };
 
 function RootLayoutNav() {
   return (
@@ -77,10 +75,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [navigationLaidOut, setNavigationLaidOut] = useState(false);
-  const [launchImageReady, setLaunchImageReady] = useState(false);
+  const [launchViewReady, setLaunchViewReady] = useState(false);
   const [handoffComplete, setHandoffComplete] = useState(false);
   const onNavigationLayout = useCallback(() => setNavigationLaidOut(true), []);
-  const onLaunchReady = useCallback(() => setLaunchImageReady(true), []);
+  const onLaunchReady = useCallback(() => setLaunchViewReady(true), []);
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -89,10 +87,9 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if ((Platform.OS !== "web" && !fontsLoaded && !fontError) || !navigationLaidOut || !launchImageReady) return;
+    if ((Platform.OS !== "web" && !fontsLoaded && !fontError) || !navigationLaidOut || !launchViewReady) return;
 
-    // Layout and image decoding must both finish before revealing React content.
-    // Keep the matching overlay painted until native dismissal has been requested.
+    // Keep the spinner overlay painted until native splash dismissal is requested.
     let active = true;
     const frame = requestAnimationFrame(() => {
       const hide = Platform.OS === "web" ? Promise.resolve() : SplashScreen.hideAsync();
@@ -106,7 +103,7 @@ export default function RootLayout() {
       active = false;
       cancelAnimationFrame(frame);
     };
-  }, [fontsLoaded, fontError, navigationLaidOut, launchImageReady]);
+  }, [fontsLoaded, fontError, navigationLaidOut, launchViewReady]);
 
   useEffect(() => {
     try {
