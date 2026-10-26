@@ -1935,28 +1935,28 @@ content_type = "image/png"
 id = "9Gnvl_18vtKJjOWHA3dyR"
 uri = "file://artifacts/chrome-extension/store/screenshots/01-smart-apply-helper.png"
 type = "image"
-title = "Smart Apply helper screenshot"
-description = "1280 × 800 Chrome Web Store screenshot. Marked demo application/sample data."
+title = "Smart Apply: application helper"
+description = "Store screenshot showing the JOBSAGE sidebar beside a sample employer application form."
 logical_id = "04d23373-0b5b-4c00-9cd8-0de9cf78b0aa"
 content_hash = "sha256:72d25f249b4dd37dfa1163e86b8b852369aa3929ff808bfd1e99f30b6f78beed"
 size = 98370
 mtime_ms = 1792335555015
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/04d23373-0b5b-4c00-9cd8-0de9cf78b0aa/2937900b-678e-4d63-a855-49cdcf88514f"
-storage_version_token = "1792655414564809"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/04d23373-0b5b-4c00-9cd8-0de9cf78b0aa/73fb791b-0889-4946-9bdb-60496834607b"
+storage_version_token = "1793004544636641"
 content_type = "image/png"
 
 [[outputs]]
 id = "JtKpV8lBwsrMRidA-sS8k"
 uri = "file://artifacts/chrome-extension/store/screenshots/02-review-ai-answer.png"
 type = "image"
-title = "Review an AI-drafted answer screenshot"
-description = "1280 × 800 Chrome Web Store screenshot showing an answer that the candidate can review before inserting."
+title = "Smart Apply: review an answer"
+description = "Store screenshot showing a draft answer for the candidate to review and insert into a sample form."
 logical_id = "fa2e1cd7-9998-471c-b27f-436f8786bbe7"
 content_hash = "sha256:b641f14651b3e0cabfb77d2a5b5f64a3815e629089a1471e772153574ed24e1f"
 size = 118175
 mtime_ms = 1792335556407
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa2e1cd7-9998-471c-b27f-436f8786bbe7/bda8c415-43e5-4bf8-8ffd-8b57b4ab20cb"
-storage_version_token = "1792655415304380"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa2e1cd7-9998-471c-b27f-436f8786bbe7/01684ddd-650f-488f-889a-ab21289751ad"
+storage_version_token = "1793004545350178"
 content_type = "image/png"
 
 [[outputs]]
@@ -2103,14 +2103,14 @@ content_type = "image/png"
 id = "poorBV69RRmxI7QauJLYP"
 uri = "file://artifacts/chrome-extension/store/03-application-tracker.png"
 type = "image"
-title = "Application tracker screenshot"
-description = "1280 × 800 Chrome Web Store screenshot. The page is marked demo data."
+title = "JOBSAGE application tracker"
+description = "Sample tracker screen showing how applications appear in JOBSAGE after logging."
 logical_id = "fa243880-43d3-4ce5-bf64-98343a646dc0"
 content_hash = "sha256:d4aa3d0d8b9bb34fc2076dec9bdb25b3e56ee6892042eaa4ac485526ea80a454"
 size = 123376
 mtime_ms = 1792494507123
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa243880-43d3-4ce5-bf64-98343a646dc0/46185bb9-ee0b-4bcf-ad93-054379718c92"
-storage_version_token = "1792655416013584"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fa243880-43d3-4ce5-bf64-98343a646dc0/67df56c1-077f-47fa-b532-ff533534e74b"
+storage_version_token = "1793004546177936"
 content_type = "image/png"
 
 [[outputs]]
