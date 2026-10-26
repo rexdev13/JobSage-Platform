@@ -2210,3 +2210,17 @@ mtime_ms = 1793006997691
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/91fe16d0-c6b7-4462-8506-878b37a67d39/4a8c721c-c358-40df-8d2b-6fd909322356"
 storage_version_token = "1793007114850722"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "NTiklmPecPHIJc-xZ_8Tp"
+uri = "file://.local/reports/jobsage-vacancy-system-summary.pdf"
+type = "pdf"
+title = "JOBSAGE vacancy system summary (PDF)"
+description = "Download the seven-page PDF report."
+logical_id = "ff9350a9-271e-44fc-9ff5-8c2ccaef51ae"
+content_hash = "sha256:9a2a9917210656e194bdab2aa2ef120b328c3224cc1536e3fab2460f59e00d07"
+size = 233919
+mtime_ms = 1793007257227
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ff9350a9-271e-44fc-9ff5-8c2ccaef51ae/9a3fc969-6f3d-496f-8653-c8ccf4f786f9"
+storage_version_token = "1793007285816663"
+content_type = "application/pdf"
