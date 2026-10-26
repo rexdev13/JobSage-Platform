@@ -10,7 +10,9 @@
  * (ats_mapping_status='verified'), where the company_site_direct_feed job
  * harvests them. Progress is ledgered via last_outcome='ats_probe_*'.
  *
- * Usage: tsx src/tools/discoverSponsorAtsBoards.ts --mode=site-evidence|slug-guess [--limit N] [--concurrency N]
+ * Usage: tsx src/tools/discoverSponsorAtsBoards.ts --mode=site-evidence|slug-guess [--limit N] [--concurrency N] [--shard K/N]
+ * --shard K/N runs shard K of N disjoint name-hash partitions, so N parallel
+ * processes cover the sponsor list without overlapping work.
  */
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -224,7 +226,13 @@ async function main(): Promise<void> {
   const mode = modeArg?.split("=")[1] ?? args[args.indexOf("--mode") + 1] ?? "slug-guess";
   const limit = Number(args[args.indexOf("--limit") + 1]) || 50;
   const concurrency = Math.max(1, Number(args[args.indexOf("--concurrency") + 1]) || 10);
-  let verified = 0; let attempted = 0; let totalOffset = 0;
+  const shardArg = args.find((a) => a.startsWith("--shard"));
+  const [shardIndex, shards] = (() => {
+    const raw = shardArg?.includes("=") ? shardArg.split("=")[1] : shardArg ? args[args.indexOf("--shard") + 1] : "0/1";
+    const [k, n] = (raw ?? "0/1").split("/").map(Number);
+    return [Math.max(0, k || 0), Math.max(1, n || 1)];
+  })();
+  let verified = 0; let attempted = 0;
   while (true) {
     const result = mode === "site-evidence"
       ? await db.execute<any>(sql`
@@ -232,6 +240,7 @@ async function main(): Promise<void> {
             NULLIF(btrim(sl.website), '') AS website
           FROM sponsor_licences sl
           WHERE NULLIF(btrim(sl.website), '') IS NOT NULL
+            AND mod((hashtext(lower(btrim(sl.organisation_name)))::bigint & 2147483647), ${shards}) = ${shardIndex}
             AND NOT EXISTS (
               SELECT 1 FROM sponsor_licence_company_site_checks c
               WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
@@ -248,6 +257,7 @@ async function main(): Promise<void> {
               WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
                 AND (c.last_outcome = 'ats_probe_none' OR c.ats_mapping_status = 'verified')
             )
+            AND mod((hashtext(lower(btrim(sl.organisation_name)))::bigint & 2147483647), ${shards}) = ${shardIndex}
             ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
           ) t
           ORDER BY
@@ -256,9 +266,8 @@ async function main(): Promise<void> {
               ELSE 1
             END,
             lower(btrim(organisation_name)), organisation_name
-          LIMIT ${limit} OFFSET ${totalOffset}`);
+          LIMIT ${limit}`);
     if (!result.rows.length) break;
-    totalOffset += result.rows.length;
     const queue = [...result.rows];
     await Promise.all(Array.from({ length: concurrency }, async () => {
       while (queue.length) {
