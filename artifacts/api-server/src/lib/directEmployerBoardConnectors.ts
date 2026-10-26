@@ -905,7 +905,7 @@ export async function fetchDirectEmployerBoard(
       if (mapping.provider === "Workday") {
         return fetchCompanySitePublicApiPost(url, JSON.stringify({
           appliedFacets: {}, limit: 20, offset: Number(new URL(url).searchParams.get("offset") ?? "0"), searchText: "",
-        }), deadlineMs, 2_000_000, {
+        }), deadlineMs, Math.max(2_000_000, Number(process.env.COMPANY_SITE_FEED_MAX_BYTES) || 2_000_000), {
           readOnly: options.readOnly === true,
           ...(options.noHostState ? { noHostState: true } : {}),
           ...(options.noProcessCache ? { noProcessCache: true } : {}),
@@ -914,7 +914,7 @@ export async function fetchDirectEmployerBoard(
     const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
       ? fetchCompanySiteRobotsAwarePublicApiPage
       : fetchCompanySitePublicApiPage;
-    return fetchPublicApiPage(url, deadlineMs, 2_000_000, {
+    return fetchPublicApiPage(url, deadlineMs, Math.max(2_000_000, Number(process.env.COMPANY_SITE_FEED_MAX_BYTES) || 2_000_000), {
       readOnly: options.readOnly === true,
       ...(options.noHostState ? { noHostState: true } : {}),
       ...(options.noProcessCache ? { noProcessCache: true } : {}),
