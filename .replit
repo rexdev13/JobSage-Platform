@@ -39,6 +39,7 @@ EMAIL_FROM = "noreply@jobsage.co.uk"
 APP_URL = "https://jobsage.co.uk"
 GOOGLE_CALENDAR_REDIRECT_URI = "https://jobsage.co.uk/api/marketer/calendar/google/oauth/callback"
 ACCOUNT_DELETION_TOMBSTONE_BUCKET_ID = "replit-objstore-cb06040b-ed72-4c0c-9f5f-0a7529247177"
+VITE_CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/jobsage-smart-apply/dnafhjmagedfebkfdackdbgkpgklpokb"
 
 [userenv.production]
 INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
