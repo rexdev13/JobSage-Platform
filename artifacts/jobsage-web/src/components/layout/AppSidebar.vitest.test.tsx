@@ -40,6 +40,13 @@ vi.mock("@workspace/api-client-react", () => {
 afterEach(() => { cleanup(); fixture.role = "candidate"; fixture.location = "/applications/24"; fixture.logout.mockClear(); });
 
 describe("rendered candidate navigation", () => {
+  it("uses the compact sidebar wordmark while keeping the tagline readable", () => {
+    render(<AppSidebar />);
+    const brand = screen.getByTestId("brand-logo");
+    expect(brand.querySelector("img")).toHaveClass("h-6");
+    expect(screen.getByText("Find work that moves you.")).toHaveClass("text-[12px]");
+  });
+
   it("renders the ordered sections, unread badge, nested active link and evidence summary", () => {
     render(<AppSidebar />);
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([

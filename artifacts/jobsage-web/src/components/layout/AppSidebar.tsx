@@ -230,7 +230,7 @@ export function AppSidebar({ onNavigate }: Props = {}) {
     <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar text-sidebar-foreground md:w-64">
       <div className="flex h-[72px] shrink-0 items-center border-b border-sidebar-border px-5">
         <Link href="/" onClick={onNavigate} aria-label="JOBSAGE home" data-testid="link-sidebar-logo" className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-          <BrandLogo size="md" />
+          <BrandLogo size="sm" />
         </Link>
       </div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
