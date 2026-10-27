@@ -261,11 +261,17 @@ async function main(): Promise<void> {
           FROM sponsor_licences sl
           WHERE NULLIF(btrim(sl.website), '') IS NOT NULL
             AND mod((hashtext(lower(btrim(sl.organisation_name)))::bigint & 2147483647), ${shards}) = ${shardIndex}
-            AND NOT EXISTS (
+            AND ${retryNone
+              ? sql`EXISTS (
+              SELECT 1 FROM sponsor_licence_company_site_checks c
+              WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
+                AND c.last_outcome = 'ats_probe_none' AND c.ats_mapping_status <> 'verified'
+            )`
+              : sql`NOT EXISTS (
               SELECT 1 FROM sponsor_licence_company_site_checks c
               WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
                 AND (c.last_outcome LIKE 'ats\_probe\_%' OR c.ats_mapping_status = 'verified')
-            )
+            )`}
           ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
           LIMIT ${limit}`)
       : await db.execute<any>(sql`
