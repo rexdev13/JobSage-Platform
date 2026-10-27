@@ -14,6 +14,8 @@ export type DirectBoardProvider =
   | "Recruitee"
   | "Personio"
   | "Pinpoint"
+  | "BambooHR"
+  | "Workable"
   | "Workday";
 
 export type DirectBoardMapping = {
@@ -198,13 +200,31 @@ function collectXmlIdentityClaims(body: string): DirectFeedIdentityClaim[] {
   return [...claims.values()];
 }
 
+function collectWorkableIdentityClaims(body: string): DirectFeedIdentityClaim[] {
+  // The Workable widget API exposes the company only as the top-level `name`
+  // field; job rows never carry an employer field.
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body) as unknown;
+  } catch {
+    return [];
+  }
+  const claims = new Map<string, DirectFeedIdentityClaim>();
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    addIdentityClaim(claims, (payload as Record<string, unknown>).name, "$.name");
+  }
+  return [...claims.values()];
+}
+
 export function extractDirectFeedIdentityClaims(
   provider: DirectBoardProvider,
   body: string,
 ): DirectFeedIdentityClaim[] {
   return provider === "Personio"
     ? collectXmlIdentityClaims(body)
-    : collectJsonIdentityClaims(body);
+    : provider === "Workable"
+      ? collectWorkableIdentityClaims(body)
+      : collectJsonIdentityClaims(body);
 }
 
 export function verifyDirectFeedEmployerIdentity(
@@ -256,7 +276,9 @@ const SMARTRECRUITERS_HOST = /^jobs\.smartrecruiters\.com$/i;
 const RECRUITEE_HOST = /^[a-z0-9-]+\.recruitee\.com$/i;
 const PERSONIO_HOST = /^[a-z0-9-]+\.jobs\.personio\.(?:de|com)$/i;
 const PINPOINT_HOST = /^([a-z0-9-]+)\.pinpointhq\.com$/i;
-const CIRCLE_WORKDAY_HOST = /^circlehealth\.wd103\.myworkdayjobs\.com$/i;
+const BAMBOOHR_HOST = /^([a-z0-9-]+)\.bamboohr\.com$/i;
+const WORKABLE_HOST = /^apply\.workable\.com$/i;
+const WORKDAY_HOST = /^([a-z0-9-]+)\.wd\d+\.myworkdayjobs\.com$/i;
 
 function strictBoardId(value: string): string | null {
   const id = value.trim();
@@ -379,16 +401,53 @@ export function parseDirectBoardMapping(
       postingHostnames: [...postingHostnames],
     };
   }
+  if (selected === "bamboohr") {
+    const hostMatch = parsed.hostname.match(BAMBOOHR_HOST);
+    const segments = path.split("/").filter(Boolean);
+    if (!hostMatch || (segments.length > 0 && (segments.length !== 1 ||
+        !["careers", "jobs"].includes(segments[0]!.toLowerCase()))) || parsed.search || parsed.hash) {
+      return null;
+    }
+    const boardId = strictBoardId(hostMatch[1] ?? "");
+    if (!boardId || boardId.toLowerCase() === "www") return null;
+    const host = parsed.hostname.toLowerCase();
+    return {
+      provider: "BambooHR",
+      boardId,
+      evidenceUrl: `https://${host}/careers`,
+      feedUrl: `https://${host}/careers/list`,
+    };
+  }
+  if (selected === "workable") {
+    const segments = path.split("/").filter(Boolean);
+    if (!WORKABLE_HOST.test(parsed.hostname) || segments.length !== 1 || parsed.search || parsed.hash) {
+      return null;
+    }
+    const boardId = strictBoardId(segments[0] ?? "");
+    if (!boardId) return null;
+    return {
+      provider: "Workable",
+      boardId,
+      evidenceUrl: parsed.toString(),
+      feedUrl: `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(boardId)}`,
+    };
+  }
   if (selected === "workday") {
-    if (!CIRCLE_WORKDAY_HOST.test(parsed.hostname) ||
-        path.toLowerCase() !== "chgcareers" || parsed.search || parsed.hash) return null;
-    if (options.firstPartyEvidenceUrl !==
-      "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643") return null;
+    const hostMatch = parsed.hostname.match(WORKDAY_HOST);
+    const segments = path.split("/").filter(Boolean);
+    // Careers URLs may carry a locale prefix (en-GB/<site>); normalise to the
+    // bare <site> board root before mapping.
+    const siteSegments = segments.filter((s) => !/^[a-z]{2}-[A-Z]{2}$/.test(s));
+    if (!hostMatch || siteSegments.length !== 1 || parsed.search || parsed.hash) return null;
+    const boardId = strictBoardId(siteSegments[0] ?? "");
+    const tenant = strictBoardId(hostMatch[1] ?? "");
+    if (!boardId || !tenant) return null;
+    const host = parsed.hostname.toLowerCase();
     return {
       provider: "Workday",
-      boardId: "chgcareers",
-      evidenceUrl: parsed.toString(),
-      feedUrl: "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
+      boardId,
+      evidenceUrl: `https://${host}/${boardId}`,
+      feedUrl: `https://${host}/wday/cxs/${tenant}/${boardId}/jobs`,
     };
   }
   return null;
@@ -484,10 +543,20 @@ function validatedJobUrl(value: unknown, mapping: DirectBoardMapping): string | 
         segments.length <= 4 &&
         segments[segments.length - 2]?.toLowerCase() === "postings",
       ) ? parsed.toString() : null;
-    case "Workday":
-      return CIRCLE_WORKDAY_HOST.test(parsed.hostname) &&
-        /^\/en-GB\/chgcareers\/job\/[A-Za-z0-9][A-Za-z0-9._~-]*\/[A-Za-z0-9][A-Za-z0-9._~-]*_JR[0-9]{4,12}$/i
+    case "BambooHR":
+      return parsed.hostname.toLowerCase() === `${mapping.boardId.toLowerCase()}.bamboohr.com` &&
+        segments[0]?.toLowerCase() === "careers" && segments.length === 2 ? parsed.toString() : null;
+    case "Workable":
+      return WORKABLE_HOST.test(parsed.hostname) &&
+        segments[0]?.toLowerCase() === mapping.boardId.toLowerCase() && segments.length >= 2
+          ? parsed.toString() : null;
+    case "Workday": {
+      let evidenceHost = "";
+      try { evidenceHost = new URL(mapping.evidenceUrl).hostname.toLowerCase(); } catch { return null; }
+      return WORKDAY_HOST.test(parsed.hostname) && parsed.hostname.toLowerCase() === evidenceHost &&
+        new RegExp(`^/(?:[a-z]{2}-[A-Z]{2}/)?${mapping.boardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/job/[^/]+/[^/]+$`, "i")
           .test(parsed.pathname) ? parsed.toString() : null;
+    }
   }
 }
 
@@ -835,6 +904,7 @@ function parseWorkday(
       !Array.isArray(payload.jobPostings)) {
     throw new Error("Workday response has invalid total or jobPostings: snapshot is incomplete");
   }
+  const host = new URL(mapping.evidenceUrl).hostname;
   const seen = new Set<string>();
   const adverts = payload.jobPostings.map((raw, index): BoardAdvert => {
     if (!raw || typeof raw !== "object") {
@@ -843,33 +913,80 @@ function parseWorkday(
     const job = raw as Record<string, unknown>;
     const title = text(job.title);
     const externalPath = text(job.externalPath);
-    const bullets = Array.isArray(job.bulletFields) ? job.bulletFields : [];
-    const id = bullets.length === 1 && typeof bullets[0] === "string" &&
-      /^JR[0-9]{4,12}$/i.test(bullets[0]) ? bullets[0].toUpperCase() : null;
-    const pathMatch = externalPath?.match(
-      /^\/job\/[A-Za-z0-9][A-Za-z0-9._~-]*\/[A-Za-z0-9][A-Za-z0-9._~-]*_JR([0-9]{4,12})(?:-[0-9]+)?$/i,
-    );
-    const duplicateId = id !== null && seen.has(id);
-    const invalidPath = !pathMatch || !id || `JR${pathMatch[1]}` !== id;
-    if (!id || !title || invalidPath || duplicateId) {
-      const reasons = [
-        ...(!id ? ["id"] : []),
-        ...(!title ? ["title"] : []),
-        ...(!pathMatch ? ["externalPath"] : []),
-        ...(pathMatch && id && `JR${pathMatch[1]}` !== id ? ["identity/path mismatch"] : []),
-        ...(duplicateId ? ["duplicate id"] : []),
-      ];
+    if (!title || !externalPath || !/^\/job\/[^/]+\/[^/]+$/i.test(externalPath)) {
       throw new Error(
-        `Invalid Workday posting at offset ${offset}, item ${index}: ${reasons.join(", ")}`,
+        `Invalid Workday posting at offset ${offset}, item ${index}: ${!title ? "title" : "externalPath"}`,
       );
     }
+    const bullets = Array.isArray(job.bulletFields)
+      ? job.bulletFields.filter((b): b is string => typeof b === "string")
+      : [];
+    const bulletId = bullets.find((b) => /^[A-Z0-9][A-Z0-9.-]{3,29}$/i.test(b) && /\d/.test(b));
+    const pathTail = externalPath.match(/([^_\/][A-Za-z0-9.-]*)$/)?.[1];
+    let id = (bulletId ?? pathTail ?? `posting-${offset + index}`).toUpperCase();
+    if (seen.has(id)) id = `${id}-${offset + index}`;
     seen.add(id);
-    const url = `https://circlehealth.wd103.myworkdayjobs.com/en-GB/chgcareers${externalPath}`;
+    const url = `https://${host}/en-GB/${mapping.boardId}${externalPath}`;
     return advert(organisationName, "Workday", id, title, url, url,
       text(job.description) ?? text(job.jobDescription),
-      text(job.locationsText), text(job.startDate), mapping.evidenceUrl);
+      text(job.locationsText), text(job.startDate) ?? text(job.postedOn), mapping.evidenceUrl);
   });
   return { adverts, excludedUnlisted: 0, total: payload.total as number, returned: adverts.length };
+}
+
+function parseBambooHr(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const payload = parseJson(body) as { result?: unknown };
+  if (!Array.isArray(payload.result)) throw new Error("BambooHR response did not contain a result array");
+  const host = `${mapping.boardId.toLowerCase()}.bamboohr.com`;
+  const adverts = payload.result.map((raw, index): BoardAdvert => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error(`Malformed BambooHR job entry ${index}: snapshot is incomplete`);
+    }
+    const job = raw as Record<string, unknown>;
+    const id = identifier(job.id);
+    const title = text(job.jobOpeningName) ?? text(job.title) ?? text(job.name);
+    if (!id || !title) throw new Error("Missing BambooHR job id/title: snapshot is incomplete");
+    const url = `https://${host}/careers/${encodeURIComponent(id)}`;
+    return advert(organisationName, "BambooHR", id, title, url, url,
+      text(job.description) ?? text(job.descriptionPlain),
+      text(job.locationLabel) ?? text(job.location),
+      text(job.postedDate) ?? text(job.date), mapping.evidenceUrl);
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
+function parseWorkable(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const payload = parseJson(body) as { jobs?: unknown };
+  if (!Array.isArray(payload.jobs)) throw new Error("Workable response did not contain a jobs array");
+  const adverts = payload.jobs.map((raw, index): BoardAdvert => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error(`Malformed Workable job entry ${index}: snapshot is incomplete`);
+    }
+    const job = raw as Record<string, unknown>;
+    const id = identifier(job.shortcode) ?? identifier(job.id);
+    const title = text(job.title);
+    if (!id || !title) throw new Error("Missing Workable job id/title: snapshot is incomplete");
+    const url = `https://apply.workable.com/${mapping.boardId}/j/${encodeURIComponent(id)}/`;
+    const location = text(job.location) ??
+      (job.location && typeof job.location === "object" && !Array.isArray(job.location)
+        ? [text((job.location as Record<string, unknown>).city),
+           text((job.location as Record<string, unknown>).state),
+           text((job.location as Record<string, unknown>).country)].filter(Boolean).join(", ") || null
+        : null) ??
+      text(job.location_str);
+    return advert(organisationName, "Workable", id, title, url, url,
+      text(job.description), location ?? text(job.department), text(job.published) ?? text(job.created_at),
+      mapping.evidenceUrl);
+  });
+  return { adverts, excludedUnlisted: 0 };
 }
 
 export async function fetchDirectEmployerBoard(
@@ -971,6 +1088,10 @@ export async function fetchDirectEmployerBoard(
               ? parseRecruitee(organisationName, mapping, result.body)
        : mapping.provider === "Personio"
                 ? parsePersonio(organisationName, mapping, result.body)
+              : mapping.provider === "BambooHR"
+                ? parseBambooHr(organisationName, mapping, result.body)
+              : mapping.provider === "Workable"
+                ? parseWorkable(organisationName, mapping, result.body)
               : mapping.provider === "Workday"
                 ? parseWorkday(organisationName, mapping, result.body)
                 : parsePinpoint(organisationName, mapping, result.body);
