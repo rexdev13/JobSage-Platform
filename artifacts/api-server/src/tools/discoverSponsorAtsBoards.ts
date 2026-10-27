@@ -10,9 +10,14 @@
  * (ats_mapping_status='verified'), where the company_site_direct_feed job
  * harvests them. Progress is ledgered via last_outcome='ats_probe_*'.
  *
- * Usage: tsx src/tools/discoverSponsorAtsBoards.ts --mode=site-evidence|slug-guess [--limit N] [--concurrency N] [--shard K/N]
+ * Usage: tsx src/tools/discoverSponsorAtsBoards.ts --mode=site-evidence|slug-guess [--limit N] [--concurrency N] [--shard K/N] [--providers a,b,...] [--retry=none]
  * --shard K/N runs shard K of N disjoint name-hash partitions, so N parallel
  * processes cover the sponsor list without overlapping work.
+ * --providers limits slug-guess to a comma list of provider ids
+ * (greenhouse,lever,ashby,smartrecruiters,recruitee,personio,pinpoint).
+ * --retry=none re-selects sponsors whose previous slug-guess outcome was
+ * 'ats_probe_none' — used to sweep the failed set against newly added
+ * providers instead of re-probing everything.
  */
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -66,10 +71,14 @@ function slugCandidates(organisationName: string): string[] {
   return [...new Set(candidates.filter((c) => /^[a-z0-9][a-z0-9-]{1,60}$/.test(c)))];
 }
 
-const PROVIDERS: { provider: string; boardUrl: (slug: string) => string }[] = [
-  { provider: "Greenhouse", boardUrl: (s) => `https://job-boards.greenhouse.io/${s}` },
-  { provider: "Lever", boardUrl: (s) => `https://jobs.lever.co/${s}` },
-  { provider: "Ashby", boardUrl: (s) => `https://jobs.ashbyhq.com/${s}` },
+const PROVIDERS: { id: string; provider: string; boardUrl: (slug: string) => string }[] = [
+  { id: "greenhouse", provider: "Greenhouse", boardUrl: (s) => `https://job-boards.greenhouse.io/${s}` },
+  { id: "lever", provider: "Lever", boardUrl: (s) => `https://jobs.lever.co/${s}` },
+  { id: "ashby", provider: "Ashby", boardUrl: (s) => `https://jobs.ashbyhq.com/${s}` },
+  { id: "smartrecruiters", provider: "SmartRecruiters", boardUrl: (s) => `https://jobs.smartrecruiters.com/${s}` },
+  { id: "recruitee", provider: "Recruitee", boardUrl: (s) => `https://${s}.recruitee.com/` },
+  { id: "personio", provider: "Personio", boardUrl: (s) => `https://${s}.jobs.personio.com/` },
+  { id: "pinpoint", provider: "Pinpoint", boardUrl: (s) => `https://${s}.pinpointhq.com/` },
 ];
 
 function boardRootUrl(url: URL): { provider: string; careersUrl: string } | null {
@@ -208,9 +217,10 @@ async function probeSiteEvidence(organisationName: string, website: string, dead
   return "empty";
 }
 
-async function probeSlugGuess(organisationName: string, deadlineMs: number): Promise<string> {
+async function probeSlugGuess(organisationName: string, deadlineMs: number,
+  providers: typeof PROVIDERS): Promise<string> {
   for (const slug of slugCandidates(organisationName)) {
-    for (const { provider, boardUrl } of PROVIDERS) {
+    for (const { provider, boardUrl } of providers) {
       if (await verifyCandidate(organisationName, provider, boardUrl(slug), false, deadlineMs)) {
         return "verified";
       }
@@ -232,6 +242,16 @@ async function main(): Promise<void> {
     const [k, n] = (raw ?? "0/1").split("/").map(Number);
     return [Math.max(0, k || 0), Math.max(1, n || 1)];
   })();
+  const providersArg = args.find((a) => a.startsWith("--providers"));
+  const providerFilter = providersArg
+    ? (providersArg.includes("=") ? providersArg.split("=")[1] : args[args.indexOf("--providers") + 1] ?? "")
+        .split(",").map((p) => p.trim().toLowerCase()).filter(Boolean)
+    : [];
+  const providers = providerFilter.length
+    ? PROVIDERS.filter((p) => providerFilter.includes(p.id))
+    : PROVIDERS;
+  if (!providers.length) { console.error("no providers matched --providers filter"); process.exit(2); }
+  const retryNone = args.some((a) => a === "--retry=none" || a === "--retry" && args[args.indexOf(a) + 1] === "none");
   let verified = 0; let attempted = 0;
   while (true) {
     const result = mode === "site-evidence"
@@ -252,11 +272,17 @@ async function main(): Promise<void> {
           SELECT organisation_name FROM (
             SELECT DISTINCT ON (lower(btrim(sl.organisation_name))) sl.organisation_name, sl.industry
             FROM sponsor_licences sl
-            WHERE NOT EXISTS (
+            WHERE ${retryNone
+              ? sql`EXISTS (
+              SELECT 1 FROM sponsor_licence_company_site_checks c
+              WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
+                AND c.last_outcome = 'ats_probe_none' AND c.ats_mapping_status <> 'verified'
+            )`
+              : sql`NOT EXISTS (
               SELECT 1 FROM sponsor_licence_company_site_checks c
               WHERE lower(btrim(c.organisation_name)) = lower(btrim(sl.organisation_name))
                 AND (c.last_outcome = 'ats_probe_none' OR c.ats_mapping_status = 'verified')
-            )
+            )`}
             AND mod((hashtext(lower(btrim(sl.organisation_name)))::bigint & 2147483647), ${shards}) = ${shardIndex}
             ORDER BY lower(btrim(sl.organisation_name)), sl.organisation_name
           ) t
@@ -274,7 +300,7 @@ async function main(): Promise<void> {
         const row = queue.shift()!;
         const outcome = mode === "site-evidence"
           ? await probeSiteEvidence(row.organisation_name, row.website, Date.now() + 25_000).catch(() => "error")
-          : await probeSlugGuess(row.organisation_name, Date.now() + 20_000).catch(() => "error");
+          : await probeSlugGuess(row.organisation_name, Date.now() + 20_000, providers).catch(() => "error");
         attempted++;
         if (outcome === "verified") verified++;
       }

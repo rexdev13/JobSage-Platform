@@ -612,6 +612,15 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
     .sort((a, b) => b.priority - a.priority || a.url.localeCompare(b.url))
     .slice(0, CONTACT_ENRICHMENT_MAX_PAGES - 1)
     .map((link) => link.url);
+  // Sites that hide their contact link (JS navs, icons) still serve the
+  // conventional paths — probe them with whatever page budget is left.
+  for (const path of ["/contact", "/contact-us", "/about", "/about-us"]) {
+    if (links.length >= CONTACT_ENRICHMENT_MAX_PAGES - 1) break;
+    try {
+      const url = new URL(path, home.url).toString();
+      if (!links.includes(url) && url !== home.url) links.push(url);
+    } catch { /* skip */ }
+  }
   for (const url of links) {
     const page = await fetchCompanySitePage(url, origin, deadline);
     if (page.ok) pages.push({ url: page.url, body: page.body });
