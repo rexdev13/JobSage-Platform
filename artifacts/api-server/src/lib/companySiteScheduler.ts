@@ -29,7 +29,10 @@ import {
 import { classifyUkVacancyLocation } from "./ukVacancyLocation";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
-export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
+export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = Math.max(
+  1,
+  Math.floor(Number(process.env.COMPANY_SITE_DISCOVERY_BATCH_SIZE) || 10),
+);
 export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
