@@ -81,6 +81,8 @@ export async function fetchText(
       "jobs.scot.nhs.uk",
       "jobs.ac.uk",
       "charityjob.co.uk",
+      "api.adzuna.com",
+      "jooble.org",
     ];
     const allowed = (hostname: string) => allowedHosts.some(
       (host) => hostname === host || hostname.endsWith(`.${host}`),

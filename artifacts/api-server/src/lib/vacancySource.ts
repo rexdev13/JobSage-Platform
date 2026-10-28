@@ -151,6 +151,15 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
         ?? path.match(/\/job\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
+  if (hostMatches(host, "jooble.org")) {
+    return { boardName: "Jooble", externalListingId: null };
+  }
+  if (hostMatches(host, "adzuna.co.uk") || hostMatches(host, "adzuna.com")) {
+    return {
+      boardName: "Adzuna",
+      externalListingId: path.match(/\/land\/ad\/(\d+)/i)?.[1] ?? null,
+    };
+  }
   return null;
 }
 
