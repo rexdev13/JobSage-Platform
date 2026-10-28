@@ -6,7 +6,6 @@
  * A missing key makes that source return an empty first page (no-op).
  */
 import {
-  fetchText,
   makeAdvert,
   type FreeBoardPage,
   type FreeBoardSource,
@@ -64,6 +63,23 @@ async function postJson(url: string, body: unknown, deadlineMs: number): Promise
   }
 }
 
+// Keyed API access is authorized by contract, not governed by robots.txt,
+// so this plain GET skips the robots-gated fetchText path on purpose.
+async function getJson(url: string, deadlineMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.min(15_000, Math.max(1, deadlineMs - Date.now())));
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);
+    return await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function warnedMissingKey(source: string, envVar: string): void {
   console.warn(`[${source}] ${envVar} not set — source disabled`);
 }
@@ -96,7 +112,7 @@ export const AGGREGATOR_BOARD_SOURCES: readonly FreeBoardSource[] = [
       const jobs = Array.isArray(data.jobs) ? data.jobs : [];
       const source = { id: "jooble", provider: "jooble", boardName: "Jooble", parserVersion: "jooble-api-v1" };
       const adverts = jobs
-        .filter((j) => j.title && j.link)
+        .filter((j) => j.title && j.link && j.company?.trim())
         .map((j) => makeAdvert(source, {
           externalId: j.id ?? j.link, title: j.title, employer: j.company ?? "", url: j.link,
           location: j.location, salary: j.salary, description: j.snippet, postedDate: j.updated,
@@ -130,7 +146,7 @@ export const AGGREGATOR_BOARD_SOURCES: readonly FreeBoardSource[] = [
       url.searchParams.set("results_per_page", "50");
       url.searchParams.set("what", keywords);
       url.searchParams.set("content-type", "application/json");
-      const text = await fetchText(url.toString(), deadlineMs);
+      const text = await getJson(url.toString(), deadlineMs);
       const data = JSON.parse(text) as {
         count?: number;
         results?: Array<{
@@ -142,7 +158,7 @@ export const AGGREGATOR_BOARD_SOURCES: readonly FreeBoardSource[] = [
       const jobs = Array.isArray(data.results) ? data.results : [];
       const source = { id: "adzuna", provider: "adzuna", boardName: "Adzuna", parserVersion: "adzuna-api-v1" };
       const adverts = jobs
-        .filter((j) => j.title && j.redirect_url)
+        .filter((j) => j.title && j.redirect_url && j.company?.display_name?.trim())
         .map((j) => makeAdvert(source, {
           externalId: j.id ?? j.redirect_url, title: j.title, employer: j.company?.display_name ?? "",
           url: j.redirect_url, location: j.location?.display_name,
