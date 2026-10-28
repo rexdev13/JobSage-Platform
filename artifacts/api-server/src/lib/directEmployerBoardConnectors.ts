@@ -474,6 +474,32 @@ export function parseDirectBoardMapping(
     const boardId = strictBoardId(siteSegments[0] ?? "");
     const tenant = strictBoardId(hostMatch[1] ?? "");
     if (!boardId || !tenant) return null;
+    if (options.firstPartyEvidenceUrl) {
+      let evidence: URL;
+      try {
+        evidence = new URL(options.firstPartyEvidenceUrl);
+      } catch {
+        return null;
+      }
+      if (
+        (evidence.protocol !== "http:" && evidence.protocol !== "https:") ||
+        evidence.username ||
+        evidence.password ||
+        evidence.port
+      ) {
+        return null;
+      }
+      const tenantSlug = tenant.toLowerCase();
+      const evidenceHostMatchesTenant = evidence.hostname
+        .toLowerCase()
+        .split(".")
+        .some((label) =>
+          label === tenantSlug ||
+          label.startsWith(tenantSlug) ||
+          label.endsWith(tenantSlug),
+        );
+      if (!evidenceHostMatchesTenant) return null;
+    }
     const host = parsed.hostname.toLowerCase();
     return {
       provider: "Workday",
@@ -966,6 +992,13 @@ function parseWorkday(
       ? job.bulletFields.filter((b): b is string => typeof b === "string")
       : [];
     const bulletId = bullets.find((b) => /^[A-Z0-9][A-Z0-9.-]{3,29}$/i.test(b) && /\d/.test(b));
+    const pathJobId = externalPath.match(/(?:^|_)(JR\d+)(?:-\d+)?$/i)?.[1]?.toUpperCase();
+    const bulletJobId = bulletId?.match(/^(JR\d+)$/i)?.[1]?.toUpperCase();
+    if (pathJobId && bulletJobId && pathJobId !== bulletJobId) {
+      throw new Error(
+        `Workday identity/path mismatch at offset ${offset}, item ${index}`,
+      );
+    }
     const pathTail = externalPath.match(/([^_\/][A-Za-z0-9.-]*)$/)?.[1];
     let id = (bulletId ?? pathTail ?? `posting-${offset + index}`).toUpperCase();
     if (seen.has(id)) id = `${id}-${offset + index}`;
