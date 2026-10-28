@@ -1,17 +1,35 @@
 # Prod vacancy pipeline — paste-ready prompt for the Replit agent
 
-Merge this branch, then run the vacancy pipeline exactly as validated on Devin's box. Everything below is copy-paste instructions for the agent.
+Merge PR #2 (`https://github.com/rexdev13/JobSage-Platform/pull/2`), then run the vacancy pipeline exactly as validated on Devin's box. PR #1 is already merged. Everything below is copy-paste instructions for the agent.
 
 ## 0. One-time data seed (skips weeks of discovery)
 
-The repo now carries three CSV extracts under `data/` plus full SQL dumps are attached in the Devin session (`jobsage_seeds.sql.gz`, `jobsage_vacancies.sql.gz`). Prefer the SQL dumps if available:
+The repo carries three CSV extracts under `data/` and fresh SQL dumps:
 
 ```bash
 gunzip < jobsage_seeds.sql.gz | psql $DATABASE_URL
 gunzip < jobsage_vacancies.sql.gz | psql $DATABASE_URL
 ```
 
-This imports: 143k sponsors with industry labels, 5,143 employer websites, 1,509 verified employer emails, 589 verified ATS board mappings, ~12k live vacancies.
+Import order matters: sponsors first, then site checks and vacancies. These are normal production rows in the existing tables, not fixtures or hardcoded application data. Verify counts and sample rows before deleting only the two `.sql.gz` dump files from GitHub:
+
+```bash
+psql "$DATABASE_URL" -Atc "select count(*) from sponsor_licences"
+psql "$DATABASE_URL" -Atc "select count(*) from sponsor_licence_vacancies"
+psql "$DATABASE_URL" -Atc "select count(*) from sponsor_licences where contact_email is not null and btrim(contact_email) <> ''"
+psql "$DATABASE_URL" -Atc "select count(*) from sponsor_licences where website is not null and btrim(website) <> ''"
+psql "$DATABASE_URL" -c "select id, organisation_name, title, source_type, url from sponsor_licence_vacancies order by id desc limit 5"
+```
+
+Expected baseline from the export: 143,177 sponsors, 13,400 vacancies, 1,542 published emails, and 5,476 websites. Counts may be higher if the pipeline ran before import. After successful verification only:
+
+```bash
+git rm jobsage_seeds.sql.gz jobsage_vacancies.sql.gz
+git commit -m "Remove one-time imported vacancy dumps"
+git push
+```
+
+Never delete database rows. Delete only the dump files from GitHub after the import and verification succeed.
 
 ## 1. Continuous pipeline jobs (run on cron / workflow)
 
@@ -77,4 +95,4 @@ tsx src/tools/discoverSponsorEmailsBrave.ts --limit=500
 - Emails are stored only when published on the employer's own site or advert — never guessed.
 - Reed profession keywords live in `src/lib/reedProfessionBackfill.ts` (`REED_PROFESSION_BACKFILL_TARGETS`); sector-specific rows (e.g. manufacturing: CNC, welder, assembler) are already added.
 - Only one writer job runs at a time; overlapping runs return `writer-lock-held` — normal, retry later.
-- Supported ATS providers: Greenhouse, Lever, Ashby, SmartRecruiters, Recruitee, Personio, Pinpoint, Workable, BambooHR (site-evidence only), Workday (general `*.wdN.myworkdayjobs.com`).
+- Supported ATS providers: Greenhouse, Lever, Ashby, SmartRecruiters, Recruitee, Personio, Pinpoint, Workable, BambooHR, Workday, Teamtailor, and iCIMS. Teamtailor uses public JSON Feed; iCIMS is accepted only when its tenant feed returns valid adverts.

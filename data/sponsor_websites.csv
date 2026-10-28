@@ -1,7 +1,15 @@
 organisation_name,website,industry
+"""K"" Line Energy Shipping (UK) Limited",https://klinenergyuk.com,Transport
+"""K"" Line Energy Shipping (UK) Limited",https://klinenergyuk.com,Transport
+'Enterprise Singapore Board',https://www.enterprisesg.gov.sg,
+'Enterprise Singapore Board',https://www.enterprisesg.gov.sg,
+'O Ver St. James Ltd,https://www.stjameslondon.co.uk,Hospitality
 (A1F1 Limited T/A ) Ultrasound Direct London,https://www.ultrasound-direct.com/,
+(IECC Care) Independent Excel Care Consortium Limited,https://iecc-care.co.uk,Social Care
+.LITTLE NOORIYAH LTD,https://littlecaesars.com,Education
 003 Ltd,https://003.co.uk/,Education
 007 Taxi Limited,https://007taxis.co.uk/,Transport
+0086 Ltd,https://0086limited.com,Retail
 01 Accounting Services Ltd,https://01accountingservices.com/,Legal & Professional
 012 Global Ltd,https://www.012-global.com/,Media & Creative
 023 LTD,https://023ltd.co.uk/,Retail
@@ -9,20 +17,27 @@ organisation_name,website,industry
 0xA Technologies Ltd,https://www.0xa.co.uk/,Technology
 1 ACE TRAINING LIMITED,https://1acetraining.co.uk/,Education
 1 ALS LIMITED,https://als-prod-cd.alsglobal.com/,Education
+1 AND 1 ROUGAMO LIMITED,https://www.rougamo.co.uk,Services
 1 And 5 Tech Ltd,https://1and5tech.com/,Technology
 1 Answer Insurance Services LTD.,https://www.1answer.co.uk/,Finance
 1 Digitals Europe Limited,https://www.1digitals.com/,Technology
 1 Green Foods Ltd,https://1greenfoods.co.uk/,Hospitality
 1 Homecare Ltd,https://1homecare.co.uk/,Services
 1 Key Solution Limited,https://1keysolution.co.uk/,Media & Creative
+1 Kings Dental Limited,https://1kingsdental.com,Healthcare
+1 MODEL MANAGEMENT LONDON LIMITED,https://www.firstmodelmanagement.co.uk,Services
+1 Oak Home Care,https://1oakcare.com,Social Care
 1 STOP CARS LTD,https://1stopcars.co.uk/,Retail
 1 STOP REC LIMITED,https://www.1stophealthcare.co.uk/,Recruitment
+1 Step beyond Support Ltd,https://1stepbeyondsupport.co.uk,Social Care
 1 Stop Print Ltd,https://1stopprint.co.uk/,Manufacturing
 1 Stop Wash Ltd,https://1stopwash.com/,Services
 1 WAY TECH SOLUTIONS LIMITED,https://1waytechsolutions.co.uk/,Technology
 1-2 Achieve,https://1-2achieve.co.uk/,Education
 1-2 Call Cars Ltd,https://12callcars.co.uk/,Transport
 1-VIA LTD,https://www.1-via.com/,Manufacturing
+10 DAYS STUDIO LTD,https://www.10days.london,Media & Creative
+10 DINING STREET LIMITED,https://10diningstreet.co.uk,Hospitality
 10 Squared Ltd,https://10squared.co.uk/,
 10/10 MEDICAL LIMITED,https://1010medical.com/,Healthcare
 100 Percent Cornwall Ltd,https://www.100percentgroup.com/,
@@ -30,11 +45,16 @@ organisation_name,website,industry
 1000heads Ltd,https://1000heads.com/,Services
 1001 AI Limited,https://1001.ai/,Technology
 100Starlings Ltd,https://www.100starlings.com/,Technology
+101 Byres Road Limited,https://www.byres-road.co.uk,Hospitality
 101 Harley Street LTD,https://www.101hs.co.uk/,Healthcare
+101 Healthcare ltd,https://101healthcare.co.uk,Healthcare
 101 Ways Limited,https://crosstideconsulting.com/,
+1010 Restaurant @ The Blacksmiths arms,https://www.1010restaurant.co.uk,Hospitality
 105 West Architects Ltd,https://105west.co.uk/,Construction
 1066 Foodservice Limited trading as Roosters Piri Piri,https://www.roosterspiripiri.com/,Hospitality
 1066 PLUMBING AND HEATING LTD,https://1066phdltd.co.uk/,Construction
+107 Cannon Street Limited,https://107cannonst.com,Finance
+1080 Properties Ltd,https://1080properties.com,Property
 10:10 Games Limited,https://www.1010games.com/,Technology
 10ACT Ltd T/A TrackBack,https://www.trackback.net/,
 10BE5 LTD.,https://10be5.com/,Technology
@@ -45,34 +65,58 @@ organisation_name,website,industry
 111 Pilates Ltd,https://www.111pilates.com/,Media & Creative
 111 Skin Limited,https://111skin.com/,Retail
 114 GPS Ltd  T/A Sushi Atelier,https://www.sushiatelier.co.uk/,
+1177 Retail Limited,https://www.1177.se,Retail
 11:FS GROUP LIMITED,https://www.11fs.com/,Legal & Professional
 11Arches,https://11arches.org/,Media & Creative
+11Eleven UK Enterprises Ltd,https://11elevenpilates.com,Retail
 11K Consulting Ltd,https://www.11kconsulting.com/,Legal & Professional
 11Plus Teacher Ltd,https://www.11plusteacher.co.uk/,Technology
 11x Limited,https://www.11x.ai/,Technology
 12.18 Roxburghe Hotel Golf & Spa Ltd,https://schlosshotel-roxburghe.com/,Hospitality
+1212 AFRO CARIBBEAN FOOD,https://www.1212foods.com,Hospitality
+1214 Construction,https://1214construction.co.uk,Construction
 1218 UK Limited,https://www.1218uk.com/,Technology
 123 E-Filing Limited,https://www.123efiling.co.uk/,Technology
 123 Insight Limited,https://123insight.com/,
 1265 Degrees North Ltd,https://1265degreesnorth.com/,Manufacturing
 1266 Music Group,https://www.1266music.com/,Media & Creative
 13 TRAVEL LTD,https://13travel.co.uk/,Hospitality
+1313 Global Limited,https://1313global.com,Retail
+1313 Grays Limited,https://1313global.com,Hospitality
+13BOOKS CAPITAL LLP,https://13bookscapital.com,Legal & Professional
 13th Street Hospitality Ltd t/a Sunday in Brooklyn,https://www.sundayinbk.co.uk/,Hospitality
+1407 Art London Limited,https://1407artlondontattoo.com,Services
 1440Sports Management LTD,https://1440sports.com/,Media & Creative
+14STARS UK LIMITED,https://www.14starsuk.co.uk,Retail
 1508 London Limited,https://1508london.com/,Legal & Professional
+1512 Limited T/A AGAssociates,https://www.agassociates.org.uk,Energy
 152 Harley Street Limited,https://www.152harleystreet.com/,Healthcare
 15Below Ltd,https://15below.com/,Finance
 15GIFTS LTD,https://15gifts.com/,Technology
 16 Barrack Ltd TA Saffron Indian Restaurant & Pizza Place,https://saffron-indian.co.uk/,Hospitality
 16 Plus Care Support Solutions Ltd,https://www.16pluscare.uk/,Services
+160B Consulting Ltd,https://160bconsulting.com,Legal & Professional
+168 EXPRESS LTD,https://www.168express.co.uk,Retail
+17 Capital Services Ltd,https://www.17capital.com,Finance
+17 Capital Services Ltd,https://www.17capital.com,Finance
 173tech Ltd,https://173tech.com/,Technology
+1771 Technologies Limited,https://www.1771technologies.com,Technology
+1783 Limited,https://1783group.com,Finance
 17CARE UK LTD,https://17care.co.uk/,Recruitment
+17Cicada Limited,https://www.17cicada.com,Manufacturing
 18 Degrees Below Ltd,https://18degs.com/,Engineering
+18 WEEK SUPPORT LIMITED,https://18weeksupport.com,Healthcare
+18.01 London Limited,https://www.1801london.com,Services
 184 DISTRIBUTION LIMITED,https://www.184distribution.co.uk/,Retail
 1854 Media Limited,https://1854.media/,Media & Creative
+1885 the Venue Ltd,https://1885thevenue.com,Hospitality
 18APR Limited,https://www.18weeksupport.com/,Media & Creative
+18PLUS SUPPORT LIMITED,https://18pluslimited.co.uk,Social Care
+19 BY K & R CATERING LTD T/A 19 BY KATHERINE CARR,https://www.19bykatherinecarr.co.uk,Hospitality
+"1947 Restaurant & Bar Ltd T/A 1947 Restaurant, Bar & Pizza Kitchen",https://1947restaurant.co.uk,Hospitality
 1953 Bar And Restaurant,https://1953-restaurant.co.uk/,Hospitality
 1986 The Kebab Kafe (just halal Kebabs),https://1986kebab.co.uk/,
+199 Clinic Limited t/a London Longevity Clinic,https://www.199.clinic,Healthcare
 1A ORTHODONTICS LIMITED,https://www.1aorthodontics.com/,Healthcare
 1Breadcrumb UK Ltd,https://1breadcrumb.com/,Technology
 1CLICK STUDIO,https://1clickstudio.co.uk/,Media & Creative
@@ -80,6 +124,9 @@ organisation_name,website,industry
 1DA Limited,https://1da.co/,Media & Creative
 1OAK CAPITAL LIMITED,https://1oakcapitallimited.co.uk/,Finance
 1SA LIMITED T/A Subway,https://www.subway.com/,
+1ST ASSIST LIMITED,https://1stassistltd.com,Transport
+1ST CHOICE AUTOS LTD,https://1stchoiceautosltd.co.uk,Transport
+1ST CHOICE CABS LTD,https://www.skegness1stchoicetaxicabs.co.uk,Transport
 1ST Class Care Agency Ltd,https://1stclass-care.co.uk/,
 1ST LOOK FIRE & SECURITY SOLUTIONS LTD,https://www.1stlookfireandsecurity.com/,Public Services
 1ST MALL LTD,https://1stmall.co.uk/,Retail
@@ -112,6 +159,7 @@ organisation_name,website,industry
 1stCurve Limited,https://www.1stcurve.com/,Services
 1stavenue.co.uk Ltd,https://1stavenue.co.uk/,Property
 2 Agriculture Limited T/A 2 Agriculture,https://www.2agriculture.com/,Agriculture
+2 Bro's Pizza & Dessert ltd,https://twobrospizza.co.uk,Hospitality
 2 CARERS LTD,https://www.2carers.co.uk/,Social Care
 2 EXCEL ENGINEERING LIMITED,https://www.2excelengineering.com/,Engineering
 2 Guyz Limited,https://2guyzltd.com/,
@@ -120,25 +168,33 @@ organisation_name,website,industry
 2-4c,https://www.4cstrategies.com/,
 2.0 Consulting Limited,https://2point0.co.uk/,Legal & Professional
 20-20 Events Management Limited,https://www.20-20events.com/,Services
+200 CONFERENCE & EVENTS LIMITED,https://200events.co.uk,Hospitality
 200 Degrees Coffee Roasters,https://200degs.com/,Manufacturing
 200OK Solutions Ltd,https://www.200oksolutions.com/,Technology
 201 ASIAN KITCHEN,https://www.201asiankitchen.com/,Hospitality
 2020 Innovation Training Limited,https://www.2020innovation.com/,Finance
+2023 Cool Foods Ltd T/A Oishii Sushi,https://oishiisushi.co.uk,Hospitality
+2030 AUTO CARE LIMITED,https://2030autocare.co.uk,Retail
 21 Six Platform Limited,https://21six.com/,Technology
 21 Six ltd,https://21six.com/,Legal & Professional
 21D Clinical Limited,https://www.21d.co.uk/,Healthcare
 21Hundred,https://21hundred.org/,
+21ST AMENDMENT LTD,https://www.21stmortgage.com,Hospitality
 21ST CENTURY CARE (PLYMOUTH) LIMITED,https://www.care21stcentury.co.uk/,Social Care
+22one Technologies Limited,https://22one.ai,Technology
 23 Architecture Ltd,https://www.23arc.com/,Construction
 23 Consult Ltd,https://www.23consult.com/,Legal & Professional
 2399098 Ontario Inc o/a MAK Consulting Group,https://www.makconsulting.co.uk/,Legal & Professional
 23MD Medical Services Ltd,https://23md.co.uk/,Healthcare
+24 7 Property Maintenance Ltd,https://247property-maintenance.co.uk,Property
 24 Acoustics Ltd,https://www.24acoustics.co.uk/,Engineering
 24 PRODUCTIONS LTD,https://24productions.co.uk/,Media & Creative
 24 Seven UK Limited,https://www.24seventalent.com/,Engineering
 24-7 Prayer,https://www.24-7prayer.com/,Faith
+24-7 Steller Packing,https://stellerpacking.co.uk,Services
 24/7 Helping Hands Service,https://247helpinghands.co.uk/,Healthcare
 24/7 Hire & Property Maintenance Services Limited,https://247hapms.co.uk/,Property
+247 ALLIANCE LTD,https://www.247alliance.co.uk,Security
 247 Bluebell Care Ltd,https://247bluebellcare.co.uk/,Social Care
 247 CARS (WILLENHALL) LIMITED,https://247-247.net/,Transport
 247 Commerce Ltd,https://www.247commerce.co.uk/,Technology
@@ -147,6 +203,7 @@ organisation_name,website,industry
 247 TAXI LINE LIMITED,https://247taxiline.co.uk/,Transport
 247 Wholesale Limited,https://247wholesale.co.uk/,Retail
 247 staffing support ltd,https://247staffingsupport.co.uk/,Recruitment
+24HRS HC Home Care Services LTD,https://24hrshc.com,Social Care
 24Haymarket Limited,https://24haymarket.com/,Finance
 24X7 CHESTER LIMITED,https://24x7cheshire.co.uk/,Retail
 24x7 Limited,https://24x7.co.uk/,Finance
@@ -154,6 +211,7 @@ organisation_name,website,industry
 272BIO Ltd,https://272bio.com/,Technology
 28 ESTATE AGENT LIMITED,https://28.estate/,Property
 288 Group Limited,https://288group.com/,Retail
+"289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",https://my.clevelandclinic.org,Healthcare
 28C LIMITED,https://www.28c.co.uk/,Media & Creative
 28b Limited,https://28b.co.uk/,Technology
 29 Stoney Street LLP,https://www.mitchellwilde.com/,Legal & Professional
@@ -168,20 +226,33 @@ organisation_name,website,industry
 2E Apostille Services Ltd,https://2eapostille.co.uk/,Services
 2ELV Horizon Limited,https://2elvhorizon.com/index.html,Technology
 2Excel Aviation Ltd,https://www.2excelaviation.com/,
+2H Offshore Engineering Ltd,https://2hoffshore.com,Engineering
+2H Offshore Engineering Ltd,https://2hoffshore.com,Engineering
 2K CONSTRUCTION LTD,https://www.2kconstruction.co.uk/,Construction
+2M Automation Ltd,https://2m-automation.co.uk,Engineering
 2M Health & Home Care Ltd,https://www.2mhealthandhomecare.co.uk/,Social Care
+2MS CONSTRUCTION LTD,https://www.2msconstruction.com,Construction
+2MS CONSTRUCTION LTD,https://www.2msconstruction.com,Construction
 2R Capital Investment Management Limited,https://2rcapital.com/,Finance
 2R1 Limited T/A German Doner Kebab,https://www.germandonerkebab.com/,
 2SD Technologies Limited,https://www.2sdtechnologies.com/,Technology
+2SK Care Homes Ltd,https://allhealthandcare.co.uk,Social Care
 2TECK LIMITED,https://www.2teck.co.uk/,
 2THEWORLD LTD,https://2theworld.com/,Services
+2X GLOBAL LIMITED,https://2xglobal.org,Services
+2X GLOBAL LIMITED,https://2xglobal.org,Services
 2e Systems Ltd,https://www.2e-systems.com/,Technology
 2tees AfroCaribbean Foods Ltd,https://2teesfoods.co.uk/,Hospitality
+2wayz services ltd,https://www.2wayzservices.com,Property
+3 ANGELS COMPLEX CARE SERVICES LTD,https://3angelscomplexcare.com,Social Care
 3 Aces London LTD,https://www.3ace.co.uk/,Retail
+3 Angels Complex Care Services Ltd,https://3angelscomplexcare.com,Social Care
 3 Associates Capital Management Limited,https://www.3associates.com/,Finance
 3 Crowns LTD,https://www.threecrownsllp.com/,Property
 3 HA Limited,https://www.3hacares.co.uk/,
 3 Heads Agency,https://www.3headsagency.com/,
+3 Henrietta Street Limited,https://3henrietta.com,Hospitality
+3 KILNS Pub,https://www.3kilnsleicester.com,Hospitality
 3 Peaks Health Limited,https://www.3peakshealth.com/,Healthcare
 3 Sided Cube (UK) Ltd,https://3sidedcube.com/,Technology
 3 Spices Restaurant Limited,https://threespices.co.uk/,Hospitality
@@ -190,10 +261,12 @@ organisation_name,website,industry
 3 YAAR LIMITED T/AS TANDOORI FUSION,https://www.londondesigneroutlet.com/stores/tandoori-fusion/,
 300 SPARTANS LIMITED,https://300spartans.uk/,Beauty
 3000 YEARS MUSIC PUBLISHING  LIMITED,https://3000years.com/,Hospitality
+313 Garage Services LTD,https://313-garage-services.wheree.com,Retail
 33n Ltd,https://www.33n.co.uk/,Construction
 345 TECHNOLOGY LIMITED,https://345technology.co.uk/,Technology
 36 South Capital Advisors LLP,https://36south.com/,Legal & Professional
 36.7 Studio LTD,https://www.367studio.co.uk/,Media & Creative
+360 Alert Security Ltd.,https://360alertsecurity.co.uk,Security
 360 Brand Group Limited,https://www.360brandgroup.com/,Services
 360 DIGI MARKETING LTD,https://www.360digimarketing.co.uk/,Media & Creative
 360 Dot Net Ltd,https://www.360dotnet.co.uk/,Technology
@@ -215,20 +288,25 @@ organisation_name,website,industry
 381 MS Ltd,https://www.381ms.co.uk/,Technology
 3812 Gallery (UK) Ltd,https://www.3812gallery.com/,Services
 39 Essex Chambers (Services) Limited,https://www.39essex.com/,Legal & Professional
+3A Care (London) Ltd,https://housingcare.org,Social Care
 3A TELECOM CONSULTANCY LTD,https://www.3aconsultancy.net/,Technology
 3A'S Consultants Ltd.,https://3asconsultants.com/,Legal & Professional
 3ADesign Ltd,https://3adesign.co.uk/,Media & Creative
 3AI LTD,https://www.3ai.co/,Technology
 3AK Alum Rock Limited,https://3akalumrock.co.uk/,Retail
 3AK Slough Limited t/a J. Junaid Jamshed by Janan,https://uk.junaidjamshed.com/,
+3ALFA GROUP LTD,https://www.3alfa.gr,Hospitality
 3B DIGITAL LTD,https://3bdigital.co.uk/,Technology
+3B sourcing UK Ltd,https://www.3bsourcingukltd.com,Property
 3BN CARE LTD,https://3bncare.co.uk/,Healthcare
 3CIX LTD,https://3cix.com/,Construction
 3CS Holdings Ltd,https://www.3cslondon.com/,Legal & Professional
 3D BUILDING HOME LTD,https://www.3dbuildinghome.co.uk/,Construction
 3D Coffee (Oadby) Limited T/A Costa Coffee,https://costacareers.co.uk/,
+3D Constraction Ltd,https://www.3dconstractionllc.com,Construction
 3D Drumchapel,https://www.3ddrumchapel.org.uk/,
 3D HOUSING GROUP LTD,https://www.3dhousinggroup.com/,Property
+3D LIFT LTD,https://3dlift.co.uk,Construction
 3D Marcomms Limited,https://3dmarcomms.com/,Services
 3D People Limited,https://www.3dpeople.uk/,Manufacturing
 3D TRADE LTD,https://3dtrade.biz/,Retail
@@ -242,6 +320,8 @@ organisation_name,website,industry
 3G Metal Fabrications Limited,https://www.3gmf.co.uk/,Manufacturing
 3Gi Technology Limited,https://3gitechnology.com/,Technology
 3I CONSTRUCTIONS LTD,https://3iconstructions.co.uk/,Construction
+3J GLAZING LIMITED,https://3jglazingltd.co.uk,Construction
+3K TRANSPORT LIMITED,https://www.transportcompanies.co.uk,Transport
 3K's Engineering Company Limited,https://3ksengineering.com/,Construction
 3KH Ltd T/A Tipu Sultan Birmingham,https://www.tipu-sultan.com/,
 3KOBROS LIMITED,https://3kobros.com/,Hospitality
@@ -257,6 +337,7 @@ organisation_name,website,industry
 3Search Limited,https://www.3searchgroup.com/,Finance
 3T Logistics Limited,https://www.3t-europe.com/,Transport
 3T TRAINING SERVICES LIMITED,https://www.3t-ts.co.uk/,Services
+3T Travel & Tourism Limited,https://3ttravels.co.uk,Hospitality
 3TOP Aviation Services Ltd,https://www.3topaviation.com/,Transport
 3V Consultants Limited,https://www.3vconsultants.co.uk/,Legal & Professional
 3VRM Limited,https://3vrm.com/,Technology
@@ -268,13 +349,19 @@ organisation_name,website,industry
 3pX Group,https://www.3px.group/,Finance
 3t Transform Limited,https://www.3t-transform.com/,Services
 3ti Energy Hubs Ltd,https://3ti.co.uk/,Energy
+4 A'S GLOBAL LTD,https://www.4asglobal.co.uk,Retail
 4 CONTINENTS STORES LTD,https://www.4continentsstores.com/,Retail
 4 Corners Distribution Ltd,https://www.fourcornersuk.com/,Retail
 4 Dots Training & Advisory Limited,https://4dotsadvisory.com/,Legal & Professional
+4 EVER GLAZING (UK) LTD,https://4everglazing.co.uk,Construction
 4 Eyes Capital Limited,https://4eyescapital.com/,Finance
 4 GLOBAL CONSULTING LIMITED,https://investors.4global.com/,Legal & Professional
 4 Net Technologies LTD (t/a FourNet),https://fournet.co.uk/,Technology
 4 Roads Ltd,https://www.4-roads.com/,Technology
+4 SEASONS CATERING SERVICES LTD,https://4seasons-catering.co.uk,Hospitality
+4 SEASONS CATERING SERVICES LTD,https://4seasons-catering.co.uk,Hospitality
+4 Seasons Grocery Ltd,https://4seasonscardiff.co.uk,Retail
+"4 Sisters (Midlands) Ltd,TA Saffron Wala Bar & Restaurant",https://www.saffroncastlebromwich.com,Hospitality
 4 Summit ltd,https://www.4summit.co.uk/,Technology
 4 Wall Entertainment UK Limited,https://europe.4wall.com/,Media & Creative
 4-Site Power & Fibre Networks Ltd,https://www.4site-networks.co.uk/,Technology
@@ -286,6 +373,7 @@ organisation_name,website,industry
 44Pixels Limited,https://44pixels.co.uk/,Technology
 474 Management Limited T/a Duke Of Design,https://dukeofdesign.co.uk/,Media & Creative
 4A Technologies Ltd,https://4atechnologies.co.uk/,Technology
+4BASE CONSTRUCTION LTD,https://4baseconstruction.co.uk,Construction
 4BIO Ventures Management Limited,https://www.4biocapital.com/,Legal & Professional
 4BREEZE LTD,https://www.4breeze.com/,Technology
 4C Associates Ltd,https://www.4cassociates.com/,Legal & Professional
@@ -298,8 +386,10 @@ organisation_name,website,industry
 4Eden,https://www.4eden.co.uk/,
 4Ever Care UK Ltd,https://4evercareuk.co.uk/,Recruitment
 4FEET RETAIL LTD,https://4feetshoes.com/,Retail
+4HANDS SERVICES LIMITED,https://www.4hands.uk,Construction
 4J Studios Limited,https://4jstudios.com/,Media & Creative
 4J'S Educational Academy Ltd,https://www.4jsedu.co.uk/,Education
+4KAY LTD,https://www.4kaymotors.com,Retail
 4ME@U Ltd T/A Devoncare,https://www.devoncare.co.uk/,
 4P4 LTD,https://4p4.ltd/,Services
 4PS Construction Solutions Limited,https://www.4ps.co.uk/,Construction
@@ -310,20 +400,29 @@ organisation_name,website,industry
 4T Markets Limited,https://4t.com/,Finance
 4T2 SENSORS LTD,https://4t2sensors.com/,Engineering
 4Wheeler Ltd,https://4wheelerltd.co.uk/,Retail
+4YOU Solutions Limited,https://4yousolutions.co.uk,Security
 4basebio,https://www.4basebio.com/,Legal & Professional
+4g Joinery Ltd,https://4gjoinery.co.uk,Manufacturing
+4life Healthcare Services Ltd,https://www.4life.com,Healthcare
 4most (Europe) Limited,https://www.4-most.co.uk/,Services
 4site Consulting Limited,https://4siteconsulting.co.uk/,Legal & Professional
 4th Dimension Technology Ltd,https://fourdtech.com/,Technology
 5 CARE SERVICES LIMITED,https://5careservices.co.uk/,Social Care
+5 Health Northwest Ltd T/ A iPharmacy Princess Road,https://roadnow.com,Healthcare
 5 Hertford Street,https://www.5hertfordstreet.com/,Services
+5 INDUSTRIAL LIMITED,https://5industrial.co.uk,Manufacturing
 5 Lights Training,https://5lights.co.uk/,
+5 STAR AR BUILDERS LTD,https://5stararbuilders.co.uk,Construction
 5 STAR FOOD DISTRIBUTION LTD,https://5starfoodsltd.com/,Hospitality
+5 STAR HOUSING LTD,https://fivehousing.co.uk,Property
 5 Squirrels Ltd,https://www.5squirrels.com/,Manufacturing
 5 Star Cars Bedford Limited,https://5starcarsbedford.co.uk/,Transport
 5 Star Fruit and Veg London Ltd,https://www.5starfruitandveg.com/,Retail
 5 Star Glazing Ltd,https://5starglazing.co.uk/,Construction
+5 Star North East Ltd,https://www.5-star-north.com,Services
 5 Star Plastics Ltd,https://5starplastics.co.uk/,Manufacturing
 500 Degrees Ferndale Road Ltd,https://500degreesbrixton.co.uk/,Hospitality
+500 Degrees Herne Hill Ltd,https://www.500degreeshernehill.co.uk,Hospitality
 500k International,https://www.the500k.com/,
 501 Entertainment Ltd,https://501entertainment.com/,Media & Creative
 505 Games Limited,https://505games.com/,Technology
@@ -332,6 +431,7 @@ organisation_name,website,industry
 51tocarbonzero Limited,https://www.51tocarbonzero.com/,Legal & Professional
 528 International Limited T/A MBM LIMITED,https://madebymitchell.co.uk/,Retail
 53 North Aviation Ltd,https://www.53northaviation.com/,Transport
+53 Red Lion Ltd,https://www.redlionhoxton.co.uk,Hospitality
 54 Queen's Gate Hotel Limited,https://54.cybacat.com/,Hospitality
 54 Queens Gate Hotel Limited,https://www.54queensgate.com/,Hospitality
 542 Digital Limited,https://542digital.com/,Technology
@@ -345,6 +445,7 @@ organisation_name,website,industry
 5G Communications Limited,https://www.5gcomms.com/,Media & Creative
 5G connect ltd,https://5gconnects.co.uk/,Retail
 5M Solutions Ltd,https://5ms.co.uk/,Media & Creative
+5S Construction Services Ltd,https://5sconstructions.co.uk,Construction
 5STARS TOTAL SOLUTIONS LTD,https://www.5starstotalsolutionsltd.com/,Technology
 5Y Technology Limited,https://5ytechnology.com/,Technology
 5app Ltd,https://5app.com/,Technology
@@ -353,6 +454,7 @@ organisation_name,website,industry
 6 Bit Education Ltd,https://6b.education/,Education
 "60 Decibels, Inc",https://60decibels.com/,
 60X Ltd,https://www.60x.ai/,Technology
+62 MALL MANAGEMENT LIMITED,https://www.62mallmanagement.co.uk,Property
 64 COMPUTERS LTD,https://64computers.co.uk/,Services
 67 Bricks Ltd.,https://67bricks.com/,Technology
 67 Health Limited,https://www.67health.co.uk/,Healthcare
@@ -367,6 +469,10 @@ organisation_name,website,industry
 7 HILLS ICT SERVICES LTD,https://7hillsictservices.com/,Technology
 7 HOPES LTD,https://www.7hopes.co.uk/,Legal & Professional
 7 Hospitality Management (UK) Ltd,https://www.7hospitality.co.uk/,Healthcare
+7 Ice Limited T/A The Jolly Farmers,https://jollyfarmers-purley.co.uk,Agriculture
+7 Oaks News & Wine Store,https://sevenoaks.ukintouch.com,Retail
+7 Plus Travel Ltd,https://www.7plustravel.co.uk,Hospitality
+7 STAR BLINDS LIMITED,https://7starblinds.co.uk,Services
 7 Star Ltd,https://sevenstarltd.co.uk/,Retail
 7 Steel Manufacturing (UK) Ltd,https://7-steel.com/,Manufacturing
 72 Point Limited,https://www.72point.com/,
@@ -380,24 +486,38 @@ organisation_name,website,industry
 786 Childcare limited T/A Monkey puzzle day nursery in Welling,https://monkeypuzzlewelling.co.uk/,Education
 786 PIZZA COMPANY LTD T/A PIZZA GO GO,https://www.pizzagogo.co.uk/,
 786HORIZON FOODS LTD,https://www.786horizonfoods.com/,Hospitality
+790 Wolseley Road Management Limited,https://790wolseleymanagement.com,Construction
 7AATRANG PARTYWEAR LTD,https://7aatrang.com/,Retail
 7Days Performance Limited,https://7daysperformance.co.uk/,Retail
 7Dxperts UK Ltd,https://7dxperts.com/,Technology
+7EVEN RESTAURANT LIMITED,https://7evenrestaurant.com,Hospitality
 7Hills Technologies Ltd,https://7hillstechnologies.co.uk/,Technology
 7N Architects (Randolph) Ltd,https://www.7narchitects.com/,Construction
 7Ridge Limited,https://7ridge.com/,Finance
+7TH HEAVEN FOODS LIMITED,https://www.7thheavenuk.com,Hospitality
+7TH HEAVEN FOODS LIMITED,https://www.7thheavenuk.com,Hospitality
+7am Stores Limited T/A Aiden's Budgens,https://www.budgens.co.uk,Retail
+7th Heaven Trade Ltd,https://www.uktradeinfo.com,Retail
+7th Heaven Trade Ltd,https://www.uktradeinfo.com,Retail
 8 Million Stories Limited,https://8ms.com/,Legal & Professional
 "80,000 Hours Limited",https://80000hours.org/,Education
 80:20 Communications Limited,https://80-20.co.uk/,Media & Creative
+80:20 Procurement Services Limited,https://www.8020procurement.com,Retail
+80:20 Procurement Services Limited,https://www.8020procurement.com,Retail
 80K RESTAURANT AND BAR BASILDON,https://eightyk.co.uk/,Hospitality
+83 ASSOCIATES LIMITED,https://www.83associates.com,Manufacturing
+84 Hatton Garden Limited,https://regalhattongarden.co.uk,Agriculture
 85 Piccadilly Ltd,https://hide.co.uk/,Hospitality
 85 Secret Garden,https://www.secretgardennw3.co.uk/,Agriculture
 862 LTD t/a The McMillan Bar + Chop House,https://www.themcmillan.co.uk/,Hospitality
+88 Gallery Limited,https://www.88-gallery.com,Retail
 89BK LTD T/A Quadrant Local - Premier Store,https://www.premier-stores.co.uk/,Retail
 89up Ltd,https://89up.org/,Media & Creative
 8Ball Contractors Limited,https://www.8balls.co.uk/,Construction
 8TWENTY3 LIMITED,https://www.8twentythree.com/,Retail
 8th Earl Spencer's Family Settlement,https://althorpestate.com/,
+8th Light Ltd,https://8thlight.com,Services
+8th Light Ltd,https://8thlight.com,Services
 8th Wonder Ltd.,https://8thwonder.co.uk/,Legal & Professional
 9 Cuisines Limited,https://9cuisines.co.uk/,Manufacturing
 9 Property Group Ltd,https://www.9pg.co.uk/,Property
@@ -405,6 +525,7 @@ organisation_name,website,industry
 90 Sloane Street Limited,https://www.90sloanestreet.com/,Healthcare
 92 Degrees Limited,https://92degrees.coffee/,Services
 92 Higher Drive Ltd T/A Highfield House,https://fairliehealthcare.co.uk/,
+92721 LTD trading as Decorum Restaurant,https://decorumbirmingham.co.uk,Hospitality
 93digital,https://claritydx.global/,Technology
 96 Harley Street Limited,https://www.96harleystreet.co.uk/,Property
 99 HIGH STREET LTD T/A SPICE ROUGE,https://spicerouge.com/,
@@ -413,33 +534,52 @@ organisation_name,website,industry
 9Nexus Limited,https://9nexus.com/,Technology
 9fin Limited,https://9fin.com/,Technology
 @ Architect UK Ltd,https://www.architectltd.co.uk/,Construction
+A & A FOODS (LONDON) LIMITED,https://www.wholefoodsmarket.com,Hospitality
+A & A Food store,https://www.foodnetwork.com,Hospitality
+A & A Halal Meat,https://halalfoundation.org,Retail
+A & A Himallari Ltd,https://www.aahimallari.co.uk,Construction
 A & B Cabs (Leicester) Ltd,https://abtaxisinleicester.co.uk/,Hospitality
 A & B Concrete Pumping Limited,https://www.abpumping.co.uk/,Construction
+A & D BUILDING (SURREY) LIMITED,https://www.buildingsurrey.uk,Construction
 A & D Hope Limited,https://adhope.com/,Retail
 A & D Murco Friendly Ltd,https://www.murco.co.uk/,Retail
 A & F Foods Limited T/a Pizza Hut,https://www.careersatpizzahut.co.uk/,Hospitality
+A & F SUPPLIES LIMITED,https://www.anfsupplies.com,Retail
 A & G Young,https://agg.uk.com/,
 A & H Exchange Limited,https://anhexchange.co.uk/,Retail
 A & I Care Homes Ltd T/a The Meadows Residential Care Home,https://aicarehome.co.uk/,Social Care
+A & I ORIENTAL FOODS LIMITED,https://aandiorientalfoods.co.uk,Hospitality
 A & J PROFESSIONALS LTD (T/A ZEST DRYCLEANERS),https://www.zestdrycleaners.com/,Services
 A & M Cars South Ltd,https://www.amcarsltd.co.uk/,Retail
+A & M Granite Solutions Ltd,https://amgranitesolutions.co.uk,Retail
 A & M Motors,https://www.ammotors.co.uk/,Retail
 A & M SERVICES (ESSEX) LTD,https://aandmltd.com/,Construction
 A & M Textiles Limited,https://amtextiles.co.uk/,Manufacturing
 A & N TRIMMINGS LIMITED,https://www.antrimm.co.uk/,Retail
 A & R Care Limited,https://arcarelimited.co.uk/,Social Care
+A & S Outdoor Ltd,https://www.gooutdoors.co.uk,Retail
 A & S food Store,https://asmarket.co.uk/en,Hospitality
 A & V Transitional Homes Ltd,https://www.avtransitionalhomes.org.uk/,Property
+A & Z Dry Cleaners,https://azdrycleaners.co.uk,Services
 A & Z Trading Limited T/A Kaspas Desserts,https://kaspas.co.uk/,Beauty
 A + I Services,https://aiservicesltd.co.uk/,
 A 2 Z MOT Centre Ltd,https://www.a2zautozoneltd.com/,Retail
 A 2 Z Windows Limited,https://www.a2zwindows.co.uk/,Manufacturing
+A A & Sons Limited,https://www.andsons.us,Retail
+A A HOMES AND HOUSING (EXCHANGE COURT) LIMITED,https://www.homes.com,Property
+A A HOMES AND HOUSING (PREMIER) LIMITED,https://www.homes.com,Property
+A B C Cargo & Courier UK Limited,https://www.abccargouk.com,Transport
+A B C Cargo & Courier UK Limited,https://www.abccargouk.com,Transport
 A B Graphic International Limited,https://abgint.com/,Manufacturing
+A BITE LTD,https://bitedata.io,Retail
 A Better Carehome Ltd T/As Breton Court,https://bretoncourt.co.uk/,
+A Butchers Ltd T/A Wellworth Halal Meat & Poultry,https://wellworth-halal-meat.wheree.com,Agriculture
 A C Hulme & Sons,https://www.achfarming.co.uk/,Agriculture
 A C PREMIER FOODS UK LTD,https://acpremierfoods.co.uk/,Hospitality
 A C UK GROUP LTD,https://www.aandcgroup.co.uk/,Finance
+A CAMPBELL LTD,https://www.campbells.com,Retail
 A CLASS  NURSERY  LTD,https://www.aclassnursery.co.uk/,Education
+A CLASS KITCHEN & BEDROOM LTD,https://classroom.google.com,Hospitality
 A City Law Firm Ltd,https://acitylawfirm.com/,Legal & Professional
 A Class Nursery Ltd,https://www.aclassnursery.co.uk/,Education
 A Collected Man,https://www.acollectedman.com/,Retail
@@ -447,17 +587,30 @@ A DESIGN STUDIO LIMITED,https://adesignltd.co.uk/,Media & Creative
 A Di Maria & Sons Ltd,https://adimaria.co.uk/,Finance
 A E L CRYSTALS LIMITED,https://www.aelcrystals.co.uk/,Services
 A Energy Solutions Ltd,https://aenergysolutions.co.uk/,Energy
+A F Foods LTD,https://affoods.co.uk,Hospitality
 A F J Limited,https://afjltd.co.uk/,Retail
+A Flame Ltd,https://www.flamefastpitch.org,Hospitality
 A G & SONS (UK) LTD,https://www.agandsons.co.uk/,Retail
+A GEORGE & SONS LTD,https://georgefashion.com,Retail
+A GROCERY LIMITED,https://londongrocery.net,Retail
+A H Hotel & Spa Ltd t/a Sketchley Grange Hotel & Spa,https://sketchleygrangehotel.co.uk,Hospitality
+A H Rentals Ltd,https://www.ahrentals.co.uk,Construction
+A Hinge & Sons Ltd,https://hinge.co,Agriculture
 A Holt and Sons LTD,https://holtstextiles.co.uk/,Retail
+A House of Others Limited,https://house.gov,Hospitality
 A Hunt and Co City Ltd,https://ahuntandco.com/,Services
+A I FOODS MOSELEY LTD,https://www.wholefoodsmarket.com,Hospitality
+A INTERIORS LIMITED,https://interiorsmagazine.com,Construction
 A J Caterers UK Limited,https://www.ajcaterers.com/,
 A J Digital Management Ltd,https://www.ajdigitalmanagement.com/,Technology
+A J Food Stores Ltd T/A Budgens,https://www.budgens.co.uk,Hospitality
 A J Jones & Co Legal Services Ltd,https://www.ajjonessolicitors.com/,Legal & Professional
 A J PIZZA WORCESTER LTD,https://ajpizza.co.uk/,Hospitality
 A J Walter Aviation Limited,https://www.ajw-group.com/,Transport
 A Jolly Consulting Ltd,https://www.ajollyconsulting.co.uk/,Legal & Professional
+A K HARDWARE & PLUMBING LIMITED,https://akhardwarelimited.com,Construction
 A K Stoddard Ltd,https://www.akstoddart.co.uk/,
+A KHAN (BRADFORD) LIMITED,https://www.khanacademy.org,Retail
 A KOMMS LTD,https://www.akomms.com/,Technology
 A Kahn Design Limited,https://www.kahndesign.com/,Media & Creative
 A Keys Construction Ltd,https://akeysconstruction.com/,Construction
@@ -465,12 +618,23 @@ A Kilo of Spices Ltd,https://www.akospices.com/,Retail
 A L A CARE LTD,https://www.lacare.co.uk/,Social Care
 A L Dalton Ltd,https://www.radalton.co.uk/,Legal & Professional
 A L Tozer Ltd,https://www.tozerseeds.com/,Finance
+A LAKHANI STORE,https://lahoridhaba.store,Retail
+A LINE GEMMS & LOCAL PRIVATE HIRE LIMITED,https://line.me,Transport
 A Little Extra Help Ltd,https://www.alittleextrahelpltd.co.uk/,Social Care
 A Little Peace of Mind ltd,https://www.little-peace-of-mind.co.uk/,Social Care
+A M Convenience (Wythall) Limited,https://wythall-residentialhome.co.uk,Services
 A M Electrical Installations Limited,https://am-electricals.com/,Construction
 A MIRZA CONSULTANT LTD,https://amirzaconsultancy.co.uk/,Legal & Professional
+A McLay and Company Limited,https://www.mclays.co.uk,Services
+A Moloney Construction Ltd,https://amoloneyconstruction.co.uk,Construction
 A N ESTATES LTD,https://anestate.co.uk/,Property
+A N S STORES LTD T/A KINSBURY SUPER STORE,https://stores.sainsburys.co.uk,Retail
 A N U UTILITIES LTD,https://anuutilitiesltd.com/,Energy
+A Neat Pub Co Ltd,https://www.neat.com,Hospitality
+A Nelson & Co Ltd,https://www.nelsons.com,Manufacturing
+A Nelson & Co Ltd,https://www.nelsons.com,Manufacturing
+A Number of Names Limited,https://www.anumberofnames.org,Retail
+A ONE SECURITY & FM LTD,https://www.aonesecurity.co.uk,Security
 A One Tyres Ltd,https://aonetyres.co.uk/,
 A P L CONSTRUCTION LTD,https://www.aplconstruction.co.uk/,Construction
 A P TRAINING LTD,https://www.aptraining.co.uk/,Agriculture
@@ -479,26 +643,42 @@ A PLUS DYNAMICS RECRUITMENT LTD,https://www.aplusdynamicsrecruitmentltd.co.uk/,R
 A Park View Hotel,https://www.aparkviewhotel.co.uk/,Hospitality
 A Park View Hotel (Wolverhampton) Ltd,https://www.aparkviewhotel.co.uk/,Hospitality
 A Patel T/A Mail Boxes Etc Croydon,https://www.mbe.co.uk/,
+A Peel Ltd,https://www.peelschools.org,Social Care
 A Place Called Common Ltd.,https://www.aplacecalledcommon.co.uk/,Hospitality
 A Plus Consulting Ltd,https://www.aplusconsulting.co.uk/,Legal & Professional
+A Plus International Express Parcels (UK) Ltd,https://plusweb.org,Retail
+A Plus International Express Parcels (UK) Ltd,https://plusweb.org,Retail
 A Plus Windows and Doors Limited,https://aplusaluminium.co.uk/,Manufacturing
 A Professional Guarding Facilities Management Limited,https://pgfm.co.uk/,Property
+"A R JUNOON LIMITED, T/A, THALI RESTAURANT",https://thalirestaurant.co.uk,Hospitality
+A RAPID RESPONSE SECURITY LTD,https://rapid-response-securtiy-led.ueniweb.com,Security
 A Rabbit's Foot Ltd,https://a-rabbitsfoot.com/,Media & Creative
 A Rated Windows Door and Conservatories Ltd,https://arwindowsanddoors.co.uk/,Construction
 A Raymond Ltd,https://www.araymond.com/,Engineering
+A S (SUSSEX) RETAIL LTD,https://assussexretail.co.uk,Retail
 A S London Express Transport Ltd,https://aslondonexpress.uk/,Transport
 A S SOLUTIONS LONDON LTD,https://assolltd.com/,Legal & Professional
+A STAR CARE SERVICES LIMITED,https://astarcareservices.co.uk,Social Care
+A STAR DECORATORS LIMITED,https://astardecorators.com,Construction
 A STAR GARAGE LIMITED,https://astargarage.com/,Retail
 A STAR SUPPORT SERVICES LTD,https://astargroup.co.uk/,Social Care
+A STAR WASTE REMOVALS LIMITED,https://astarremovals.co.uk,Transport
+A STAR WINDOWS & BIFOLDS DOORS LIMITED,https://astarwindowsuk.com,Construction
 A STEP BEYOND LIMITED,https://www.astepbeyond.co.uk/,Social Care
 A Squared Engineering Ltd,https://asquaredengineering.com/,Engineering
+A Star Cuisine Ltd,https://astarbbq.eatzyepos.com,Hospitality
 A T & C PROFESSIONAL SYSTEMS LIMITED,https://www.atcprofessional.co.uk/,Technology
+A TAYLOR ELECTRICAL LIMITED,https://ajtaylor-electrical.com,Construction
 A TECH HEATING LIMITED,https://www.atechheat.co.uk/,Technology
 A TO Z BUILDING WORKS LIMITED,https://a2zbuilding.co.uk/,Construction
 A TO Z CAR PARTS LTD,https://www.atozautoparts.net/,Retail
+A TO Z COURIER 4U LIMITED,https://atozcourier4ultd.co.uk,Transport
+A TO Z DRY CLEANER & LAUNDERETTE LTD,https://www.aandzdrycleaners.co.uk,Services
 A TO Z HOMES LTD,https://www.atozhomes.co.uk/,Construction
 A TO Z MOTOR SPARES (DEWSBURY) LIMITED,https://www.a2zmotorspares.co.uk/,Beauty
 A Tech IT Services Ltd,https://a-tech.co.uk/,Technology
+A Travel Agency London Office Limited,https://hounslow-greater-london.db-gb.co.uk,Hospitality
+A Travel Agency London Office Limited,https://hounslow-greater-london.db-gb.co.uk,Hospitality
 A V COMMERCIAL FINANCE LTD T/A  A V FINANCE,https://commercial.av-finance.co.uk/,Finance
 A V Stone UK Ltd,https://avstone.co.uk/,Retail
 A W Control Systems Ltd,https://awcontrolsystems.com/,Technology
@@ -508,22 +688,27 @@ A Z REAL ESTATE LIMITED,https://www.azrealestate.uk/,Property
 A and A Ali,https://www.aliali.uk/,
 A and B Smart materials,https://www.absmartmaterials.com/,Technology
 A and D Hendon Ltd t/a Oishii Sushi,https://oishiisushi.co.uk/,
+A and S Car Wash Ltd,https://aandscarwashltd.co.uk,Services
 A is for Architecture Ltd,https://www.aisfor.co/,Construction
 A to Z Accessories,https://www.atozautoparts.net/,
 A to Z Autoparts (Midlands) Ltd,https://www.atozautoparts.net/,Retail
 A&1 LTD T/A German Doner Kebab,https://www.germandonerkebab.com/,
+A&A Auto Service Centre Ltd,https://evesham-autoservice.co.uk,Retail
 A&A COMMUNICATION LTD,https://aacommunication.co.uk/,Retail
 A&A CONTRACTORS MIDLANDS LTD,https://aacontractorsmidlands.co.uk/,Construction
 A&A Homecare Ltd,https://aahomecareltd.co.uk/,Healthcare
+A&B ELECTRICAL CONTRACTORS LIMITED,https://abelectricalcontractorsltd.uk,Construction
 A&B Engineering (Electrical Service Division) Limited,https://www.abeng.co.uk/,Construction
 A&B Gardening Limited,https://www.aandbgardening.com/,Agriculture
 A&B Traders (NW) Ltd,https://www.abtraders.co.uk/,Retail
 A&F ASSOCIATES BD LTD,https://afassociatesuk.com/,
+A&F PRIME CARE LTD,https://www.carechoices.co.uk,Services
 A&F Sprinklers Ltd,https://www.afsprinklers.co.uk/,Finance
 A&G LONDON PRIVATE LTD T/A SUBWAY,https://mysubwaycareer.com/,
 A&H Pizza UK LTD T/A Dominos Pizza,https://corporate.dominos.co.uk/,
 A&I Events Limited,https://www.a-igroup.co.uk/,Hospitality
 A&I FAST FOOD LIMITED t/a Four in One,https://www.fourinone.co.uk/,Hospitality
+A&J Autos Ltd,https://www.ajautosltd.co.uk,Retail
 A&J Big Tops Ltd,https://www.ajbigtophire.com/,Services
 A&J Care Limited,https://ajcaresolution.co.uk/,Social Care
 A&J PROPERTY & ANIMATION LTD,https://aandjpropertyandanimation.co.uk/,Property
@@ -531,6 +716,7 @@ A&J TRANSIT LTD,https://ajtransit.co.uk/,Technology
 A&K BROTHERS AUTOMOTIVE LTD,https://akbrothersautomotive.co.uk/,Retail
 A&K Courier Services Ltd,https://aandkcourierservicesltd.site/,Transport
 "A&M Capital Advisors Europe, LLP",https://www.a-mcapital.com/,Legal & Professional
+"A&M Catering Services Ltd, T/A  A&M Catering",https://amcateringservices.com,Hospitality
 A&M KITCHENS LIMITED,https://www.a-mkitchens.co.uk/,Hospitality
 A&M MOBILES LTD,https://amobiles.co.uk/,Retail
 A&O Shared Solutions Limited,https://careers.aoitgroup.com/,Technology
@@ -538,11 +724,14 @@ A&P Accountants Limited,https://aandpaccountants.co.uk/,Legal & Professional
 A&P STOWAGE LTD,https://apstowage.uk/,Transport
 A&Q Partnership (London) Ltd,https://aqp.co.uk/,Engineering
 A&R BUILDING SERVICES LTD,https://arbuildingservice.com/,Construction
+A&R GUARDIAN SERVICES LIMITED,https://arguardian.co.uk,Security
+A&R Guardian Services Limited,https://arguardian.co.uk,Security
 A&R Properties (London) Ltd,https://www.arproperties.org.uk/,Hospitality
 A&S ENG SERVICES LIMITED,https://aandsengservices.co.uk/,Engineering
 A&S Lighting Limited,https://www.aslighting.org/,Retail
 A&S NETWORK ENTERPRISES LTD,https://asnetworkenterprises.co.uk/,Construction
 A&S R Limited t/as Pepe's Piri Piri,https://pepes.co.uk/,
+A&S RESCUE SERVICES LIMITED,https://asrescue.co.uk,Social Care
 A&S SECURITY LIMITED,https://assecuritylimited.co.uk/,Security
 A&S Worldwide Ltd,https://astransportation.com/,Media & Creative
 A&T Caring Services Ltd,https://atcaringservices.co.uk/,Social Care
@@ -555,34 +744,54 @@ A-Cold-Wall* Limited,https://www.a-cold-wall.com/,Services
 A-Frame Agency UK Limited,https://www.a-frameagency.com/,Media & Creative
 A-Gas (UK) Ltd,https://www.agas.com/,Energy
 A-Gas&Electrical ServicesLtd,https://a-gas.co.uk/,Construction
+A-L-M Travel Ltd,https://www.almtravel.co.uk,Hospitality
 A-Lab Solutions Limited (T/A Reseo),https://reseo.global/,
+A-STAR MOBILE FONE LIMITED,https://astarmobile.co.uk,Retail
 A-Safe HQ Ltd,https://www.asafe.com/en-gb/,Manufacturing
 A-Side DesignLimited,https://a-side.studio/,Media & Creative
+A-T Hair Nail & Beauty Limited Liability Partnership,https://a-t-hair-nailbar-beauty.co.uk,Beauty
 A-TEC LIMITED,https://a-tecltd.co.uk/,Retail
 A-TECH FABRICATIONS LIMITED,https://a-tech.uk.com/,Technology
 A-TO-E TRAINING AND SOLUTIONS LTD,https://www.a-ets.com/,Education
+A-Z C Stores Ltd,https://www.premier-stores.co.uk,Retail
 A-Z LEARNING ACADEMY LTD,https://www.a-zlearningacademy.co.uk/,Education
 A-Z Law Solicitors Ltd,https://azlaw.co.uk/,Legal & Professional
+A-Z Live Ltd,https://zlive.zbusiness.co.uk,Transport
 A-Z MOTOR SPARES (STAFFORD) LIMITED,https://azstaffordltd.co.uk/,Beauty
+A-Z Management Solutions Ltd,https://www.atoz-management.com,Hospitality
 A-Z Z-A COMPANIES,https://azzacompanies.co.uk/,Legal & Professional
 A-ZFabrication ltd,https://www.a-zfabrication.com/,Manufacturing
 A-Zero Architects,https://www.a-zero.co.uk/,Construction
 A-squared Studio Engineers Ltd,https://www.a2-studio.com/,Construction
 A. & J. SPEELMAN LIMITED,https://www.ajspeelman.com/,Retail
+A. C. CURD (ISLEWORTH) LIMITED,https://curdpharmacy.com,Retail
 A. C. Entertainment Technologies Ltd,https://www.ac-et.com/,Technology
 A. C. Goatham & Sons,https://www.pbeta8.co.uk/,
 A. Dakri and Co Limited trading as Greenleafe Hotel,https://dakricartons.com/,Hospitality
+A. Gani's Ltd,https://ganis.co.uk,Hospitality
+A. K. FOODS (CAMBRIDGE) LTD TA IQBRO WHOLESALE,https://www.iqbro.co.uk,Hospitality
 A. N. Irwin Feeds Ltd,https://www.irwinsfeed.com/,Agriculture
+A. Plessas Transport Ltd,https://www.aplessastransport.co.uk,Transport
 A. R SHIPPING SERVICES UK LIMITED,https://arshipsreg.com/,Transport
+A. S. Kooner Limited,https://koonershopfitters.co.uk,Property
 A.C.C.E.S.S 2016 LIMITED,https://www.accessmidlands.org/,
 A.D Recycling Solutions,https://www.adrecyclingsolutions.com/,Services
 A.G. Barr PLC,https://www.agbarr.co.uk/,Hospitality
 A.G. Parfett and Sons Limited,https://parfetts.co.uk/,Retail
 A.G.E. Nursing Homes Limited,https://www.brockfieldhouse.co.uk/,Social Care
+A.I.O. Trading Co UK Ltd,https://aiotrading.co.uk,Retail
 A.J Worldwide Services Ltd.,https://www.ajww.co.uk/,Transport
 A.J.Armstrong & Sons Ltd,https://ajarmstrongandsons.com/,Manufacturing
+A.K BUILDER LONDON LTD,https://www.a-k-builders.com,Construction
+A.K Marine Services Ltd,https://akmarineservices.net,Manufacturing
+A.K. HALAL MEATS LIMITED,https://akhalalmeats.com,Retail
+A.L.S Hotels Limited t/a King Solomon Hotel,https://www.kingsolomonhotel.com,Hospitality
+A.L.S Trade Ltd,https://alstrade.co.uk,Retail
+A.M. Best Europe Rating Services Limited,https://web.ambest.com,Services
+A.M. Best Europe Rating Services Limited,https://web.ambest.com,Services
 A.M. LONDON FASHION LTD,https://www.amlondonltd.com/,Retail
 A.M. Nomikos & Son (UK) Ltd,https://www.amnomikos.com/,Transport
+A.M.Corner Shop Ltd T/A The Corner Shop - Premier,https://www.premier-stores.co.uk,Retail
 A.Menarini Farmaceutica Internazionale SRL-UK Branch,https://www.menarini.co.uk/,Agriculture
 A.P.L.E. (MILTON KEYNES) LTD,https://www.aplemk.co.uk/,Transport
 A.P.S. Auto Parts Ltd,https://apsautoparts.co.uk/,Retail
@@ -590,33 +799,51 @@ A.Poortman (London) Limited Trading AGT Poortman,https://www.poortman.com/,
 A.Q. SKIN SOLUTIONS LIMITED,https://aqskinsolutions.co.uk/,
 A.R Racking SA t/a AR Storage Solutions UK,https://www.arracking.com/en,
 A.R.T.I. SERVICES LTD T/A Manor Farm Residential Home,https://www.manorfarmresidentialhome.co.uk/,Agriculture
+A.T Cronin Workshop Limited,https://www.atcroninworkshop.com,Retail
+A.T.C Colours Limited,https://www.atccolours.co.uk,Manufacturing
 A.T.E. Solutions Ltd,https://www.atesolutions.co.uk/,Manufacturing
 A.Vincent Solicitors Limited,https://avincentsolicitors.co.uk/,Legal & Professional
 A.W. Jenkinson Forest Products,https://www.awjenkinson.co.uk/,Legal & Professional
 A.Williams & Co. (Solicitors),https://www.freezinginjunction.co.uk/,Legal & Professional
+A.Y Traders Ltd,https://www.aytradersltd.co.uk,Retail
 A.Y.A CAR SALES LTD,https://ayacarsales.co.uk/,Retail
 A/O VC UK Limited,https://www.noavc.com/,Finance
+A1 AESTHETICS LABORATORY LIMITED,https://a1aesthetics.co.uk,Beauty
+A1 AND EDEN CARS LTD,https://a1andedencars.co.uk,Transport
+A1 AUTOMAC LTD,https://a1automac.com,Retail
 A1 Accountancy (Croydon) LLP,https://a1accountancy.co.uk/,Legal & Professional
 A1 Auto Claims Ltd,https://a1autoclaims.co.uk/,Retail
+A1 BUILDING & MAINTENANCE SERVICES LTD,https://www.a1-building.com,Construction
 A1 BUILDING MERCHANT ESSEX LTD,https://a1building.co.uk/,Construction
+A1 BUMPERS AND GRILLES LIMITED,https://a1bumpersgrillesltd.co.uk,Retail
 A1 CAR SHOP Ltd,https://a1carshop.uk/,Retail
 A1 CARS BEDFORD LTD,https://www.a1carsbedford.co.uk/,Retail
+A1 CHOICE CATERING LTD,https://a1catering.co.uk,Hospitality
 A1 CLUTCHES CANNOCK (UK) LIMITED,https://www.a1-clutches.co.uk/,Retail
 A1 CLUTCHES DERBY (UK) LIMITED,https://www.a1-clutches.co.uk/,Retail
 A1 Car Body Repairs Ltd,https://www.a1carbodyrepairs.co.uk/,Retail
 A1 Care Services Ty Ceirios Nursing Home,https://a1care.co.uk/,Social Care
 A1 Cars,https://a1cars.co.uk/,Transport
 A1 Double Glazing London Ltd,https://a1doubleglazinglondon.com/,Construction
+A1 Driveways and Buildings Ltd,https://www.a1drivewaysltd.co.uk,Construction
 A1 Executive Travel Group LTD T/A A1 Executive Cars,https://www.a1executive.com/,Hospitality
+A1 FACILITIES LIMITED,https://a1facilities.co.uk,Property
+A1 INSTALLERS LTD,https://a1installers.co.uk,Construction
+A1 IRONING SERVICE LTD,https://www.a1ironingservices.co.uk,Services
+A1 JOINERY BHAM LIMITED,https://a1joinerybham.com,Manufacturing
+A1 KEBABISH GRILL LIMITED,https://a1kebabishgrill.shop,Property
 A1 Letting Services Ltd,https://www.a1lettingservices.co.uk/,Property
 A1 Lettings Bolton,https://a1lettingsbolton.co.uk/,Property
 A1 MOT CENTRE NORTHAMPTON LTD,https://www.northamptonmot.co.uk/,Retail
 A1 Minibus and Coach Ltd,https://www.a1coaches.com/,Hospitality
 A1 PRIVATE HIRE LTD,https://www.a1carsprivatehire.co.uk/,Transport
 A1 Permier Services Limited,https://a1premiersolution.co.uk/,
+A1 Plumbers UK Ltd,https://a1plumbersuk.com,Construction
 A1 Quality Home Care Limited,https://www.cqc.org.uk/,Social Care
 A1 Quality Homecare Ltd,https://a1qhc.com/,
 A1 Repair Ltd,https://a1repairltd.co.uk/,Retail
+A1 STEPHENS TAXIS LTD,https://a1stephenstaxi.co.uk,Transport
+A1 TYRES (MANCHESTER) LTD,https://www.tyres-pneus-online.co.uk,Retail
 A1 Taxi Service,https://a1-taxi.co.uk/,Transport
 A1 Taxis Sheffield Ltd,https://a1sheffieldtaxis.co.uk/,Transport
 A1 Telecommunication Services Ltd,https://a1telecomms.co.uk/,Technology
@@ -628,6 +855,7 @@ A12 PJ Limited T/A Papa Johns,https://inside.papajohns.co.uk/,
 A1209 LTD T/A QUEDGELEY TANDOORI TAKEAWAY,https://quedgeleytandoori.com/,
 A1M TRAINING LTD,https://a1mtraining.com/,Education
 A1PHA SECURITY SERVICES LTD,https://www.alphasecurity.services/,Security
+A2 Beauty Limited,https://a2beautysalon.co.uk,Beauty
 A2 Engineering Ltd,https://www.a2engineering.co.uk/,Engineering
 A212 Electric and Gas Ltd,https://www.a212electricandgas.co.uk/,Energy
 A24 Group Ltd,https://job-boards.greenhouse.io/a24,Recruitment
@@ -639,15 +867,26 @@ A2B Aero Ltd,https://www.a2baero.co.uk/,
 A2B Logistiks Ltd,https://www.a2blogistiks.uk/,Transport
 A2B TAX LTD,https://www.a2btax.co.uk/,Legal & Professional
 A2B Taxis (Truro) Limited,https://a2btaxistruro.com/,Transport
+A2L Care Services Ltd,https://a2lcareservices.co.uk,Social Care
+A2M Facilities Ltd,https://a2mfacilities.com,Property
 A2V Trade Limited,https://www.a2v.com/,Legal & Professional
 A2VE Capital Advisors Limited,https://www.a2ve.com/,Finance
 A2Z 4 KIDS LIMITED,https://a2z4kids.co.uk/,Retail
 A2Z CONSTRUCTION LONDON LTD,https://www.a2zbuildlondon.com/,Construction
 A2Z Cloud Ltd.,https://a2zcloud.com/,Technology
+A2Z FASTENERS LIMITED,https://a2zfasteners.co.uk,Retail
+A2Z Fruit & Veg Limited,https://a2zfruitandveg.com,Retail
+A2Z Home Care Services Limited,https://www.a2zhomecare.co.uk,Social Care
+A2Z MOT Testing Ltd,https://a2zmottesting.co.uk,Retail
 A2Z SOFTWARE SOLUTIONS LIMITED,https://a2zsoftwaresolutions.co.uk/,Technology
 A2Z STAFFING SOLUTIONS LIMITED,https://a2zstaffing.co.uk/,Recruitment
 A2Z diy hardware plumbing and heating merchant ltd,https://www.a2zdiyltd.co.uk/,Construction
 A3 CARE LTD,https://a3care.co.uk/,Healthcare
+A3 FOOD & BEVERAGE LTD,https://bestfoodimporters.com,Hospitality
+A3 GADGET EXCHANGE LIMITED,https://a3gadgets.uk,Retail
+A3 GLOBAL TRAVEL LIMITED,https://a3globaltravel.com,Hospitality
+A3 HIRE CLUB LTD T/A CONSORT HOTEL,https://www.consorthotel.co.uk,Hospitality
+A3 Resources Limited,https://www.a3resourcesltd.co.uk,Property
 A3/C Partners LLP,https://www.a3cpartners.com/,Legal & Professional
 A3N CONSULTING LIMITED,https://a3nconsultingg.com/,Legal & Professional
 A4 Retail Limited T/A Braes Of Kirriemuir,https://www.snappyshopper.co.uk/stores/braes-of-kirriemuir-3761,Retail
@@ -657,13 +896,17 @@ A4S SERVICES LIMITED,https://a4sservices.co.uk/,Finance
 A5 NG1 Ltd T/A Papa Johns Pizza,https://inside.papajohns.co.uk/,
 A5 Products Limited,https://a5products.co.uk/,Retail
 A6 Motors Limited,https://www.a6motors.co.uk/,Retail
+A9 Kerala Food Ltd T/AS Travancore Restaurant,https://travancorerestaurant.co.uk,Hospitality
 AA & JJ Food Ltd,https://www.jjfoodservice.com/,Hospitality
 AA ACCOUNTANTS (UK) LTD,https://aaaccountants.uk/,Legal & Professional
 AA AUTOS MIDILANDS LTD,https://aaautos.net/,Retail
 AA Accountants Ltd,https://aa-accountants.co.uk/,Legal & Professional
 AA Accountax Ltd,https://iaccountax.co.uk/,Legal & Professional
+AA Car Fleet Ltd,https://www.aacarfleet.co.uk,Services
+AA Catering Services Ltd t/a Stirchley Curry Co,https://aacateringservices.co.uk,Hospitality
 AA Concrete UK Ltd,https://aaconcrete.co.uk/,Manufacturing
 AA EDINBURGH FOOD LIMITED TA Shapla Takeaway,https://shaplatakeaway.co.uk/,Hospitality
+AA ELITE TRADERS LIMITED,https://aaetraders.com,Retail
 AA EXPRESS LOGISTICS LTD,https://aaexpresslogistics.co.uk/,Transport
 AA Estate Agency Limited,https://www.aaestate.co.uk/,Property
 AA Euro Recruitment UK Limited,https://aaeuro.com/,Recruitment
@@ -672,30 +915,50 @@ AA Global Ltd.,https://aagloballtd.co.uk/,Manufacturing
 AA Grewal and Aggarwal Solicitors,https://aagasolicitors.com/,Legal & Professional
 AA Group - Legal Services,https://aa-group-ltd.com/,Legal & Professional
 AA Homes and Housing (Metro Point) Limited,https://www.aahomesandhousing.com/,Property
+AA KITCHEN KENT LTD T/a Hot and Herbs,https://www.hotandherbs.uk,Hospitality
+AA LAB FURNITURE LTD,https://www.aalabfurniture.com,Manufacturing
+AA LAB FURNITURE LTD,https://www.aalabfurniture.com,Manufacturing
+AA Lighting Limited,https://www.aa-lighting.com,Construction
 AA Limited,https://www.aaltd.co.uk/,Manufacturing
 AA MINIBUS TRAVELS LTD T/A BRIT COACHES,https://www.aaminibus.co.uk/,Hospitality
 AA Mobility Services Limited,https://www.theaacareers.co.uk/,Transport
 AA Motors (UK) Limited,https://www.aamotorsbradford.com/,Retail
+AA PANTILES SERVICE LTD,https://www.pantilesconstruction.co.uk,Retail
 AA Painting and Decorators ltd,https://aapaintingltd.uk/,Construction
 AA Plus Plumbing Ltd,https://aaplusplumbing.com/,Construction
+AA Produce Limited,https://aaproduce.co.uk,Retail
 AA RECRUITMENT CONSULTANTS LIMITED,https://aa-recruitment-consultants.co.uk/,Legal & Professional
+AA SECURITY FORCE LTD,https://www.aasecurity.co.uk,Security
+AA Service Warlingham Ltd,https://aaservice.co.uk,Retail
 AA Transport,https://www.aaa-transport.com/,Transport
 AA XPRESS LTD,https://www.aaxpress.co.uk/,Transport
+AA4 Services Ltd,https://www.aa4services.co.uk,Security
 AAA Accounting Ltd,https://aaaaccounting.co.uk/,Legal & Professional
 AAA Car Sale Ltd,https://www.aaa-carsales.co.uk/,Retail
 AAA Dentalab Ltd,https://www.aaadentalab.co.uk/,Healthcare
+AAA Enterprises (Gloucester) Ltd,https://aaaenterprises.org,Retail
 AAA Freight Services Ltd,https://aaafreightservices.com/,Transport
+AAA Homecare Limited,https://aaa-homecare.co.uk,Social Care
+AAA Mobiles & Computers Limited,https://aaamobilescomputers.co.uk,Retail
 AAA Taxis (Hatfield) Limited,https://www.aaataxis.com/,Transport
 AAAA Communications Limited t/a Media Guru,https://media-guru.co.uk/,Media & Creative
 AAARETAILERS LTD,https://aaaretail.co.uk/,Retail
 AAASE Consultants Ltd,https://aaase.co.uk/,Legal & Professional
+AAB Home Builds Ltd,https://aabhomebuild.com,Construction
 AABRU LIMITED,https://aabru.co.uk/,Retail
 AACSL ACCOUNTANTS LTD,https://aacsl.co.uk/,Legal & Professional
 AADHAM FUTURE LIMITED,https://aadhamfuture.uk/,Retail
+AADYA'S HOMES LTD,https://aadyahomes.co.uk,Construction
 AAE RETAIL LIMITED,https://aaeretaillimited.co.uk/,Retail
+AAFAQ Bookstore,https://aafaq.co.uk,Retail
+AAFAQ Bookstore,https://aafaq.co.uk,Retail
 AAFD SERVICES LTD,https://aafdservices.co.uk/,Legal & Professional
 AAGRAH (LEEDS) LIMITED,https://www.aagrah.com/,Hospitality
+AAGUARD LTD,https://aaguard.co.uk,Security
 AAH Pharmaceuticals Limited,https://www.aah.co.uk/,Healthcare
+AAHIL FOODS LIMITED T/A BIRYANI KING,https://biryanikingsonline.co.uk,Hospitality
+AAHM GROUP LTD,https://aahmgroup.com,Retail
+AAHS3 LTD,https://aahs3.co.uk,Transport
 AAJJ CONSULTANTS LIMITED,https://aajjconsultants.co.uk/,Legal & Professional
 AAK International,https://aak-uk.com/,
 AAK9 SECURITY LTD,https://aaksecurity.co.uk/,Security
@@ -704,32 +967,49 @@ AAM ELECTRICAL SERVICES LTD,https://aamelectricalservices.co.uk/,Construction
 AAMAR TYRES & SERVICES LTD,https://aamartyres.co.uk/,Retail
 AAMCHA CATERING LTD,https://aamcha.co.uk/,Hospitality
 AANAM CONSTRUCTION SERVICES LTD,https://aanamconstruction.com/,Construction
+AANGI ART LTD,https://www.aangiart.co.uk,Retail
+AANIKA MANAGEMENT LIMITED,https://aanikapropertymgmt.co.uk,Property
 AANS FABRICS & TAILORS LTD,https://aansfabricstailorsltd.com/,Retail
 AAPrinters Ltd,https://aaprinters.co.uk/,Manufacturing
 AAR CARS HUB LTD,https://aarcars.co.uk/,Retail
+AARDEN ENTERPRISE LTD,https://arden.enterprises,Retail
+AARGON ENTERPRISES LTD,https://aargonltd.co.uk,Services
 AARIA RETAIL UK LTD T/A Costcutter,https://www.costcutter.co.uk/,Retail
 AARIZ BUILD LTD,https://aarizbuild.co.uk/,Construction
 AAROH FOODS LTD,https://aarohfood.uk/,Hospitality
 AARRR LTD TA Skewen Fish Bar,https://www.skewenfishbar.co.uk/,Hospitality
 AARTI SAREES LIMITED,https://www.aartisarees.co.uk/,Retail
 AARUN SOFTWARE LIMITED,https://aarunsoftware.com/,Technology
+AARYA NAILS AND BEAUTY LIMITED,https://aaryasalon.co.uk,Beauty
 AARYA TECHNOLOGIES LTD,https://aaryatechnologies.co.uk/,Technology
+AASHIRWAD PROPERTIES LIMITED,https://www.aashirwadrealestates.com,Property
 AAT Tree Services & Consultancy,https://www.aattreeservices.co.uk/,Legal & Professional
+AATHI STORES,https://www.premier-stores.co.uk,Retail
 AAVIOR LTD,https://aavior.com/,Legal & Professional
 AAVR Solutions Limited T/A Shell,https://www.shell.co.uk/,
 AAVantgarde Bio UK Ltd,https://job-boards.greenhouse.io/aavantgardebio,Technology
+AAYAN CONSTRUCTIONS UK LIMITED,https://aayanconstructions.com,Construction
 AAYAN MEDICAL IMAGING LIMITED,https://aayanmedicalimaging.co.uk/,Healthcare
 AAYNA LONDON LTD,https://aaynalondon.co.uk/,Services
+AAZ DEVELOPMENTS LIMITED,https://aazdevelopments.co.uk,Construction
 AAZA LTD,https://www.aaza.co.uk/,Transport
 AAlex law,https://www.aalexlaw.co.uk/,Legal & Professional
 AAziz &Co LTD,https://aazizandco.co.uk/,
+AB Agri Limited,https://www.abagri.com,Manufacturing
+AB Agri Limited,https://www.abagri.com,Manufacturing
 AB Beds North Ltd,https://abbeds.com/,Manufacturing
+AB Brothers Limited T/A Mamas Food Xpress,https://mamasfoodxpress.com,Hospitality
 AB Energy UK LTD,https://www.gruppoab.com/,Energy
 AB Fire LTD,https://www.abfiresolutions.co.uk/,Public Services
 AB Gas & Property Service Limited,https://abgas.co.uk/,Property
 AB Glass (Doors and Windows) Ltd,https://www.abglass.co.uk/,
 AB Global Consultant LTD,https://www.abglobalconsultant.com/,Legal & Professional
+AB Hotels Limited,https://www.abhotels.co.uk,Hospitality
+AB MOSS LIMITED,https://www.moss.co.uk,Retail
 AB Mackenzie Ltd,https://abmackenzie.co.uk/,Legal & Professional
+AB Masonry Ltd,https://www.abmasonry.co.uk,Construction
+AB PRESTIGE GROUP LIMITED,https://abprestigegroup.co.uk,Construction
+AB Signs & Prints Limited,https://absignsandprints.co.uk,Manufacturing
 AB Solar Consulting Ltd,https://absolarconsulting.com/,Legal & Professional
 AB TASTY LIMITED LTD,https://www.abtasty.com/,Technology
 AB World Foods Ltd,https://www.abworldfoods.com/,Hospitality
@@ -737,16 +1017,25 @@ ABA Autism Education Ltd,https://aba-autism.org.uk/,Education
 ABA Connected Limited,https://abaconnected.co.uk/,Education
 ABABEEL CARS LTD,https://ababeelcars.com/,Retail
 ABACUS TAX ADVISORS LTD,https://www.abacusleeds.co.uk/,Legal & Professional
+ABAM Foods Limited,https://abamfoods.shop,Hospitality
+ABAN Express Ltd,https://abanexpressltd.co.uk,Hospitality
 ABASEEN CHAPLI KABAB LIMITED,https://abaseen.uk/,Hospitality
+ABASEEN ONE LTD,https://abaseenbury.co.uk,Hospitality
 ABASYN ASSET MANAGEMENT LIMITED,https://www.abasyn.co.uk/,Finance
 ABBA CARS PRIVATE LIMITED,https://www.abbacars.com/,Transport
+ABBASI CARS LTD,https://abbasitraders.co.uk,Transport
+ABBENDON HEALTH CARE LTD T/A ABBENDON NURSING HOME,https://abbendonhealthcare.co.uk,Social Care
 ABBEY HOUSE RESEDENTIAL CARE HOME,https://www.abbeycareservices.co.uk/,Social Care
+ABBEY'S HEBBURN VILLAGE LTD,https://www.abbeyshebburn.co.uk,Hospitality
 ABBEYDALE NURSING HOME,https://www.abbeyhealthcare.org.uk/,Social Care
+ABBEYFIELD NEIGHBOURHOOD STORE,https://www.premier-stores.co.uk,Retail
 ABBFEM CONSULTING LIMITED,https://abbfemconsulting.com/,Legal & Professional
 ABBIS FILLING STATION,https://www.murco.co.uk/stations/abbis-service-station/,
 ABBOTS CARE LIMITED,https://abbotscare.com/,Finance
 ABBOTSFORD RESIDENTIAL CARE HOME LIMITED T/ AS Abbotsford Residential Care Home,https://akaricare.co.uk/,Social Care
 ABBOTTSWAY ENGINEERING LTD,https://abbottsway.co.uk/,Engineering
+ABC Buildcon Limited,https://abcbuildcon.files.wordpress.com,Construction
+ABC CAFE WEST LONDON LIMITED,https://abccafewestlondon.co.uk,Hospitality
 ABC Construction and Materials Limited,https://www.abc-group.com/,Construction
 ABC EDUCATION CONSULTANCY LTD,https://www.abctutoring.co.uk/,Education
 ABC LETTERS,https://www.abc.org.uk/,Social Care
@@ -759,8 +1048,11 @@ ABC Studio Childcare Ltd,https://www.abcstudiochildcare.co.uk/,Education
 ABC TAXIS 247 LIMITED,https://www.abctaxis247.co.uk/,Transport
 ABC Travel,https://www.abctravel.co.uk/,Hospitality
 ABD Engineering & Development LTD,https://abd-engineering.co.uk/,Construction
+ABDUL HOME RENOVATE LIMITED,https://abdulhomerenovate.com,Construction
 ABDV2ltd,https://www.abdynamics.com/,
 ABEC LTD,https://abec.co.uk/,Finance
+ABEEHA'S FASHION & BEAUTY LTD,https://www.abeehasfashion.com,Beauty
+ABEERA LIMITED,https://www.abeera.co.uk,Security
 ABELL CHEMIST LIMITED,https://www.abellchemist.co.uk/,Retail
 ABERCLEAN PLANT AND SWEEPER HIRE LTD,https://aberclean.com/,Services
 ABERDEEN PERFORMING ARTS,https://www.aberdeenperformingarts.com/,Media & Creative
@@ -769,25 +1061,31 @@ ABETTER HEALTH LTD,https://abetterhealthltd.com/,Healthcare
 ABEXON LTD,https://abexon.co.uk/,Technology
 ABF EATERY LTD T/A Subway,https://www.abf.co.uk/,
 ABF Grain Products trading as Allied Bakeries,https://www.abf.co.uk/,
+ABF Ingredients Limited,https://www.abfingredients.com,Services
+ABF Ingredients Limited,https://www.abfingredients.com,Services
 ABG SUNDAL COLLIER LIMITED,https://www.abgsc.com/,Services
 ABH LIMITED,https://abhlimited.co.uk/,Finance
+ABHI ROSE LTD,https://www.abhirose.org.uk,Services
 ABI Interiors International Limited,https://www.abiinteriors.co.uk/,Retail
 ABI Research UK Ltd,https://www.abiresearch.com/,Technology
 ABIKE'S KITCHEN LIMITED,https://abikeskitchen.co.uk/,Hospitality
 ABILITY OPTIONS LTD,https://abilityoptions.org.au/,Social Care
 ABILITY RECRUITMENT GROUP LIMITED,https://abilityrg.com/,Recruitment
 ABIMATIC CARE LTD,https://abimatic-care.co.uk/,Healthcare
+ABK Motors Ltd,https://abkmotors.co.uk,Retail
 ABL Care Ltd,https://ablcare.com/,Social Care
 ABL London Limited,https://www.ablhealth.co.uk/,Legal & Professional
 ABL Software Limited,https://www.ablsoftware.co.uk/,Technology
 ABL1 Touch Ltd,https://abl1touch.com/,
 ABLE BUSINESS SERVICES LTD,https://www.ablebusinessservices.com/,Retail
+ABLE SERVICES SUPPLIES LTD,https://www.ableservices.eu,Retail
 ABLEGRANGE SEVERN HEIGHTS LTD,https://www.ablegrange.co.uk/,Social Care
 ABM AVIATION UK LIMITED,https://www.abm.co.uk/,Transport
 ABM Electrical Distributors Limited,https://www.abm-elec.co.uk/,Construction
 ABM GLOBAL COMPLIANCE (UK) LTD,https://abmglobalcompliance.com/,Legal & Professional
 ABM Precast Solutions Ltd,https://abmprecast.co.uk/,Manufacturing
 ABM Services Limited,https://www.abm.co.uk/,Services
+ABM Tiling Ltd,https://www.abmtiling.co.uk,Construction
 ABO Energy United Kingdom Ltd,https://www.aboenergy.com/,Energy
 ABOUT THE STAY LIMITED,https://aboutthestay.com/,Property
 ABOVE & BEYOND CREATIVE LTD T/AS ABOVE + BEYOND,https://www.beyondcreative.gg/,Media & Creative
@@ -802,13 +1100,18 @@ ABP Wessex,https://abpfoodgroup.com/,
 ABP Yetminster,https://abpuk.com/,
 ABPI,https://www.abpi.org.uk/,Services
 ABR Tamwil Ltd T/A ABR Chartered Accountants,https://abr.uk.com/,Legal & Professional
+ABRAHAM NATURAL PRODUCE LTD,https://abrahamshalalmeat.com,Manufacturing
 ABRAHAM NURSING HOMES LTD,https://www.llantrisantcarehome.co.uk/,Social Care
 ABS,https://www.absglobal.com/uk/,Construction
 ABS 12 LTD,https://absabetterway.co.uk/,
 ABS Auto Centre Limited,https://www.absautocentre.co.uk/,Services
 ABS CARPETS AND BEDS LIMITED,https://www.abscarpetsandbeds.co.uk/,Retail
+ABS Care Ltd,https://www.abscareltd.com,Social Care
 ABS DEVELOPMENT GROUP LTD,https://www.absdevelopment.co.uk/,Construction
+ABS Food & Wine Ltd,https://abs.wine,Hospitality
+ABS MOTS LIMITED,https://absmotsauto.co.uk,Retail
 ABS Transport Limited,https://abstransport.co.uk/,Transport
+ABS WINDOW & PLASTIC LIMITED,https://www.abswindowandplastic.com,Construction
 ABSCapCo Limited,https://abscapco.com/,Legal & Professional
 ABSOLUTE ALL INCLUSIVE CARE LTD T/a AAICARE,https://www.aaicare.co.uk/,
 ABSOLUTE CABS LIMITED,https://absolutecabs.co.uk/,Transport
@@ -816,28 +1119,41 @@ ABSOLUTE CARE UK LTD,https://www.absolutecareagency.org/,Healthcare
 ABSOLUTE FIRE PROTECTION LIMITED,https://www.absolute-fire-protection.co.uk/,Public Services
 ABSOLUTE RISK TECHNOLOGY LIMITED,https://www.absoluterisktec.co.uk/,Technology
 ABSORB SOFTWARE UK LTD,https://www.absorblms.com/,Technology
+ABT CONSTRUCTION SERVICES LTD,https://www.abtconstruction.co.uk,Construction
 ABT Construction Ltd,https://www.abtconstruction.co.uk/,Construction
+ABT Europe Ltd.,https://www.abteurope.uk,Retail
 ABURI RESTAURANT LTD,https://aburi.co.uk/,Hospitality
 ABV HAIR & BEAUTY LTD,https://www.salonabv.com/,Beauty
+ABZ TRADING LIMITED,https://abztrading.company,Retail
 ABurnet (Hair Containment Solutions) Ltd.,https://www.aburnet.co.uk/,Beauty
 AC  Quarterlight LTD,https://acquarterlight.co.uk/,Retail
 AC & AA Limited t/a Betterclean Services,https://www.bettercleanservices.co.uk/,Services
+AC Auto 1 Ltd,https://www.acautosltd.co.uk,Retail
+AC Furniture Ltd,https://www.maysonsfurniture.com,Manufacturing
 AC Gilead Solicitors,https://acgilead.com/,Legal & Professional
 AC Jade Trading Ltd,https://www.signaretrade.co.uk/,Retail
 AC Maben Ltd T/A Kevins Schoolwear,https://kevins-schoolwear.co.uk/,Education
 AC Security Solutions Ltd,https://www.accsecurity.com/,Security
 AC Whitehaven Ltd,https://www.acwhitehaven.co.uk/,Social Care
 ACA Systems Support limited,https://www.acasystems.co.uk/,Technology
+ACAASA LTD,https://acaasa.com,Hospitality
 ACACIA COMMUNITY CARE LIMITED,https://www.acaciacomcare.co.uk/,Education
 ACACIA CREATIVE STUDIO LTD,https://acacia.design/,Media & Creative
+ACADEMIC PLACEMENT SERVICES LTD,https://www.academicsltd.co.uk,Construction
+ACADEMY HOSPITALITY LTD,https://academyhospitality.co.uk,Hospitality
 ACC Aviation Limited,https://accaviation.com/,Services
+ACC GARAGE SERVICES LTD,https://findlocalgarages.co.uk,Retail
 ACC POLSKI SUPERMARKET LIMITED,https://www.accpolskimarket.co.uk/,Retail
+ACCELERO LOGISTICS LTD,https://accelerologistics.co.uk,Transport
 ACCELLENCY LIMITED,https://accellency.eu/,Legal & Professional
 ACCENTRIC FREIGHTS LTD,https://accentricfreights.com/,Transport
 ACCESS CARS LTD,https://accesscarsltd.co.uk/,Transport
 ACCESS Speech and Language Therapy Limited,https://access-speechandlanguage.co.uk/,Services
 ACCESSAFE UK LTD,https://www.accessafe.co.uk/,Manufacturing
 ACCIDENT CLAIM HELPLINE LTD,https://www.aihlclaim.co.uk/,Services
+ACCO UK LTD,https://dealer.accobrands.com,Services
+ACCO UK LTD,https://dealer.accobrands.com,Services
+ACCOMMOS LTD,https://www.accommos.co.uk,Property
 ACCORD ACCOUNTANCY LTD,https://accordacc.com/,Legal & Professional
 ACCOTAX LONDON LTD,https://accotax.co.uk/,Legal & Professional
 ACCOUNTANCY SERVICES LONDON LTD,https://www.ask-accountancy.com/,Legal & Professional
@@ -846,7 +1162,9 @@ ACCOUNTAX GROUP LTD T/A ACCOUNTAX GROUP,https://www.accountaxgroups.co.uk/,Legal
 ACCOUNTING AND TAX SOLUTIONS,https://accounting-solutionsuk.com/,Legal & Professional
 ACCOUNTING SQUARE LIMITED,https://accountingsquare.co.uk/,Legal & Professional
 ACCOUNTS HOUSE LTD,https://accountshouse.co.uk/,Property
+ACCUFINE LTD,https://accufine.co.uk,Hospitality
 ACCURA RESOURCING LIMITED,https://www.accuraresourcing.co.uk/,Legal & Professional
+ACCURATE LASER & SKIN AESTHETICS LIMITED,https://accuratelaser.co.uk,Beauty
 ACD Environmental Ltd,https://www.acdgroup.eu/,Legal & Professional
 ACDOCO LIMITED,https://www.acdoco.com/,
 ACE & Company UK Limited,https://aceandcompany.com/en,Services
@@ -859,6 +1177,7 @@ ACE IT Solutions Ltd,https://www.ace-it-solutions.com/,Technology
 ACE MONEY TRANSFER LIMITED,https://acemoneytransfer.com/,Finance
 ACE Medical Partnership,https://www.acemedicalpartnership.co.uk/,Healthcare
 ACE OF FADES BARBER SHOP LTD,https://aceoffades.co.uk/,Hospitality
+ACE PROPERTY FINDER LTD,https://acepropertyfinder.co.uk,Property
 ACE REMOVALS LIMITED,https://aceremovalsbusiness.com/,Transport
 ACE UK ENGINEERING CONSULTANTS LTD,https://ace-uk.co/,Engineering
 ACEDALE LIMITED,https://www.aceda.co.uk/,Hospitality
@@ -868,6 +1187,8 @@ ACES Academies Trust,https://www.catrust.co.uk/,Education
 ACES JEWELLERS LIMITED,https://acesjewellers.co.uk/,Retail
 ACEVENTURES GROUP LTD,https://www.aceventures.com/,Hospitality
 ACG Advisors Group (UK) Ltd,https://acg.group/,Finance
+ACG Europe Ltd,https://www.acgineurope.com,Retail
+ACG Europe Ltd,https://www.acgineurope.com,Retail
 ACG Operations LTD,https://www.acg-world.com/,Social Care
 ACHERON CAPITAL LIMITED,https://acheroncapital.com/,Finance
 ACI Group Ltd,https://acigroup.biz/,Retail
@@ -875,11 +1196,13 @@ ACIBADEM,https://acibademinternational.com/,
 ACJ ACCOUNTANTS LIMITED,https://acjaccountantslimited.co.uk/,Legal & Professional
 ACL & Co,https://www.acl-accountants.co.uk/,Construction
 ACL Education Solutions Ltd,https://www.acleducation.co.uk/,Education
+ACL Homes Plus Ltd,https://aclhomesplus.co.uk,Hospitality
 ACLAS Technics Ltd,https://aclastechnics.com/,Technology
 ACLI (CHRISTIAN ASSOCIATION OF ITALIAN WORKERS),https://www.patronato.acli.it/,Recruitment
 ACM Global Central Laboratory Limited,https://www.acmgloballab.com/,Legal & Professional
 ACME CREDIT CONSULTANTS LIMITED,https://acmecredit.co.uk/,Finance
 ACME Shipping & Logistics,https://acme-shipping.com/,Transport
+ACMI UK LTD,https://www.acmispa.it,Retail
 ACN ACCOUNTANTS,https://acnaccountants.co.uk/,Legal & Professional
 ACO Building Company UK Ltd,https://www.aco.co.uk/,Construction
 ACO Technologies plc,https://www.aco.co.uk/,Technology
@@ -891,10 +1214,15 @@ ACP CONSULTANTS LTD.,https://acp-consultants.com/,Legal & Professional
 ACP Freight Services Limited,https://acpfreight.com/,Transport
 ACPH Ltd T.A Hopscotch Children's Nurseries,https://www.hopscotch.uk.com/,
 ACQUA KITCHENS LTD,https://www.acquakitchens.co.uk/,Hospitality
+ACRALI HOME LTD,https://acralihome.co.uk,Retail
 ACRE CARE SERVICES LTD,https://acrecareservices.com/,Social Care
 ACRE CONTRACTORS (LONDON) LTD,https://acrecontractors.com/,Construction
+ACRE COURT CARE HOME LTD,https://yourcarehome.co.uk,Social Care
 ACREO Ltd,https://www.acreo.uk/,Services
+ACRON ENGINEERING SERVICES (UK) LTD,https://acronglobal.com,Engineering
+ACRON ENGINEERING SERVICES (UK) LTD,https://acronglobal.com,Engineering
 ACRS Limited,https://www.acrs.co.uk/,Construction
+ACS CIVILS LTD,https://acscivils.com,Construction
 ACS COURIERS AND LOGISTICS LTD,https://acscouriers.uk/,Transport
 ACS INTERNATIONAL SCHOOLS LIMITED,https://www.acs-schools.com/,Education
 ACS International,https://www.acs-schools.com/,
@@ -909,6 +1237,8 @@ ACTING OFFICE LIMITED,https://www.actingoffice.com/,Technology
 ACTION 8 RECRUITMENT LIMITED,https://action8recruitment.co.uk/,Recruitment
 ACTIONPLUS FOUNDATION,https://actionplusfoundation.org.uk/,Public Services
 ACTIVE CARE ORGANISATION LIMITED,https://activecare.online/,Social Care
+ACTIVE INTERNATIONAL LTD,https://activeinternational.co.uk,Retail
+ACTIVE INTERNATIONAL LTD,https://activeinternational.co.uk,Retail
 ACTIVE SPORTS TOURISM LTD,https://www.ast-travel.com/,Hospitality
 ACTIVE STUDY AND TRAVEL SERVICES LTD,https://activestudyuk.com/,Education
 ACTIVE TUNNELLING LIMITED,https://www.activetunnelling.com/,Construction
@@ -926,15 +1256,18 @@ ACWIN LTD,https://www.acwin.co.uk/,Retail
 ACWIN RETAIL LTD,https://www.acwin.co.uk/,Retail
 ACX INSTRUMENTS LTD,https://www.acxinst.com/,Engineering
 ACZONE CONSULTANTS LTD,https://aczone.co.uk/,Legal & Professional
+AD Architects,https://www.adarchitects.co.uk,Construction
 AD BUILDING RENOVATION LTD,https://adbuildingrenovationltd.co.uk/,Construction
 AD Data Analytics Ltd,https://www.ad-dataanalytics.co.uk/,Technology
 AD Recycling Limited,https://adsrecycling.co.uk/,Services
+AD Security Solutions Ltd,https://adsecurity.co.uk,Security
 AD Technologies Ltd,https://www.adtechnology.com/,Technology
 ADA BUSINESS CONSULTANCY LTD,https://www.adabusiness.co.uk/,Legal & Professional
 ADA CO ACCOUNTS LTD,https://www.ada-co.uk/,
 ADAB,https://www.adab.org.uk/,
 ADAJ LIMITED,https://adaj.co.uk/,Property
 ADAM Architecture Ltd,https://adamarchitecture.com/,Construction
+ADAM BALTI & PIZZA LIMITED,https://adamsbaltiharrogate.co.uk,Hospitality
 ADAM CABS LTD,https://adamcabsltd.co.uk/,Transport
 ADAM TYRES LTD,https://adamtyresltd.wixsite.com/website,Retail
 ADAMA Entertainment Limited,https://www.adama.com/,Media & Creative
