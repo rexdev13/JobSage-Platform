@@ -115,6 +115,52 @@ function cleanEmployerKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+const EMPLOYER_LEGAL_SUFFIXES = new Set([
+  "the", "ltd", "limited", "plc", "llp", "lp", "inc", "llc", "company", "co",
+  "corporation", "corp", "holdings", "holding", "group", "uk", "u.k.",
+]);
+
+/**
+ * Legal-suffix-insensitive employer key: "ABC Ltd", "ABC LIMITED" and
+ * "The ABC Company" all collapse to "abc". Used as a second matching layer
+ * so board adverts naming the same legal entity are not discarded just
+ * because the register spells the suffix differently. A key is only usable
+ * when it resolves to exactly one sponsor and is >= 5 chars, so generic
+ * names can never false-match.
+ */
+function normalizedEmployerKey(value: string): string {
+  const words = value.toLowerCase().replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  while (words.length > 1 && EMPLOYER_LEGAL_SUFFIXES.has(words[words.length - 1]!)) words.pop();
+  if (words[0] === "the" && words.length > 1) words.shift();
+  return words.join(" ");
+}
+
+let normSponsorCache: { matches: Map<string, string>; ambiguous: Set<string> } | null = null;
+
+async function loadNormalizedSponsorIndex(): Promise<{ matches: Map<string, string>; ambiguous: Set<string> }> {
+  if (normSponsorCache) return normSponsorCache;
+  const rows = await db
+    .select({ organisationName: sponsorLicencesTable.organisationName })
+    .from(sponsorLicencesTable);
+  const candidates = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const key = normalizedEmployerKey(row.organisationName);
+    if (!key || key.length < 5) continue;
+    const names = candidates.get(key) ?? new Set<string>();
+    names.add(row.organisationName.trim());
+    candidates.set(key, names);
+  }
+  const matches = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  for (const [key, names] of candidates) {
+    if (names.size === 1) matches.set(key, [...names][0]!);
+    else ambiguous.add(key);
+  }
+  normSponsorCache = { matches, ambiguous };
+  return normSponsorCache;
+}
+
 type ReviewedEmployerAliases = {
   matches: Map<string, string>;
   ambiguous: Set<string>;
@@ -215,6 +261,10 @@ async function resolveSponsorEmployers(
     string,
     "no_sponsor_identity_match" | "ambiguous_sponsor_identity"
   >();
+  const misses = adverts.filter((advert) =>
+    (canonicalNames.get(cleanEmployerKey(advert.organisationName))?.size ?? 0) !== 1 &&
+    !reviewedAliases.matches.get(normalizeSponsorIdentityValue(advert.organisationName)));
+  const normIndex = misses.length ? await loadNormalizedSponsorIndex() : null;
   for (const advert of adverts) {
     const key = cleanEmployerKey(advert.organisationName);
     const directNames = canonicalNames.get(key);
@@ -230,8 +280,15 @@ async function resolveSponsorEmployers(
       continue;
     }
 
+    const normName = normIndex?.matches.get(normalizedEmployerKey(advert.organisationName));
+    if (normName) {
+      matches.set(key, normName);
+      continue;
+    }
+
     const ambiguous = (directNames?.size ?? 0) > 1 ||
-      reviewedAliases.ambiguous.has(aliasKey);
+      reviewedAliases.ambiguous.has(aliasKey) ||
+      (normIndex?.ambiguous.has(normalizedEmployerKey(advert.organisationName)) ?? false);
     unmatchedReasons.set(
       key,
       ambiguous ? "ambiguous_sponsor_identity" : "no_sponsor_identity_match",

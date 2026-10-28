@@ -1,9 +1,11 @@
 import { FREE_BOARD_SOURCES, type FreeBoardSource } from "./freeBoardSources";
 import { SUPPLEMENTAL_FREE_BOARD_SOURCES } from "./supplementalFreeBoardSources";
+import { AGGREGATOR_BOARD_SOURCES } from "./aggregatorBoardSources";
 
 export const ALL_FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
   ...FREE_BOARD_SOURCES,
   ...SUPPLEMENTAL_FREE_BOARD_SOURCES,
+  ...AGGREGATOR_BOARD_SOURCES,
 ];
 
 const FREE_BOARD_SOURCE_IDS = new Set(ALL_FREE_BOARD_SOURCES.map((source) => source.id));

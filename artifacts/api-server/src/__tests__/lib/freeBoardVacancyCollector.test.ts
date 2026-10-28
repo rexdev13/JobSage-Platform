@@ -126,22 +126,25 @@ describe("free-board vacancy collector", () => {
     mocks.syncLogs.length = 0;
 
     mocks.select.mockImplementation(() => ({
-      from: (table: object) => ({
-        innerJoin: () => ({
-          where: () => Promise.resolve(mocks.reviewedAliases),
-        }),
-        where: () => table === mocks.tables.states
-          ? { limit: () => Promise.resolve([storedState]) }
-          : Promise.resolve(
-              table === mocks.tables.sponsorLicences
-                ? mocks.sponsorRows
-                : table === mocks.tables.listingAudits
-                  ? mocks.listingAudits
-                  : table === mocks.tables.observations
-                    ? mocks.observations
-                  : [],
-            ),
-      }),
+      from: (table: object) => {
+        const rows = table === mocks.tables.states
+          ? [storedState]
+          : table === mocks.tables.sponsorLicences
+            ? mocks.sponsorRows
+            : table === mocks.tables.listingAudits
+              ? mocks.listingAudits
+              : table === mocks.tables.observations
+                ? mocks.observations
+                : [];
+        return Object.assign(Promise.resolve(rows), {
+          innerJoin: () => ({
+            where: () => Promise.resolve(mocks.reviewedAliases),
+          }),
+          where: () => table === mocks.tables.states
+            ? { limit: () => Promise.resolve([storedState]) }
+            : Promise.resolve(rows),
+        });
+      },
     }));
     mocks.insert.mockImplementation((table: object) => ({
       values: (values: Record<string, unknown>) => {

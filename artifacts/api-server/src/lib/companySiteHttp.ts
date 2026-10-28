@@ -61,6 +61,7 @@ const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "Recruitee", suffix: "recruitee.com" },
   { provider: "Personio", suffix: "personio.com" },
   { provider: "Personio", suffix: "personio.de" },
+  { provider: "Workable", suffix: "workable.com" },
 ];
 
 export type CompanySiteFetchFailure =
@@ -1088,8 +1089,8 @@ export async function fetchCompanySitePublicApiPost(
   if (
     parsed.protocol !== "https:" ||
     knownAtsProvider(parsed.hostname) === null ||
-    parsed.hostname.toLowerCase() !== "circlehealth.wd103.myworkdayjobs.com" ||
-    parsed.pathname.toLowerCase() !== "/wday/cxs/circlehealth/chgcareers/jobs" ||
+    !/^[a-z0-9-]+\.wd\d+\.myworkdayjobs\.com$/i.test(parsed.hostname) ||
+    !/^\/wday\/cxs\/[a-z0-9._~-]+\/[a-z0-9._~-]+\/jobs$/i.test(parsed.pathname) ||
     (parsed.search && !/^\?offset=\d+$/.test(parsed.search)) || parsed.hash || !body
   ) {
     return { ok: false, kind: "unsafe", reason: "unsupported public ATS API POST destination" };

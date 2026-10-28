@@ -12,10 +12,25 @@ describe("isBlockedVacancyUrl", () => {
     expect(isBlockedVacancyUrl("https://www.indeed.com/viewjob?jk=abc")).toBe(true);
     expect(isBlockedVacancyUrl("https://uk.indeed.com/viewjob?jk=abc")).toBe(true);
     expect(isBlockedVacancyUrl("https://www.adzuna.co.uk/jobs/details/12345")).toBe(true);
+    expect(isBlockedVacancyUrl("https://uk.jooble.org/desc/12345")).toBe(true);
     expect(isBlockedVacancyUrl("https://www.jobijoba.co.uk/jobs/nurse")).toBe(true);
     expect(isBlockedVacancyUrl("https://www.simplyhired.co.uk/job/xyz")).toBe(true);
     expect(isBlockedVacancyUrl("https://uk.bebee.com/job/12345")).toBe(true);
     expect(isBlockedVacancyUrl("https://www.jobs.nhs.uk/candidate/jobadvert/C9999")).toBe(false);
+  });
+
+  it("allows exact Adzuna and Jooble listings only in job-board mode", () => {
+    const adzuna = "https://www.adzuna.co.uk/jobs/details/12345";
+    const jooble = "https://uk.jooble.org/desc/12345";
+
+    expect(isValidJobBoardVacancyDeepLink(adzuna)).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(jooble)).toBe(true);
+    expect(isValidVacancyUrlForSource(adzuna, "job_board")).toBe(true);
+    expect(isValidVacancyUrlForSource(jooble, "job_board")).toBe(true);
+    expect(isValidVacancyUrlForSource(adzuna, "company_site")).toBe(false);
+    expect(isValidVacancyUrlForSource(jooble, "company_site")).toBe(false);
+    expect(isValidVacancyDeepLink(adzuna)).toBe(false);
+    expect(isValidVacancyDeepLink(jooble)).toBe(false);
   });
 
   it("does not block employer domains", () => {
