@@ -137,7 +137,7 @@ describe("company-site DNS pinning", () => {
       Date.now() + 1000,
     )).resolves.toMatchObject({ ok: false, kind: "unsafe" });
     await expect(fetchCompanySitePublicApiPost(
-      "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/other/jobs",
+      "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/other/postings",
       "{}",
       Date.now() + 1000,
     )).resolves.toMatchObject({ ok: false, kind: "unsafe" });

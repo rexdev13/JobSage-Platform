@@ -28,10 +28,10 @@ export const BLOCKED_VACANCY_DOMAINS = [
   "cwjobs.co.uk",
   "adzuna.co.uk",
   "adzuna.com",
+  "jooble.org",
   "simplyhired.com",
   "simplyhired.co.uk",
   "bebee.com",
-  "jooble.org",
   "talent.com",
   "ziprecruiter.com",
   "ziprecruiter.co.uk",
@@ -367,6 +367,15 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   }
   if (hostMatches(host, "workingnomads.com")) {
     return /^\/job\//i.test(path);
+  }
+  // Aggregator API partners (licensed access via API key): their listing pages
+  // deep-link back out to the advertiser's apply page, so they are valid
+  // job-board destinations for users.
+  if (hostMatches(host, "jooble.org")) {
+    return /^\/(desc|away|redirect|j)\//i.test(path) || /^\/[^/?#]+\/[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "adzuna.co.uk") || hostMatches(host, "adzuna.com")) {
+    return /^\/(land|details|search|jobs)\//i.test(path);
   }
   return false;
 }

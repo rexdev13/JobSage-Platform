@@ -34,6 +34,8 @@ describe("free vacancy source adapters", () => {
       "remoteok",
       "devitjobs",
       "workingnomads",
+      "jooble",
+      "adzuna",
     ]);
     expect(FREE_BOARD_SOURCES).toHaveLength(5);
     expect(ALL_FREE_BOARD_SOURCES.find((source) => source.id === "teaching-vacancies"))
