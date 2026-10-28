@@ -66,6 +66,9 @@ tsx src/tools/runVacancyPipelineCli.ts free-boards --source=adzuna --pages=8
 
 # Website discovery for sponsors that have none (~40% hit rate observed)
 tsx src/tools/discoverSponsorWebsitesBrave.ts --limit=900 --sectors=manufacturing,security,services,hospitality,"social care"
+
+# Email discovery for sponsors whose contact scrape failed (uses same BRAVE_API_KEY)
+tsx src/tools/discoverSponsorEmailsBrave.ts --limit=500
 ```
 
 ## 3. Rules that matter
