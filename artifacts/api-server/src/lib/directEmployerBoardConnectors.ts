@@ -16,7 +16,9 @@ export type DirectBoardProvider =
   | "Pinpoint"
   | "BambooHR"
   | "Workable"
-  | "Workday";
+  | "Workday"
+  | "Teamtailor"
+  | "iCIMS";
 
 export type DirectBoardMapping = {
   provider: DirectBoardProvider;
@@ -279,6 +281,8 @@ const PINPOINT_HOST = /^([a-z0-9-]+)\.pinpointhq\.com$/i;
 const BAMBOOHR_HOST = /^([a-z0-9-]+)\.bamboohr\.com$/i;
 const WORKABLE_HOST = /^apply\.workable\.com$/i;
 const WORKDAY_HOST = /^([a-z0-9-]+)\.wd\d+\.myworkdayjobs\.com$/i;
+const TEAMTAILOR_HOST = /^([a-z0-9-]+)\.teamtailor\.com$/i;
+const ICIMS_HOST = /^careers-([a-z0-9-]+)\.icims\.com$/i;
 
 function strictBoardId(value: string): string | null {
   const id = value.trim();
@@ -432,6 +436,34 @@ export function parseDirectBoardMapping(
       feedUrl: `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(boardId)}`,
     };
   }
+  if (selected === "teamtailor") {
+    const hostMatch = parsed.hostname.match(TEAMTAILOR_HOST);
+    const segments = path.split("/").filter(Boolean);
+    if (!hostMatch || (segments.length > 0 && segments[0]!.toLowerCase() !== "jobs")) return null;
+    const boardId = strictBoardId(hostMatch[1] ?? "");
+    if (!boardId || boardId.toLowerCase() === "www" || boardId.toLowerCase() === "career") return null;
+    const host = parsed.hostname.toLowerCase();
+    return {
+      provider: "Teamtailor",
+      boardId,
+      evidenceUrl: `https://${host}/jobs`,
+      feedUrl: `https://${host}/jobs.json`,
+    };
+  }
+  if (selected === "icims") {
+    const hostMatch = parsed.hostname.match(ICIMS_HOST);
+    const segments = path.split("/").filter(Boolean);
+    if (!hostMatch || (segments.length > 0 && segments[0]!.toLowerCase() !== "jobs")) return null;
+    const boardId = strictBoardId(hostMatch[1] ?? "");
+    if (!boardId) return null;
+    const host = parsed.hostname.toLowerCase();
+    return {
+      provider: "iCIMS",
+      boardId,
+      evidenceUrl: `https://${host}/jobs`,
+      feedUrl: `https://${host}/jobs/rss`,
+    };
+  }
   if (selected === "workday") {
     const hostMatch = parsed.hostname.match(WORKDAY_HOST);
     const segments = path.split("/").filter(Boolean);
@@ -556,6 +588,18 @@ function validatedJobUrl(value: unknown, mapping: DirectBoardMapping): string | 
       return WORKDAY_HOST.test(parsed.hostname) && parsed.hostname.toLowerCase() === evidenceHost &&
         new RegExp(`^/(?:[a-z]{2}-[A-Z]{2}/)?${mapping.boardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/job/[^/]+/[^/]+$`, "i")
           .test(parsed.pathname) ? parsed.toString() : null;
+    }
+    case "Teamtailor": {
+      let evidenceHost = "";
+      try { evidenceHost = new URL(mapping.evidenceUrl).hostname.toLowerCase(); } catch { return null; }
+      return TEAMTAILOR_HOST.test(parsed.hostname) && parsed.hostname.toLowerCase() === evidenceHost &&
+        segments[0]?.toLowerCase() === "jobs" && segments.length === 2 ? parsed.toString() : null;
+    }
+    case "iCIMS": {
+      let evidenceHost = "";
+      try { evidenceHost = new URL(mapping.evidenceUrl).hostname.toLowerCase(); } catch { return null; }
+      return ICIMS_HOST.test(parsed.hostname) && parsed.hostname.toLowerCase() === evidenceHost &&
+        segments[0]?.toLowerCase() === "jobs" && segments.length >= 2 ? parsed.toString() : null;
     }
   }
 }
@@ -989,6 +1033,56 @@ function parseWorkable(
   return { adverts, excludedUnlisted: 0 };
 }
 
+function parseTeamtailor(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const payload = parseJson(body) as { items?: unknown };
+  if (!Array.isArray(payload.items)) throw new Error("Teamtailor feed did not contain an items array");
+  const adverts = payload.items.map((raw, index): BoardAdvert => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error(`Malformed Teamtailor job entry ${index}: snapshot is incomplete`);
+    }
+    const job = raw as Record<string, unknown>;
+    const title = text(job.title);
+    const url = text(job.url) ?? text(job.external_url);
+    const id = identifier(job.id) ?? url;
+    if (!title || !url || !id) throw new Error("Missing Teamtailor job id/title/url: snapshot is incomplete");
+    const description = text(job.content_text) ?? text(job.summary) ?? text(job.content_html);
+    return advert(organisationName, "Teamtailor", id, title, url, url,
+      description, null, text(job.date_published), mapping.evidenceUrl);
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
+function xmlTag(block: string, tag: string): string | null {
+  const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
+  if (!m) return null;
+  const v = m[1]!.replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "")
+    .replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, " ").trim();
+  return v || null;
+}
+
+function parseIcims(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const items = body.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  const adverts = items.flatMap((block, index): BoardAdvert[] => {
+    const title = xmlTag(block, "title");
+    const url = xmlTag(block, "link");
+    if (!title || !url) return [];
+    const id = url.match(/\/jobs\/(\d+)/i)?.[1] ?? xmlTag(block, "guid") ?? `${index}`;
+    return [advert(organisationName, "iCIMS", id, title, url, url,
+      xmlTag(block, "description"), xmlTag(block, "region") ?? xmlTag(block, "location"),
+      xmlTag(block, "pubDate"), mapping.evidenceUrl)];
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
 export async function fetchDirectEmployerBoard(
   organisationName: string,
   provider: string | null | undefined,
@@ -1028,7 +1122,7 @@ export async function fetchDirectEmployerBoard(
           ...(options.noProcessCache ? { noProcessCache: true } : {}),
         });
       }
-    const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
+    const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio" || mapping.provider === "Teamtailor" || mapping.provider === "iCIMS"
       ? fetchCompanySiteRobotsAwarePublicApiPage
       : fetchCompanySitePublicApiPage;
     return fetchPublicApiPage(url, deadlineMs, Math.max(2_000_000, Number(process.env.COMPANY_SITE_FEED_MAX_BYTES) || 2_000_000), {
@@ -1094,7 +1188,11 @@ export async function fetchDirectEmployerBoard(
                 ? parseWorkable(organisationName, mapping, result.body)
               : mapping.provider === "Workday"
                 ? parseWorkday(organisationName, mapping, result.body)
-                : parsePinpoint(organisationName, mapping, result.body);
+                : mapping.provider === "Teamtailor"
+                  ? parseTeamtailor(organisationName, mapping, result.body)
+                  : mapping.provider === "iCIMS"
+                    ? parseIcims(organisationName, mapping, result.body)
+                    : parsePinpoint(organisationName, mapping, result.body);
     let pagesFetched = 1;
     let paginationComplete = true;
     if (mapping.provider === "Lever") {

@@ -55,7 +55,7 @@ function identityKey(value: string, domainSuffixes: boolean): string {
   return words.join(" ");
 }
 
-const ATS_LINK = /greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|recruitee\.com|jobs\.personio\.|pinpointhq\.com|myworkdayjobs\.com|bamboohr\.com|workable\.com/i;
+const ATS_LINK = /greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|recruitee\.com|jobs\.personio\.|pinpointhq\.com|myworkdayjobs\.com|bamboohr\.com|workable\.com|teamtailor\.com|icims\.com/i;
 
 function slugCandidates(organisationName: string): string[] {
   const words = organisationName.toLowerCase()
@@ -80,6 +80,8 @@ const PROVIDERS: { id: string; provider: string; boardUrl: (slug: string) => str
   { id: "personio", provider: "Personio", boardUrl: (s) => `https://${s}.jobs.personio.com/` },
   { id: "pinpoint", provider: "Pinpoint", boardUrl: (s) => `https://${s}.pinpointhq.com/` },
   { id: "workable", provider: "Workable", boardUrl: (s) => `https://apply.workable.com/${s}/` },
+  { id: "teamtailor", provider: "Teamtailor", boardUrl: (s) => `https://${s}.teamtailor.com/jobs` },
+  { id: "icims", provider: "iCIMS", boardUrl: (s) => `https://careers-${s}.icims.com/jobs` },
 ];
 
 function boardRootUrl(url: URL): { provider: string; careersUrl: string } | null {
@@ -96,6 +98,8 @@ function boardRootUrl(url: URL): { provider: string; careersUrl: string } | null
         .find((s) => !/^[a-z]{2}-[A-Z]{2}$/.test(s));
       return site ? { provider: "Workday", careersUrl: `https://${host}/${site}` } : null;
     }
+    if (/^[a-z0-9-]+\.teamtailor\.com$/i.test(host)) return { provider: "Teamtailor", careersUrl: `https://${host}/jobs` };
+    if (/^careers-[a-z0-9-]+\.icims\.com$/i.test(host)) return { provider: "iCIMS", careersUrl: `https://${host}/jobs` };
     return null;
   }
   if (/^(?:www\.)?jobs\.ashbyhq\.com$/i.test(host)) return { provider: "Ashby", careersUrl: `https://jobs.ashbyhq.com/${seg}` };
@@ -112,6 +116,8 @@ function boardRootUrl(url: URL): { provider: string; careersUrl: string } | null
       .find((s) => !/^[a-z]{2}-[A-Z]{2}$/.test(s));
     return site ? { provider: "Workday", careersUrl: `https://${host}/${site}` } : null;
   }
+  if (/^[a-z0-9-]+\.teamtailor\.com$/i.test(host)) return { provider: "Teamtailor", careersUrl: `https://${host}/jobs` };
+  if (/^careers-[a-z0-9-]+\.icims\.com$/i.test(host)) return { provider: "iCIMS", careersUrl: `https://${host}/jobs` };
   return null;
 }
 
