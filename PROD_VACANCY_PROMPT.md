@@ -52,6 +52,22 @@ tsx src/tools/sectorSiteDrain.ts --sectors="social care"
 
 `COMPANY_SITE_DISCOVERY_BATCH_SIZE` env var tunes the generic-discovery batch (default 10; 40 was used during drains).
 
+### Aggregator API sources (free keys required)
+
+Two new free-board sources pull weak-sector vacancies from aggregator APIs. Set these env vars before running `free-boards` (values must be provided by the owner — free-tier keys, no card needed):
+
+- `JOOBLE_API_KEY` — jooble.org API key (~500 req/day free)
+- `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` — developer.adzuna.com (rate-limited, no daily cap)
+- `BRAVE_API_KEY` — api-dashboard.search.brave.com free plan (2,000 searches/mo), used only by the website-discovery tool below
+
+```bash
+tsx src/tools/runVacancyPipelineCli.ts free-boards --source=jooble --pages=8
+tsx src/tools/runVacancyPipelineCli.ts free-boards --source=adzuna --pages=8
+
+# Website discovery for sponsors that have none (~40% hit rate observed)
+tsx src/tools/discoverSponsorWebsitesBrave.ts --limit=900 --sectors=manufacturing,security,services,hospitality,"social care"
+```
+
 ## 3. Rules that matter
 
 - Vacancies only persist when the advert employer name matches a licensed sponsor (normalized-key matching: case/punctuation/legal-suffix-insensitive). Unmatched adverts are audited in `vacancy_source_listing_audits`, not lost.
