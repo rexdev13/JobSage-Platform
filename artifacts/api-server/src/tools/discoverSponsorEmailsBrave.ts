@@ -9,8 +9,7 @@
  */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-
-const KEY = process.env["BRAVE_API_KEY"];
+import { webSearch } from "../lib/webSearchFallback";
 const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.slice(2).split("="); return [k, v ?? "true"]; }));
 const LIMIT = Number(args.get("limit") ?? "100") || 100;
 const DRY = args.has("dry");
@@ -19,8 +18,6 @@ const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const BAD_LOCAL = /^(noreply|no-reply|donotreply|example|test|user|name|email|yourname|info@example|mail@example)/i;
 const BAD_DOMAIN = /(example\.|sentry|wixpress|godaddy|squarespace|wordpress|github|fonts\.|schema\.|w3\.|jquery|bootstrap|cloudflare|linkedin|facebook|twitter|instagram|google|microsoft|apple|amazonses|sendgrid|mailchimp|hubspot|stripe|brave\.)/i;
 const FREE_MAIL = /^(gmail|yahoo|hotmail|outlook|aol|icloud|btinternet|proton)\./i;
-
-if (!KEY) { console.error("BRAVE_API_KEY not set"); process.exit(1); }
 
 // Sponsors: has website (or had a failed enrichment), no stored email, not
 // already attempted by this tool recently (retry_after is used as a marker
@@ -52,14 +49,9 @@ for (const t of targets.rows) {
     ? `"${domain}" contact email`
     : `"${t.org_name}" ${t.town ?? ""} email contact`.replace(/\s+/g, " ").trim();
   try {
-    const url = new URL("https://api.search.brave.com/res/v1/web/search");
-    url.searchParams.set("q", q);
-    url.searchParams.set("count", "8");
-    const res = await fetch(url, { headers: { "X-Subscription-Token": KEY, Accept: "application/json" } });
-    if (res.status === 429) { console.log("rate-limited, stopping"); break; }
-    if (!res.ok) { console.log(`HTTP ${res.status}`); continue; }
-    const data = await res.json() as { web?: { results?: Array<{ title?: string; description?: string; url?: string }> } };
-    const texts = (data.web?.results ?? []).flatMap((r) => [r.title ?? "", r.description ?? "", r.url ?? ""]);
+    const results = await webSearch(q, 8);
+    if (!results) { console.log(`no results`); continue; }
+    const texts = results.flatMap((r) => [r.title ?? "", r.description ?? "", r.url ?? ""]);
     const seen = new Set<string>();
     let best: string | null = null;
     for (const text of texts) {
@@ -85,7 +77,7 @@ for (const t of targets.rows) {
       }
       found++;
     }
-    await new Promise((r2) => setTimeout(r2, 1100));
+    await new Promise((r2) => setTimeout(r2, 1600));
   } catch (e) {
     console.log(`err ${t.org_name}: ${(e as Error).message.slice(0, 80)}`);
   }

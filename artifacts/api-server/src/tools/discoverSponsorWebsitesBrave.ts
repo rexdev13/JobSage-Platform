@@ -7,8 +7,7 @@
  */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-
-const KEY = process.env["BRAVE_API_KEY"];
+import { webSearch } from "../lib/webSearchFallback";
 const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.slice(2).split("="); return [k, v ?? "true"]; }));
 const LIMIT = Number(args.get("limit") ?? "100") || 100;
 const DRY = args.has("dry");
@@ -28,8 +27,6 @@ function score(host: string, nameTokens: string[]): number {
   return nameTokens.length === 0 ? 0 : hits / Math.min(2, nameTokens.length);
 }
 
-if (!KEY) { console.error("BRAVE_API_KEY not set"); process.exit(1); }
-
 const where = SECTORS.length
   ? sql`WHERE (website IS NULL OR btrim(website)='') AND lower(btrim(COALESCE(industry,''))) = ANY(${sql.param(SECTORS)}::text[])`
   : sql`WHERE website IS NULL OR btrim(website)=''`;
@@ -44,15 +41,10 @@ for (const t of targets.rows) {
   checked++;
   const q = `${t.organisation_name} ${t.town_city ?? ""} UK`.replace(/\s+/g, " ").trim();
   try {
-    const url = new URL("https://api.search.brave.com/res/v1/web/search");
-    url.searchParams.set("q", q);
-    url.searchParams.set("count", "5");
-    const res = await fetch(url, { headers: { "X-Subscription-Token": KEY, Accept: "application/json" } });
-    if (res.status === 429) { console.log("rate-limited, stopping"); break; }
-    if (!res.ok) { console.log(`HTTP ${res.status} for ${t.organisation_name}`); continue; }
-    const data = await res.json() as { web?: { results?: Array<{ url?: string }> } };
+    const results = await webSearch(q, 5);
+    if (!results) { console.log(`no results for ${t.organisation_name}`); continue; }
     const tokens = norm(t.organisation_name).split(" ").filter((x) => x.length >= 4);
-    for (const r of data.web?.results ?? []) {
+    for (const r of results) {
       if (!r.url) continue;
       let host: string;
       try { host = new URL(r.url).hostname; } catch { continue; }
@@ -67,7 +59,7 @@ for (const t of targets.rows) {
         break;
       }
     }
-    await new Promise((r2) => setTimeout(r2, 1100)); // 1 req/sec
+    await new Promise((r2) => setTimeout(r2, 1600)); // polite pace for keyless engines
   } catch (e) {
     console.log(`err ${t.organisation_name}: ${(e as Error).message.slice(0, 80)}`);
   }
