@@ -18,6 +18,13 @@ export function isManualLabourTitle(title: string | null | undefined): boolean {
     MANUAL_LABOUR_BLOCKLIST.test(title);
 }
 
+/** Unpaid roles can never carry a Certificate of Sponsorship. */
+const UNPAID_ROLE_TITLE = /\b(volunteer(?:ing)?|unpaid|voluntary\s+(?:role|position|worker))\b/i;
+
+export function isUnpaidRoleTitle(title: string | null | undefined): boolean {
+  return !!title && UNPAID_ROLE_TITLE.test(title);
+}
+
 /**
  * Company-site crawlers sometimes mistake an article card or educational
  * explainer for a job advert. A real job title should not contain a paragraph

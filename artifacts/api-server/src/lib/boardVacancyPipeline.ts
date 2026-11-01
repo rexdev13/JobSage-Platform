@@ -4,7 +4,7 @@ import {
   vacancySourceObservationsTable,
 } from "@workspace/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
-import { isLikelyEditorialTitle, isManualLabourTitle } from "./vacancyTitlePolicy";
+import { isLikelyEditorialTitle, isManualLabourTitle, isUnpaidRoleTitle } from "./vacancyTitlePolicy";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { StrictRolePageSector } from "./companySiteRoleSectors";
@@ -404,7 +404,7 @@ export function normaliseAndDedupeBoardAdverts(
 ): BoardAdvert[] {
   const normalizedAdverts: BoardAdvert[] = [];
   for (const advert of adverts) {
-    if (isManualLabourTitle(advert.title)) continue;
+    if (isManualLabourTitle(advert.title) || isUnpaidRoleTitle(advert.title)) continue;
     const url = canonicalVacancyUrl(advert.url);
     const source = classifyVacancySource(url);
     const sourceType = advert.sourceType ?? source.sourceType;
@@ -479,6 +479,58 @@ export function normaliseAndDedupeBoardAdverts(
   return normalizedAdverts;
 }
 
+/**
+ * A single sponsor rarely has more than this many genuinely distinct open
+ * roles in one harvest. Boards above it are mass-posting (the same title
+ * re-listed under many platform IDs), so repeated title+location postings
+ * collapse to one row and the sponsor is capped for that batch.
+ */
+export const SPONSOR_BATCH_VACANCY_LIMIT = Number.parseInt(
+  process.env.SPONSOR_BATCH_VACANCY_LIMIT ?? "300",
+  10,
+);
+
+export function applySponsorVolumeGuard(
+  adverts: readonly BoardAdvert[],
+  limit: number = SPONSOR_BATCH_VACANCY_LIMIT,
+): { adverts: BoardAdvert[]; collapsedDuplicates: number; excludedOverLimit: number } {
+  const bySponsor = new Map<string, BoardAdvert[]>();
+  for (const advert of adverts) {
+    const key = normaliseFingerprintPart(advert.organisationName);
+    const group = bySponsor.get(key);
+    if (group) group.push(advert);
+    else bySponsor.set(key, [advert]);
+  }
+  let collapsedDuplicates = 0;
+  let excludedOverLimit = 0;
+  const kept: BoardAdvert[] = [];
+  for (const group of bySponsor.values()) {
+    if (group.length <= limit) {
+      kept.push(...group);
+      continue;
+    }
+    const seen = new Set<string>();
+    const distinct: BoardAdvert[] = [];
+    for (const advert of group) {
+      const fingerprint = boardVacancyFingerprint(advert);
+      if (seen.has(fingerprint)) {
+        collapsedDuplicates++;
+        continue;
+      }
+      seen.add(fingerprint);
+      distinct.push(advert);
+    }
+    if (distinct.length > limit) {
+      excludedOverLimit += distinct.length - limit;
+      console.warn(
+        `[board-pipeline] sponsor volume guard: ${group[0]!.organisationName} offered ${group.length} adverts; keeping ${limit}`,
+      );
+    }
+    kept.push(...distinct.slice(0, limit));
+  }
+  return { adverts: kept, collapsedDuplicates, excludedOverLimit };
+}
+
 export interface UpsertBoardVacanciesOptions {
   verifiedLive?: boolean;
   organisationName?: string;
@@ -508,6 +560,8 @@ export interface UpsertBoardVacanciesResult {
   excludedNonUk?: number;
   heldUnknownLocation?: number;
   acceptedConfirmedUk?: number;
+  collapsedDuplicates?: number;
+  excludedOverLimit?: number;
   outcomes?: UpsertBoardVacancyOutcome[];
 }
 
@@ -704,9 +758,10 @@ export async function upsertSharedBoardVacancies(
   input: readonly BoardAdvert[],
   options: UpsertBoardVacanciesOptions = {},
 ): Promise<UpsertBoardVacanciesResult> {
-  const normalizedAdverts = normaliseAndDedupeBoardAdverts(input, {
-    preserveCrossSourceRows: true,
-  });
+  const { adverts: normalizedAdverts, collapsedDuplicates, excludedOverLimit } =
+    applySponsorVolumeGuard(
+      normaliseAndDedupeBoardAdverts(input, { preserveCrossSourceRows: true }),
+    );
   const classified = normalizedAdverts.map((advert) => ({
     advert,
     status: classifyUkVacancyLocation({
@@ -734,6 +789,8 @@ export async function upsertSharedBoardVacancies(
       excludedNonUk,
       heldUnknownLocation,
       acceptedConfirmedUk: 0,
+      collapsedDuplicates,
+      excludedOverLimit,
       ...(options.includeOutcomes ? { outcomes: [] } : {}),
     };
   }
@@ -1229,6 +1286,8 @@ export async function upsertSharedBoardVacancies(
     excludedNonUk,
     heldUnknownLocation,
     acceptedConfirmedUk: adverts.length,
+    collapsedDuplicates,
+    excludedOverLimit,
     ...(options.includeOutcomes ? { outcomes: transactionResult.outcomes } : {}),
   };
 }

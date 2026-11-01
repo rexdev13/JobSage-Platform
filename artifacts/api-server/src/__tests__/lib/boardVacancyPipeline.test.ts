@@ -3,6 +3,7 @@ import {
   boardVacancyFingerprint,
   mergeCompanyVacancyEvidence,
   discoverEmployerBoardVacancies,
+  applySponsorVolumeGuard,
   normaliseAndDedupeBoardAdverts,
   persistScrapedAdvertContacts,
   type BoardAdapter,
@@ -156,6 +157,29 @@ describe("shared board vacancy pipeline", () => {
 
     expect(result).toHaveLength(2);
     expect(result.map((item) => item.sourceType).sort()).toEqual(["company_site", "job_board"]);
+  });
+
+  it("drops volunteer and unpaid titles before persistence", () => {
+    expect(normaliseAndDedupeBoardAdverts([advert({ title: "Private Equity Event Volunteer" })])).toEqual([]);
+    expect(normaliseAndDedupeBoardAdverts([advert({ title: "Unpaid Marketing Assistant" })])).toEqual([]);
+  });
+
+  it("collapses repeated postings and caps a mass-posting sponsor", () => {
+    const adverts = Array.from({ length: 12 }, (_, i) =>
+      advert({ title: `Event Coordinator ${i % 4}`, externalId: `pei-${i}`, url: `https://job-boards.greenhouse.io/pei/jobs/${i}` }),
+    );
+    const result = applySponsorVolumeGuard(adverts, 3);
+    expect(result.collapsedDuplicates).toBe(8);
+    expect(result.excludedOverLimit).toBe(1);
+    expect(result.adverts).toHaveLength(3);
+    expect(new Set(result.adverts.map((a) => a.title)).size).toBe(3);
+  });
+
+  it("leaves sponsors under the limit untouched even with repeated titles", () => {
+    const adverts = [advert({ externalId: "a", url: "https://x.example/1" }), advert({ externalId: "b", url: "https://x.example/2" })];
+    const result = applySponsorVolumeGuard(adverts, 150);
+    expect(result.adverts).toHaveLength(2);
+    expect(result.collapsedDuplicates).toBe(0);
   });
 
   it("drops manual-labour titles before persistence", () => {
