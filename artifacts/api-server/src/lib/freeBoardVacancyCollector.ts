@@ -774,6 +774,7 @@ export async function runFreeBoardVacancyCollector(options: {
       if (sponsorAdverts.length > 0) {
         const result = await upsertSharedBoardVacancies(sponsorAdverts, {
           enrichContacts: false,
+          persistAdvertContacts: true,
           queueVerifications: true,
         });
         sourceMetrics.inserted += result.inserted;

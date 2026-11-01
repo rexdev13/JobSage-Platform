@@ -236,7 +236,7 @@ describe("free-board vacancy collector", () => {
         sourceId: "job_board:fixture board",
         externalId: "1001",
       })],
-      { enrichContacts: false, queueVerifications: true },
+      { enrichContacts: false, persistAdvertContacts: true, queueVerifications: true },
     );
     expect(mocks.stateWrites.map((write) => write["lastOutcome"])).toEqual([
       "partial",
@@ -571,7 +571,7 @@ describe("free-board vacancy collector", () => {
         organisationName: "Example Trust",
         employer: "Example Trust",
       })],
-      { enrichContacts: false, queueVerifications: true },
+      { enrichContacts: false, persistAdvertContacts: true, queueVerifications: true },
     );
     expect(mocks.listingAudits).toHaveLength(0);
   });

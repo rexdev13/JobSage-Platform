@@ -180,9 +180,13 @@ async function verifyCandidate(organisationName: string, provider: string, caree
     const scan = await fetchDirectEmployerBoard(organisationName, provider, careersUrl, {
       deadlineMs, readOnly: true, noHostState: true, noProcessCache: true,
     });
+    // Guessed slugs have no first-party site tying the board to the sponsor,
+    // so the feed's own employer claim must match the full name (legal
+    // suffixes aside). Stripping industry words would equate "Acme Care"
+    // with "Acme Health".
     const softOk = (scan.identity?.claims ?? []).length > 0 &&
       (scan.identity?.claims ?? []).every((claim) =>
-        claim?.name && identityKey(claim.name, true) === identityKey(organisationName, true));
+        claim?.name && identityKey(claim.name, false) === identityKey(organisationName, false));
     const identityOk = firstParty
       ? scan.identity?.status !== "mismatched"
       : scan.identity?.status === "matched" || softOk;
