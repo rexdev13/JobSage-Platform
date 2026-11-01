@@ -451,18 +451,12 @@ export function normaliseAndDedupeBoardAdverts(
           if (!priorSourceId) return false;
           const sameSource = priorSourceId === sourceId;
           const priorExternalId = prior.externalId?.trim() ?? "";
-          if (
-            sameSource &&
-            externalId &&
-            priorExternalId &&
-            externalId !== priorExternalId
-          ) {
-            return false;
-          }
           if (options.preserveCrossSourceRows && !sameSource) return false;
           if (sameSource && externalId && priorExternalId === externalId) return true;
           if (canonicalUrl && canonicalUrl === canonicalVacancyUrl(prior.url)) return true;
           if (fingerprint !== boardVacancyFingerprint(prior)) return false;
+          // The same employer re-listing the same title+location on the same
+          // source under a new listing ID is one vacancy, not a new one.
           return sameSource || prior.sourceType === normalized.sourceType;
         })
       : -1;
@@ -1044,7 +1038,8 @@ export async function upsertSharedBoardVacancies(
       : undefined;
     const knownAtsMatch = directAtsIdentity ? byKnownAtsIdentity.get(directAtsIdentity) : undefined;
     const fingerprintMatch = sourceId
-      ? crossSourceCandidate(byFingerprint.get(fingerprint))
+      ? byFingerprint.get(fingerprint)?.find((row) => storedAdvertSourceId(row) === sourceId)
+        ?? crossSourceCandidate(byFingerprint.get(fingerprint))
       : undefined;
     const existingRow = externalMatch ?? knownAtsMatch ?? canonicalMatch ?? fingerprintMatch;
     const matchedBy = externalMatch

@@ -232,17 +232,25 @@ describe("shared board vacancy pipeline", () => {
     expect(normalized?.postedDate).toBeNull();
   });
 
-  it("preserves distinct known ATS posting IDs that share a fingerprint", () => {
+  it("collapses repeated known ATS postings that share a fingerprint", () => {
     const result = normaliseAndDedupeBoardAdverts([
       knownAtsAdvert("JR117009", "https://careers.example.nhs.uk/jobs/JR117009"),
       knownAtsAdvert("JR115988", "https://careers.example.nhs.uk/jobs/JR115988"),
     ]);
 
-    expect(result).toHaveLength(2);
-    expect(result.map((item) => item.externalId).sort()).toEqual(["JR115988", "JR117009"]);
+    expect(result).toHaveLength(1);
   });
 
-  it("preserves distinct public-board posting IDs even when their fingerprints match", () => {
+  it("keeps same-title ATS postings at different locations", () => {
+    const result = normaliseAndDedupeBoardAdverts([
+      { ...knownAtsAdvert("JR1", "https://careers.example.nhs.uk/jobs/JR1"), location: "Leeds" },
+      { ...knownAtsAdvert("JR2", "https://careers.example.nhs.uk/jobs/JR2"), location: "York" },
+    ]);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("collapses repeated public-board postings when their fingerprints match", () => {
     const result = normaliseAndDedupeBoardAdverts([
       advert({
         sourceType: "job_board",
@@ -258,8 +266,8 @@ describe("shared board vacancy pipeline", () => {
       }),
     ]);
 
-    expect(result).toHaveLength(2);
-    expect(result.map((item) => item.externalId)).toEqual(["job-101", "job-102"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.externalId).toBe("job-102");
   });
 
   it("keeps generic and ATS candidates intact for transaction-level provenance checks", () => {
