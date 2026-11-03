@@ -136,20 +136,55 @@ function normalizedEmployerKey(value: string): string {
   return words.join(" ");
 }
 
-let normSponsorCache: { matches: Map<string, string>; ambiguous: Set<string> } | null = null;
+const NHS_BODY_MARKER = /\b(nhs|national health service|health board|trust)\b/i;
+const NHS_BODY_FILLER = new Set(["nhs", "foundation", "trust", "ft", "the"]);
 
-async function loadNormalizedSponsorIndex(): Promise<{ matches: Map<string, string>; ambiguous: Set<string> }> {
+/**
+ * Public health bodies are advertised under several spellings of one legal
+ * name: "Pennine Care NHS FT", "Barts Health National Health Service Trust",
+ * "Leeds Teaching Hospitals". Only the NHS/trust filler words are dropped and
+ * "hospitals" is singularised; the distinguishing words must still match
+ * exactly. The register side must itself be an NHS/trust body.
+ */
+export function nhsBodyKey(value: string): string {
+  const words = value.toLowerCase()
+    .replace(/national health service/g, " nhs ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word && !NHS_BODY_FILLER.has(word))
+    .map((word) => (word === "hospitals" ? "hospital" : word));
+  return words.join(" ");
+}
+
+let normSponsorCache: {
+  matches: Map<string, string>;
+  ambiguous: Set<string>;
+  nhsMatches?: Map<string, string>;
+} | null = null;
+
+async function loadNormalizedSponsorIndex(): Promise<NonNullable<typeof normSponsorCache>> {
   if (normSponsorCache) return normSponsorCache;
   const rows = await db
     .select({ organisationName: sponsorLicencesTable.organisationName })
     .from(sponsorLicencesTable);
   const candidates = new Map<string, Set<string>>();
+  const nhsCandidates = new Map<string, Set<string>>();
   for (const row of rows) {
     const key = normalizedEmployerKey(row.organisationName);
-    if (!key || key.length < 5) continue;
-    const names = candidates.get(key) ?? new Set<string>();
-    names.add(row.organisationName.trim());
-    candidates.set(key, names);
+    if (key && key.length >= 5) {
+      const names = candidates.get(key) ?? new Set<string>();
+      names.add(row.organisationName.trim());
+      candidates.set(key, names);
+    }
+    if (NHS_BODY_MARKER.test(row.organisationName)) {
+      const nhsKey = nhsBodyKey(row.organisationName);
+      if (nhsKey.length >= 8 && nhsKey.includes(" ")) {
+        const names = nhsCandidates.get(nhsKey) ?? new Set<string>();
+        names.add(row.organisationName.trim());
+        nhsCandidates.set(nhsKey, names);
+      }
+    }
   }
   const matches = new Map<string, string>();
   const ambiguous = new Set<string>();
@@ -157,7 +192,11 @@ async function loadNormalizedSponsorIndex(): Promise<{ matches: Map<string, stri
     if (names.size === 1) matches.set(key, [...names][0]!);
     else ambiguous.add(key);
   }
-  normSponsorCache = { matches, ambiguous };
+  const nhsMatches = new Map<string, string>();
+  for (const [key, names] of nhsCandidates) {
+    if (names.size === 1) nhsMatches.set(key, [...names][0]!);
+  }
+  normSponsorCache = { matches, ambiguous, nhsMatches };
   return normSponsorCache;
 }
 
@@ -283,6 +322,12 @@ async function resolveSponsorEmployers(
     const normName = normIndex?.matches.get(normalizedEmployerKey(advert.organisationName));
     if (normName) {
       matches.set(key, normName);
+      continue;
+    }
+
+    const nhsName = normIndex?.nhsMatches?.get(nhsBodyKey(advert.organisationName));
+    if (nhsName) {
+      matches.set(key, nhsName);
       continue;
     }
 
