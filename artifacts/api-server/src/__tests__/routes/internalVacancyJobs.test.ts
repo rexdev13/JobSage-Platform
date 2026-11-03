@@ -23,6 +23,14 @@ vi.mock("../../lib/companySiteProbe", () => ({
   COMPANY_SITE_PROBE_HTTP_BUDGET_MS: 20_000,
 }));
 
+const { getVacancyPipelineStatusMock } = vi.hoisted(() => ({
+  getVacancyPipelineStatusMock: vi.fn(),
+}));
+
+vi.mock("../../lib/vacancyPipelineStatus", () => ({
+  getVacancyPipelineStatus: getVacancyPipelineStatusMock,
+}));
+
 vi.mock("../../lib/vacancyAiBudget", () => ({
   getVacancyAiWebSearchDailyCap: () => 0,
 }));
@@ -351,5 +359,29 @@ describe("POST /internal/vacancy-jobs", () => {
       error: "Vacancy batch reached its HTTP deadline and is finalizing safely.",
       done: false,
     }));
+  });
+});
+describe("GET /internal/vacancy-pipeline/status", () => {
+  const originalSecret = process.env.VACANCY_JOB_SECRET;
+  afterEach(() => {
+    process.env.VACANCY_JOB_SECRET = originalSecret;
+    getVacancyPipelineStatusMock.mockReset();
+  });
+
+  it("rejects requests without the job secret", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    const response = await request(app).get("/internal/vacancy-pipeline/status");
+    expect(response.status).toBe(401);
+    expect(getVacancyPipelineStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the pipeline status with the job secret", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    getVacancyPipelineStatusMock.mockResolvedValue({ totals: { vacancies: 3 }, alerts: [] });
+    const response = await request(app)
+      .get("/internal/vacancy-pipeline/status")
+      .set("x-jobsage-job-secret", "s3cret");
+    expect(response.status).toBe(200);
+    expect(response.body.totals.vacancies).toBe(3);
   });
 });

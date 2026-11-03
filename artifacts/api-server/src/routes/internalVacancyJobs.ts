@@ -10,6 +10,7 @@ import {
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
 import { getVacancyAiWebSearchDailyCap } from "../lib/vacancyAiBudget";
+import { getVacancyPipelineStatus } from "../lib/vacancyPipelineStatus";
 import {
   COMPANY_SITE_PROBE_BATCH_SIZE,
   COMPANY_SITE_PROBE_HTTP_BUDGET_MS,
@@ -60,6 +61,28 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
     free_source_ats: 10,
   };
 }
+
+/**
+ * Read-only pipeline health for cron monitors: counts by mode/sector/liveness,
+ * per-source sweep state, and alerts for stale or failing sources.
+ */
+router.get("/internal/vacancy-pipeline/status", async (req: Request, res: Response): Promise<void> => {
+  const secret = process.env["VACANCY_JOB_SECRET"];
+  if (!secret) {
+    res.status(503).json({ error: "Vacancy job endpoint is not configured." });
+    return;
+  }
+  if (req.headers["x-jobsage-job-secret"] !== secret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    res.json(await getVacancyPipelineStatus());
+  } catch (error) {
+    console.error("[vacancy-pipeline-status] failed:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "Pipeline status unavailable." });
+  }
+});
 
 router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promise<void> => {
   const secret = process.env["VACANCY_JOB_SECRET"];
