@@ -372,11 +372,15 @@ async function selectStoredHarvestBatch(limit: number): Promise<StoredHarvestTar
       FROM sponsor_licences sl
       JOIN sponsor_licence_vacancies v
         ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
-      LEFT JOIN sponsor_licence_contact_enrichments e
-        ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
       WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
         AND v.liveness <> 'dead'
-        AND e.stored_harvested_at IS NULL
+        -- Case-variant enrichment rows must not keep a harvested sponsor
+        -- selectable forever (that starved the website stage).
+        AND NOT EXISTS (
+          SELECT 1 FROM sponsor_licence_contact_enrichments e
+          WHERE lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+            AND e.stored_harvested_at IS NOT NULL
+        )
       GROUP BY lower(btrim(sl.organisation_name))
       ORDER BY lower(btrim(sl.organisation_name))
       LIMIT ${limit}
@@ -462,11 +466,13 @@ async function countStoredHarvestRemaining(): Promise<number> {
     FROM sponsor_licences sl
     JOIN sponsor_licence_vacancies v
       ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
-    LEFT JOIN sponsor_licence_contact_enrichments e
-      ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
     WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
       AND v.liveness <> 'dead'
-      AND e.stored_harvested_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM sponsor_licence_contact_enrichments e
+        WHERE lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+          AND e.stored_harvested_at IS NOT NULL
+      )
   `);
   return Number(result.rows[0]?.remaining ?? 0);
 }
