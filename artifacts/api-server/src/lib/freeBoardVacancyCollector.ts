@@ -18,7 +18,7 @@ import {
   upsertSharedBoardVacancies,
   type BoardAdvert,
 } from "./boardVacancyPipeline";
-import { isManualLabourTitle } from "./vacancyTitlePolicy";
+import { isManualLabourTitle, isUnpaidRoleTitle } from "./vacancyTitlePolicy";
 import { ALL_FREE_BOARD_SOURCES, isFreeBoardSourceId } from "./freeBoardSourceRegistry";
 import type { FreeBoardSource } from "./freeBoardSources";
 
@@ -732,7 +732,11 @@ export async function runFreeBoardVacancyCollector(options: {
       const requiredValid = uniquePageAdverts.filter(hasRequiredListingIdentity);
       const rejectedInvalid = uniquePageAdverts.length - requiredValid.length;
       sourceMetrics.rejectedInvalid += rejectedInvalid;
-      const structuralRows = requiredValid.filter((advert) => !isManualLabourTitle(advert.title));
+      // Title-policy exclusions are expected content, not malformed records, so
+      // they must not block the source cursor.
+      const structuralRows = requiredValid.filter(
+        (advert) => !isManualLabourTitle(advert.title) && !isUnpaidRoleTitle(advert.title),
+      );
       const normalizable = normaliseAndDedupeBoardAdverts(structuralRows);
       const postNormalizeRejections = structuralRows.filter(
         (advert) => normaliseAndDedupeBoardAdverts([advert]).length === 0,
