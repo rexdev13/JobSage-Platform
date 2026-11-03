@@ -571,6 +571,11 @@ function clearStoredUkLocationSuppression(
 ): Record<string, unknown> | null {
   const metadata = { ...(incoming ?? existing ?? {}) };
   delete metadata["jobsageLocationEligibility"];
+  // Enrichment written after ingestion (advert-page sponsorship evidence) is
+  // not part of a feed refresh and must survive it.
+  if (incoming && existing?.["sponsorshipEvidence"] && !("sponsorshipEvidence" in incoming)) {
+    metadata["sponsorshipEvidence"] = existing["sponsorshipEvidence"];
+  }
   return Object.keys(metadata).length > 0 ? metadata : null;
 }
 
