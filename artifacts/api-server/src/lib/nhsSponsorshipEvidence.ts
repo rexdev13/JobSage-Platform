@@ -121,3 +121,25 @@ export async function runNhsSponsorshipEvidenceBatch(options: {
   }
   return summary;
 }
+
+/** Re-applies the current classifier to evidence already stored (no fetching). */
+export async function reclassifyStoredSponsorshipEvidence(): Promise<Record<string, number>> {
+  const rows = await db.execute<{ id: number; evidence: { sentences?: string[]; status?: string } }>(sql`
+    SELECT id, source_metadata->'sponsorshipEvidence' AS evidence
+    FROM sponsor_licence_vacancies WHERE source_metadata ? 'sponsorshipEvidence'
+  `);
+  const changed: Record<string, number> = {};
+  for (const row of rows.rows) {
+    const sentences = Array.isArray(row.evidence?.sentences) ? row.evidence.sentences : [];
+    const status = sentences.length ? inferVacancySponsorshipStatus("", sentences.join("\n")) : "unknown";
+    if (status === row.evidence?.status) continue;
+    await db.execute(sql`
+      UPDATE sponsor_licence_vacancies
+      SET source_metadata = jsonb_set(source_metadata, '{sponsorshipEvidence,status}', to_jsonb(${status}::text))
+      WHERE id = ${row.id}
+    `);
+    const key = `${row.evidence?.status ?? "none"}->${status}`;
+    changed[key] = (changed[key] ?? 0) + 1;
+  }
+  return changed;
+}
