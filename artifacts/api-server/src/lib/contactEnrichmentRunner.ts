@@ -684,7 +684,12 @@ export async function runContactEnrichmentBatch(options: { batchSize?: number } 
   for (const target of targets) {
     try {
       const outcome = await enrichTarget(target);
-      if (outcome === "budget_exhausted") break;
+      if (outcome === "budget_exhausted") {
+        // No website-lookup budget for this sponsor; defer it to tomorrow but
+        // keep processing sponsors whose website is already known.
+        await retry(target, "website lookup budget exhausted", nextUtcDay());
+        continue;
+      }
       selected++;
       if (outcome === "stored") upserted++;
       else if (outcome === "inconclusive") inconclusive++;
