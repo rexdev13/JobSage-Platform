@@ -9,7 +9,7 @@ import { runVacancyJob, type VacancyJobKind } from "../lib/vacancyJobRunner";
  * Usage:
  *   tsx src/tools/runVacancyPipelineCli.ts sponsor-sync
  *   tsx src/tools/runVacancyPipelineCli.ts free-boards [--source=<id>] [--pages=<n>]
- *   tsx src/tools/runVacancyPipelineCli.ts job <kind> [--limit=<n>]
+ *   tsx src/tools/runVacancyPipelineCli.ts job <kind> [--limit=<n>] [--deadline-ms=<ms>]
  */
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
@@ -48,6 +48,14 @@ async function main(): Promise<void> {
           );
         }
         if (summary.done || summary.remaining === 0) break;
+        // Backoff and review outcomes will not change within this run, so
+        // re-polling them only burns passes.
+        const stalled = summary.metrics.sources.every((source) =>
+          ["skipped_backoff", "needs_review", "blocked", "retryable_failure"].includes(source.outcome));
+        if (stalled) {
+          console.log("[free-boards] remaining sources are in backoff or need review; stopping");
+          break;
+        }
         if (passes >= 40) {
           console.log("[free-boards] pass cap reached; sources still pending");
           break;
@@ -59,7 +67,13 @@ async function main(): Promise<void> {
       const kind = rest[0] as VacancyJobKind | undefined;
       if (!kind) throw new Error("job requires a VacancyJobKind argument");
       const limit = Number(arg("limit") ?? "0") || undefined;
-      const summary = await runVacancyJob(kind, limit ?? 5);
+      // The HTTP budgets suit cron requests; a CLI loop can afford longer runs.
+      const deadlineMs = Number(arg("deadline-ms") ?? "0") || undefined;
+      const summary = await runVacancyJob(
+        kind,
+        limit ?? 5,
+        deadlineMs ? { deadlineMs: Date.now() + deadlineMs } : {},
+      );
       console.log(`[job] ${kind}`, JSON.stringify(summary, null, 2).slice(0, 4000));
       break;
     }
