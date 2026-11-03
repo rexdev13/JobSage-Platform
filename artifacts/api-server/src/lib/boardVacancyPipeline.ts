@@ -536,6 +536,12 @@ export interface UpsertBoardVacanciesOptions {
   dryRun?: boolean;
   /** Reviewed imports can opt out of both public-contact fetching and persistence. */
   enrichContacts?: boolean;
+  /**
+   * Persist emails published in the adverts themselves even when
+   * enrichContacts is false (no extra fetching). Off by default so reviewed
+   * imports that opt out never change sponsor contacts.
+   */
+  persistAdvertContacts?: boolean;
   /** Return per-advert outcomes for an explicit import report. */
   includeOutcomes?: boolean;
 }
@@ -1256,8 +1262,8 @@ export async function upsertSharedBoardVacancies(
   }
 
   // Feed-supplied contact emails are validated and persisted without extra
-  // fetching; enrichContacts only gates the per-advert enrichment pass above.
-  if (!options.dryRun) {
+  // fetching, unless the caller opted out of contact writes entirely.
+  if (!options.dryRun && (options.enrichContacts !== false || options.persistAdvertContacts)) {
     await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
   }
 

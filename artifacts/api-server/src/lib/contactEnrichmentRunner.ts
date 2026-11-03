@@ -706,13 +706,21 @@ export async function runContactEnrichmentBatch(options: { batchSize?: number } 
 }
 
 async function countContactEnrichmentRemaining(): Promise<number> {
+  // Mirrors selectContactEnrichmentBatch's eligibility so "done" is only
+  // reported when nothing selectable is left, including website-only
+  // sponsors when CONTACT_ENRICHMENT_ALL_WEBSITE_SPONSORS=1.
+  const includeWebsiteSponsors = process.env["CONTACT_ENRICHMENT_ALL_WEBSITE_SPONSORS"] === "1";
   const pending = await db.execute<any>(sql`
     SELECT count(DISTINCT lower(btrim(sl.organisation_name)))::int AS remaining
-    FROM sponsor_licences sl JOIN sponsor_licence_vacancies v
+    FROM sponsor_licences sl
+    LEFT JOIN sponsor_licence_vacancies v
       ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
     LEFT JOIN sponsor_licence_contact_enrichments e
       ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
-    WHERE NULLIF(trim(sl.contact_email), '') IS NULL AND v.liveness <> 'dead'
+    WHERE NULLIF(trim(sl.contact_email), '') IS NULL
+      AND (v.liveness <> 'dead' OR (${includeWebsiteSponsors} AND NULLIF(trim(sl.website), '') IS NOT NULL))
+      AND (e.stored_harvested_at IS NOT NULL
+        OR (${includeWebsiteSponsors} AND e.organisation_name IS NULL AND NULLIF(trim(sl.website), '') IS NOT NULL))
       AND (e.status IS NULL OR e.status IN ('pending', 'retry'))
   `);
   return Number(pending.rows[0]?.remaining ?? 0);
