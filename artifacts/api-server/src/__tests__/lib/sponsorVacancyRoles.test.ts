@@ -205,6 +205,13 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["We cannot offer visa sponsorship for this role.", "not_offered"],
     ["Sponsorship is not available.", "not_offered"],
     ["Sponsorship may be considered depending on circumstances.", "unknown"],
+    ["Certificate of Sponsorship Applications from job seekers who require current Skilled worker sponsorship to work in the UK are welcome and will be considered alongside all other applications.", "confirmed"],
+    ["Salaried GP (Tier 2 sponsorship possible)", "confirmed"],
+    ["Minimum 12 months right to work in the UK (we cannot currently offer sponsorship).", "not_offered"],
+    ["we are not able to offer sponsorship of skilled worker visas", "not_offered"],
+    ["NENC ICB does not hold a Skilled Worker sponsorship licence.", "not_offered"],
+    ["Applicants must have the right to work in the UK without requiring employer sponsorship.", "not_offered"],
+    ["Applications from job seekers who require current Skilled worker sponsorship are welcome. At present, we are unable to offer visa sponsorship.", "not_offered"],
     [null, "unknown"],
   ])("classifies vacancy sponsorship evidence %j as %s", (description, expected) => {
     expect(inferVacancySponsorshipStatus("Senior Staff Nurse", description)).toBe(expected);

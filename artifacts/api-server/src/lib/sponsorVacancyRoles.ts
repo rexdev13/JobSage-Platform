@@ -350,7 +350,9 @@ export type VacancySponsorshipStatus = SponsorVacancyAsRole["sponsorshipStatus"]
 
 const SPONSORSHIP_NEGATIVE_PATTERNS = [
   /\b(?:no|without)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
-  /\b(?:cannot|can't|unable\s+to|do(?:es)?\s+not|will\s+not|won't)\s+(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  /\b(?:cannot|can't|unable\s+to|not\s+able\s+to|do(?:es)?\s+not|will\s+not|won't)\s+(?:currently\s+|presently\s+)?(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  /\bdoes\s+not\s+hold\s+a\s+(?:skilled\s+worker\s+)?(?:sponsorship|sponsor)\s+licen[cs]e\b/i,
+  /\bwithout\s+(?:requiring|the\s+need\s+for)\s+(?:employer\s+|visa\s+)?sponsorship\b/i,
   /\bsponsorship\b.{0,50}\b(?:not\s+available|cannot\s+be\s+offered|will\s+not\s+be\s+(?:offered|provided)|is\s+not\s+(?:offered|provided))\b/i,
   /\bnot\s+eligible\s+for\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
 ] as const;
@@ -359,7 +361,21 @@ const SPONSORSHIP_POSITIVE_PATTERNS = [
   /\b(?:visa\s+|skilled\s+worker\s+)?sponsorship\s+(?:is\s+)?(?:available|offered|provided)\b/i,
   /\b(?:we|the\s+employer|this\s+employer)\s+(?:can\s+|will\s+)?(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
   /\bcertificate\s+of\s+sponsorship\s+(?:is\s+)?available\b/i,
+  // NHS Jobs' employer-selected Certificate of Sponsorship clause.
+  /\bapplications\s+from\s+(?:job\s*seekers|candidates|applicants)\s+who\s+require\s+(?:current\s+)?(?:skilled\s+worker|tier\s*2)\s+sponsorship\b[^.]{0,80}\bwelcome\b/i,
+  /\b(?:skilled\s+worker|tier\s*2)\s+sponsorship\s+(?:is\s+)?possible\b/i,
 ] as const;
+
+/** Sponsorship sentences captured from the full advert page, if any. */
+export function sponsorshipEvidenceText(sourceMetadata: unknown): string | null {
+  if (!sourceMetadata || typeof sourceMetadata !== "object") return null;
+  const evidence = (sourceMetadata as Record<string, unknown>)["sponsorshipEvidence"];
+  if (!evidence || typeof evidence !== "object") return null;
+  const sentences = (evidence as Record<string, unknown>)["sentences"];
+  return Array.isArray(sentences)
+    ? sentences.filter((value): value is string => typeof value === "string").join("\n") || null
+    : null;
+}
 
 /**
  * Deterministic vacancy-level evidence only. Sponsor-register membership is
@@ -624,7 +640,10 @@ async function loadSponsorVacanciesAsRoles(
       vac.requiredDbsClearanceLevel == null || vac.requiredSafeguardingLevel == null
         ? inferSafeguardingRequirements(vac.title, vac.description)
         : null;
-    const sponsorshipStatus = inferVacancySponsorshipStatus(vac.title, vac.description);
+    const sponsorshipStatus = inferVacancySponsorshipStatus(
+      vac.title,
+      [vac.description, sponsorshipEvidenceText(vac.sourceMetadata)].filter(Boolean).join("\n"),
+    );
 
     const hasContactRoute = [link.applyUrl, contactEmail, contactPhone, contactWebsite].some(
       (v) => v != null && v.trim() !== "",
