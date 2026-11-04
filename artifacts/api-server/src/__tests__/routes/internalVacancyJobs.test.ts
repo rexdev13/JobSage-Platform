@@ -23,6 +23,24 @@ vi.mock("../../lib/companySiteProbe", () => ({
   COMPANY_SITE_PROBE_HTTP_BUDGET_MS: 20_000,
 }));
 
+const { getVacancyPipelineStatusMock } = vi.hoisted(() => ({
+  getVacancyPipelineStatusMock: vi.fn(),
+}));
+
+vi.mock("../../lib/vacancyPipelineStatus", () => ({
+  getVacancyPipelineStatus: getVacancyPipelineStatusMock,
+}));
+
+const { collapseMock, pruneMock } = vi.hoisted(() => ({
+  collapseMock: vi.fn(),
+  pruneMock: vi.fn(),
+}));
+
+vi.mock("../../lib/vacancyDedupeMaintenance", () => ({
+  collapseRepeatedListings: collapseMock,
+  pruneMassPostingSponsors: pruneMock,
+}));
+
 vi.mock("../../lib/vacancyAiBudget", () => ({
   getVacancyAiWebSearchDailyCap: () => 0,
 }));
@@ -351,5 +369,70 @@ describe("POST /internal/vacancy-jobs", () => {
       error: "Vacancy batch reached its HTTP deadline and is finalizing safely.",
       done: false,
     }));
+  });
+});
+describe("GET /internal/vacancy-pipeline/status", () => {
+  const originalSecret = process.env.VACANCY_JOB_SECRET;
+  afterEach(() => {
+    process.env.VACANCY_JOB_SECRET = originalSecret;
+    getVacancyPipelineStatusMock.mockReset();
+  });
+
+  it("rejects requests without the job secret", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    const response = await request(app).get("/internal/vacancy-pipeline/status");
+    expect(response.status).toBe(401);
+    expect(getVacancyPipelineStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the pipeline status with the job secret", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    getVacancyPipelineStatusMock.mockResolvedValue({ totals: { vacancies: 3 }, alerts: [] });
+    const response = await request(app)
+      .get("/internal/vacancy-pipeline/status")
+      .set("x-jobsage-job-secret", "s3cret");
+    expect(response.status).toBe(200);
+    expect(response.body.totals.vacancies).toBe(3);
+  });
+});
+
+describe("POST /internal/vacancy-maintenance", () => {
+  const originalSecret = process.env.VACANCY_JOB_SECRET;
+  afterEach(() => {
+    process.env.VACANCY_JOB_SECRET = originalSecret;
+    collapseMock.mockReset();
+    pruneMock.mockReset();
+  });
+
+  it("dry-runs repeat collapsing unless apply is true", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    collapseMock.mockResolvedValue({ bySource: {}, total: 0, applied: false });
+    const response = await request(app)
+      .post("/internal/vacancy-maintenance")
+      .set("x-jobsage-job-secret", "s3cret")
+      .send({ action: "collapse_repeats" });
+    expect(response.status).toBe(200);
+    expect(collapseMock).toHaveBeenCalledWith(false);
+  });
+
+  it("passes apply and a valid limit to mass-posting pruning", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    pruneMock.mockResolvedValue({ sponsors: [], total: 0, applied: true });
+    await request(app)
+      .post("/internal/vacancy-maintenance")
+      .set("x-jobsage-job-secret", "s3cret")
+      .send({ action: "prune_mass_posting", apply: true, limit: 200 });
+    expect(pruneMock).toHaveBeenCalledWith(200, true);
+  });
+
+  it("rejects unknown actions and missing secrets", async () => {
+    process.env.VACANCY_JOB_SECRET = "s3cret";
+    const bad = await request(app)
+      .post("/internal/vacancy-maintenance")
+      .set("x-jobsage-job-secret", "s3cret")
+      .send({ action: "drop_everything" });
+    expect(bad.status).toBe(400);
+    const unauth = await request(app).post("/internal/vacancy-maintenance").send({ action: "collapse_repeats" });
+    expect(unauth.status).toBe(401);
   });
 });

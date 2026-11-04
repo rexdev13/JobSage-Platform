@@ -348,18 +348,42 @@ export interface SponsorVacancyAsRole {
 
 export type VacancySponsorshipStatus = SponsorVacancyAsRole["sponsorshipStatus"];
 
+const VISA_QUALIFIERS = String.raw`(?:(?:visa|skilled\s+worker|health\s+(?:and|&)\s+care|employer)\s+)*`;
+const SPONSOR_OBJECT = String.raw`(?:${VISA_QUALIFIERS}(?:sponsorship|sponsored\s+visa)|(?:a\s+)?certificates?\s+of\s+sponsorship)`;
+
 const SPONSORSHIP_NEGATIVE_PATTERNS = [
   /\b(?:no|without)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
-  /\b(?:cannot|can't|unable\s+to|do(?:es)?\s+not|will\s+not|won't)\s+(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
-  /\bsponsorship\b.{0,50}\b(?:not\s+available|cannot\s+be\s+offered|will\s+not\s+be\s+(?:offered|provided)|is\s+not\s+(?:offered|provided))\b/i,
-  /\bnot\s+eligible\s+for\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  new RegExp(String.raw`\b(?:cannot|can't|unable\s+to|not\s+(?:be\s+)?able\s+to|do(?:es)?\s+not|will\s+not|won't|would\s+not(?:,?\s+therefore,?)?(?:\s+be\s+able\s+to)?)\s+(?:currently\s+|presently\s+)?(?:offer|provide|support|issue)\s+(?:an?\s+)?${SPONSOR_OBJECT}\b`, "i"),
+  /\b(?:would\s+not|will\s+not|cannot|unable\s+to)(?:,?\s+therefore,?)?(?:\s+be\s+able\s+to)?\s+sponsor\b/i,
+  /\bsponsorship\b.{0,50}\b(?:not\s+available|cannot\s+be\s+offered|will\s+not\s+be\s+(?:offered|provided)|is\s+not\s+(?:offered|provided|eligible))\b/i,
+  new RegExp(String.raw`\bnot\s+eligible\s+for\s+${VISA_QUALIFIERS}sponsorship\b`, "i"),
+  /\bdoes\s+not\s+hold\s+a\s+(?:skilled\s+worker\s+)?(?:sponsorship|sponsor)\s+licen[cs]e\b/i,
+  /\bwithout\s+(?:requiring|the\s+need\s+for)\s+(?:employer\s+|visa\s+)?sponsorship\b/i,
+  /\bdoes\s+not\s+meet\s+the\s+[^.]{0,60}\b(?:criteria|requirements?|pay\s+level|threshold)\b[^.]{0,40}\b(?:sponsorship|skilled\s+worker)\b/i,
+  /\bbelow\s+the\s+minimum\s+salary\s+required\s+for\s+(?:visa\s+)?sponsorship\b/i,
+  /\bnot\s+a\s+role\s+that\s+[^.]{0,40}\bwill\s+offer\s+sponsorship\b/i,
 ] as const;
 
 const SPONSORSHIP_POSITIVE_PATTERNS = [
   /\b(?:visa\s+|skilled\s+worker\s+)?sponsorship\s+(?:is\s+)?(?:available|offered|provided)\b/i,
   /\b(?:we|the\s+employer|this\s+employer)\s+(?:can\s+|will\s+)?(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
   /\bcertificate\s+of\s+sponsorship\s+(?:is\s+)?available\b/i,
+  // NHS Jobs' employer-selected Certificate of Sponsorship clause.
+  /\bapplications\s+from\s+(?:job\s*seekers|candidates|applicants)\s+who\s+require\s+(?:current\s+)?(?:skilled\s+worker|tier\s*2)\s+sponsorship\b[^.]{0,80}\bwelcome\b/i,
+  /\b(?:skilled\s+worker|tier\s*2)\s+sponsorship\s+(?:is\s+)?possible\b/i,
+  /\brole\s+does\s+meet\s+the\s+minimum\s+requirements\s+set\s+by\s+UK\s+Visas\s+and\s+Immigration\s+to\s+sponsor\b/i,
 ] as const;
+
+/** Sponsorship sentences captured from the full advert page, if any. */
+export function sponsorshipEvidenceText(sourceMetadata: unknown): string | null {
+  if (!sourceMetadata || typeof sourceMetadata !== "object") return null;
+  const evidence = (sourceMetadata as Record<string, unknown>)["sponsorshipEvidence"];
+  if (!evidence || typeof evidence !== "object") return null;
+  const sentences = (evidence as Record<string, unknown>)["sentences"];
+  return Array.isArray(sentences)
+    ? sentences.filter((value): value is string => typeof value === "string").join("\n") || null
+    : null;
+}
 
 /**
  * Deterministic vacancy-level evidence only. Sponsor-register membership is
@@ -624,7 +648,10 @@ async function loadSponsorVacanciesAsRoles(
       vac.requiredDbsClearanceLevel == null || vac.requiredSafeguardingLevel == null
         ? inferSafeguardingRequirements(vac.title, vac.description)
         : null;
-    const sponsorshipStatus = inferVacancySponsorshipStatus(vac.title, vac.description);
+    const sponsorshipStatus = inferVacancySponsorshipStatus(
+      vac.title,
+      [vac.description, sponsorshipEvidenceText(vac.sourceMetadata)].filter(Boolean).join("\n"),
+    );
 
     const hasContactRoute = [link.applyUrl, contactEmail, contactPhone, contactWebsite].some(
       (v) => v != null && v.trim() !== "",

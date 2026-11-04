@@ -372,11 +372,15 @@ async function selectStoredHarvestBatch(limit: number): Promise<StoredHarvestTar
       FROM sponsor_licences sl
       JOIN sponsor_licence_vacancies v
         ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
-      LEFT JOIN sponsor_licence_contact_enrichments e
-        ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
       WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
         AND v.liveness <> 'dead'
-        AND e.stored_harvested_at IS NULL
+        -- Case-variant enrichment rows must not keep a harvested sponsor
+        -- selectable forever (that starved the website stage).
+        AND NOT EXISTS (
+          SELECT 1 FROM sponsor_licence_contact_enrichments e
+          WHERE lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+            AND e.stored_harvested_at IS NOT NULL
+        )
       GROUP BY lower(btrim(sl.organisation_name))
       ORDER BY lower(btrim(sl.organisation_name))
       LIMIT ${limit}
@@ -462,11 +466,13 @@ async function countStoredHarvestRemaining(): Promise<number> {
     FROM sponsor_licences sl
     JOIN sponsor_licence_vacancies v
       ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
-    LEFT JOIN sponsor_licence_contact_enrichments e
-      ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
     WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
       AND v.liveness <> 'dead'
-      AND e.stored_harvested_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM sponsor_licence_contact_enrichments e
+        WHERE lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+          AND e.stored_harvested_at IS NOT NULL
+      )
   `);
   return Number(result.rows[0]?.remaining ?? 0);
 }
@@ -678,7 +684,12 @@ export async function runContactEnrichmentBatch(options: { batchSize?: number } 
   for (const target of targets) {
     try {
       const outcome = await enrichTarget(target);
-      if (outcome === "budget_exhausted") break;
+      if (outcome === "budget_exhausted") {
+        // No website-lookup budget for this sponsor; defer it to tomorrow but
+        // keep processing sponsors whose website is already known.
+        await retry(target, "website lookup budget exhausted", nextUtcDay());
+        continue;
+      }
       selected++;
       if (outcome === "stored") upserted++;
       else if (outcome === "inconclusive") inconclusive++;

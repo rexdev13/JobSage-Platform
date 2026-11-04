@@ -76,7 +76,7 @@ vi.mock("../../lib/boardVacancyPipeline", () => ({
   upsertSharedBoardVacancies: mocks.upsert,
 }));
 
-const { runFreeBoardVacancyCollector } = await import("../../lib/freeBoardVacancyCollector");
+const { runFreeBoardVacancyCollector, nhsBodyKey } = await import("../../lib/freeBoardVacancyCollector");
 
 describe("free-board vacancy collector", () => {
   const storedState = {
@@ -662,5 +662,18 @@ describe("free-board vacancy collector", () => {
         matchReason: "ambiguous_sponsor_identity",
       }),
     ]);
+  });
+});
+
+describe("nhsBodyKey", () => {
+  it("equates spellings of the same NHS body", () => {
+    expect(nhsBodyKey("Pennine Care NHS FT")).toBe(nhsBodyKey("Pennine Care NHS Foundation Trust"));
+    expect(nhsBodyKey("Barts Health NHS Trust")).toBe(nhsBodyKey("Barts Health National Health Service Trust"));
+    expect(nhsBodyKey("Tees Esk and Wear Valleys NHS Foundation Trust")).toBe(nhsBodyKey("TEES, ESK & WEAR VALLEYS NHS TRUST"));
+    expect(nhsBodyKey("Leeds Teaching Hospitals")).toBe(nhsBodyKey("Leeds Teaching Hospitals NHS Trust"));
+  });
+
+  it("keeps distinguishing words", () => {
+    expect(nhsBodyKey("Oxford Health NHS Trust")).not.toBe(nhsBodyKey("Oxford University Hospitals NHS Trust"));
   });
 });

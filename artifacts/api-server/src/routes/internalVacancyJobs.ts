@@ -10,6 +10,11 @@ import {
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
 import { getVacancyAiWebSearchDailyCap } from "../lib/vacancyAiBudget";
+import { getVacancyPipelineStatus } from "../lib/vacancyPipelineStatus";
+import {
+  collapseRepeatedListings,
+  pruneMassPostingSponsors,
+} from "../lib/vacancyDedupeMaintenance";
 import {
   COMPANY_SITE_PROBE_BATCH_SIZE,
   COMPANY_SITE_PROBE_HTTP_BUDGET_MS,
@@ -60,6 +65,65 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
     free_source_ats: 10,
   };
 }
+
+/**
+ * Read-only pipeline health for cron monitors: counts by mode/sector/liveness,
+ * per-source sweep state, and alerts for stale or failing sources.
+ */
+router.get("/internal/vacancy-pipeline/status", async (req: Request, res: Response): Promise<void> => {
+  const secret = process.env["VACANCY_JOB_SECRET"];
+  if (!secret) {
+    res.status(503).json({ error: "Vacancy job endpoint is not configured." });
+    return;
+  }
+  if (req.headers["x-jobsage-job-secret"] !== secret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    res.json(await getVacancyPipelineStatus());
+  } catch (error) {
+    console.error("[vacancy-pipeline-status] failed:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "Pipeline status unavailable." });
+  }
+});
+
+/**
+ * Stored-data dedupe for rows written before the pipeline rules existed.
+ * Dry run unless body.apply === true.
+ *   { action: "collapse_repeats" | "prune_mass_posting", apply?: boolean, limit?: number }
+ */
+router.post("/internal/vacancy-maintenance", async (req: Request, res: Response): Promise<void> => {
+  const secret = process.env["VACANCY_JOB_SECRET"];
+  if (!secret) {
+    res.status(503).json({ error: "Vacancy job endpoint is not configured." });
+    return;
+  }
+  if (req.headers["x-jobsage-job-secret"] !== secret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const action = req.body?.action;
+  const apply = req.body?.apply === true;
+  try {
+    if (action === "collapse_repeats") {
+      res.json(await collapseRepeatedListings(apply));
+      return;
+    }
+    if (action === "prune_mass_posting") {
+      const limit = Number(req.body?.limit);
+      res.json(await pruneMassPostingSponsors(
+        Number.isInteger(limit) && limit >= 50 ? limit : undefined,
+        apply,
+      ));
+      return;
+    }
+    res.status(400).json({ error: "action must be collapse_repeats or prune_mass_posting." });
+  } catch (error) {
+    console.error("[vacancy-maintenance] failed:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "Vacancy maintenance failed." });
+  }
+});
 
 router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promise<void> => {
   const secret = process.env["VACANCY_JOB_SECRET"];
