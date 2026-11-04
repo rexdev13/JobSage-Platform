@@ -14,6 +14,7 @@ import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { normaliseSponsorWebsite } from "../lib/companySiteDiscovery";
 
 function norm(s: string): string {
   return s.toLowerCase()
@@ -39,8 +40,10 @@ async function main(): Promise<void> {
     const site = get("SchoolWebsite");
     const name = get("EstablishmentName");
     if (!site || !name) continue;
+    const normalisedSite = normaliseSponsorWebsite(site);
+    if (!normalisedSite || !isPublicHost(new URL(normalisedSite).hostname)) continue;
     const key = norm(name);
-    if (!websites.has(key)) websites.set(key, site);
+    if (!websites.has(key)) websites.set(key, normalisedSite);
   }
   console.log(`GIAS rows loaded: ${websites.size} open establishments with websites`);
 
@@ -63,6 +66,14 @@ async function main(): Promise<void> {
   }
   console.log(`matched ${matched} sponsors -> updated ${updated} sponsor_licences rows`);
   process.exit(0);
+}
+
+/** Only crawlable public hostnames: no localhost, IP literals or bare words. */
+function isPublicHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  if (!host.includes(".") || host === "localhost" || host.endsWith(".local")) return false;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith("[")) return false;
+  return true;
 }
 
 function parseCsvLine(line: string): string[] {
