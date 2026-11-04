@@ -525,6 +525,42 @@ describe("free-board vacancy collector", () => {
     ]));
   });
 
+  it("skips volunteer titles without blocking the source cursor", async () => {
+    mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
+    const advert = (externalId: string, title: string) => ({
+      organisationName: "Example Trust",
+      employer: "Example Trust",
+      title,
+      location: "London",
+      salary: null,
+      url: `https://fixture-board.example/jobs/${externalId}`,
+      applicationUrl: null,
+      description: null,
+      postedDate: null,
+      targetRegions: [],
+      boardName: "Fixture Board",
+      externalId,
+      sourceType: "job_board",
+    });
+    mocks.fetchPage
+      .mockReset()
+      .mockResolvedValueOnce({
+        adverts: [advert("v-1", "Ward Support Volunteer"), advert("v-2", "Community Adviser")],
+        recordsFetched: 2,
+        nextCursor: "page-2",
+      })
+      .mockResolvedValueOnce({ adverts: [], recordsFetched: 0, nextCursor: null });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 2,
+      sourceId: "fixture-source",
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(mocks.fetchPage).toHaveBeenCalledTimes(2);
+    expect(summary.metrics.sources[0]?.outcome).not.toBe("needs_review");
+  });
+
   it("uses a reviewed sponsor identity crosswalk for an employer alias", async () => {
     mocks.sponsorRows.splice(0);
     mocks.sources[0]!["reconcileMissingAfterSweep"] = false;
